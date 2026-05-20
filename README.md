@@ -28,13 +28,13 @@ Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 ### Run without installing
 
 ```sh
-uvx seshi
+uvx --from git+https://github.com/agentshed/seshi.git seshi
 ```
 
 ### Install as a global tool
 
 ```sh
-uv tool install seshi
+uv tool install git+https://github.com/agentshed/seshi.git
 ```
 
 Or install from a local checkout:
@@ -46,7 +46,7 @@ uv tool install .
 ### Development
 
 ```sh
-git clone https://github.com/yourusername/seshi.git
+git clone https://github.com/agentshed/seshi.git
 cd seshi
 uv sync
 uv run seshi
