@@ -34,6 +34,7 @@ class SeshiApp(App):
 
     chosen_session: Session | None = None
     current_view: reactive[str] = reactive("sessions")
+    _quit_toast_active: bool = False
 
     def __init__(self, ctx_obj: dict | None = None, conn: sqlite3.Connection | None = None, **kwargs):
         self.ctx_obj = ctx_obj or {}
@@ -117,7 +118,23 @@ class SeshiApp(App):
         footer = self.query_one(Footer)
         footer.view = view
 
+    def action_request_quit(self) -> None:
+        self._quit_toast_active = True
+        self.notify(
+            "Press Ctrl+Q to quit, Escape to cancel.",
+            severity="warning",
+            timeout=3,
+        )
+        self.set_timer(3, self._clear_quit_toast)
+
+    def _clear_quit_toast(self) -> None:
+        self._quit_toast_active = False
+
     def action_back_or_quit(self) -> None:
+        if self._quit_toast_active:
+            self._quit_toast_active = False
+            return
+
         if self.current_view != "sessions":
             self.current_view = "sessions"
             self._switch_view()
