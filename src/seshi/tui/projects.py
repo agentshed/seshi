@@ -79,7 +79,8 @@ class ProjectsView(Widget):
 
             rel = relative_time(p["last_active"])
 
-            text.append(f"  {fav}{lang_str}{display:<40}  {bar}  {p['count']:>3} sessions  {rel}\n", style=style)
+            label = "session" if p["count"] == 1 else "sessions"
+            text.append(f"  {fav}{lang_str}{display:<40}  {bar}  {p['count']:>3} {label}  {rel}\n", style=style)
 
         return text
 
