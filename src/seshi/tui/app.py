@@ -94,6 +94,10 @@ class SeshiApp(App):
         except Exception:
             pass
 
+    def action_request_quit(self) -> None:
+        self._quit_toast_active = True
+        super().action_request_quit()
+
     def _update_counts(self):
         header = self.query_one(Header)
         total = len(self._sessions_list._all_sessions) if hasattr(self, '_sessions_list') else 0
