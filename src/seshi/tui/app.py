@@ -135,11 +135,13 @@ class SeshiApp(App):
             sl._input_buffer = ""
             sl._update_footer("normal")
             sl.refresh()
-        elif search.query or search.has_focus:
-            search.query = ""
+        elif search.active or search.has_focus:
             search.active = False
-            search.post_message(SearchChanged(""))
             sl.focus()
+        elif search.query:
+            search.query = ""
+            search.post_message(SearchChanged(""))
+            self._update_counts()
         elif sl.filter_cwd:
             sl.filter_cwd = None
             sl._load_sessions()
