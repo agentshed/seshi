@@ -68,6 +68,22 @@ class SearchBar(Widget):
                 self.query = ""
                 self.post_message(SearchChanged(self.query))
                 event.stop()
+        elif event.key in ("up", "down", "enter"):
+            sl = getattr(self.app, "_sessions_list", None)
+            if sl:
+                if event.key == "up":
+                    sl.cursor = max(0, sl.cursor - 1)
+                    sl.refresh()
+                elif event.key == "down":
+                    sl.cursor = min(len(sl.sessions) - 1, sl.cursor + 1)
+                    sl.refresh()
+                elif event.key == "enter":
+                    s = sl.current_session
+                    if s:
+                        self.app.chosen_session = s
+                        self.app.exit()
+                        return
+            event.stop()
         elif event.is_printable and event.character:
             self.query += event.character
             self.post_message(SearchChanged(self.query))
