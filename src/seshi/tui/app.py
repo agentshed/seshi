@@ -137,6 +137,7 @@ class SeshiApp(App):
             sl.refresh()
         elif search.query or search.has_focus:
             search.query = ""
+            search.active = False
             search.post_message(SearchChanged(""))
             sl.focus()
         elif sl.filter_cwd:

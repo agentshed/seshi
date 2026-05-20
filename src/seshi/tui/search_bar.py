@@ -2,6 +2,7 @@ from textual.widget import Widget
 from textual.message import Message
 from textual.reactive import reactive
 from textual import events
+from textual.timer import Timer
 from rich.text import Text
 
 
@@ -17,15 +18,39 @@ class SearchBar(Widget):
     shown: reactive[int] = reactive(0)
     total: reactive[int] = reactive(0)
     sort_mode: reactive[str] = reactive("frecency")
+    active: reactive[bool] = reactive(False)
 
     accent: reactive[str] = reactive("#E08A5E")
     can_focus = True
+
+    _cursor_visible: bool = True
+    _blink_timer: Timer | None = None
+
+    def watch_active(self, active: bool) -> None:
+        if active:
+            self._cursor_visible = True
+            self._blink_timer = self.set_interval(0.5, self._toggle_cursor)
+        else:
+            if self._blink_timer:
+                self._blink_timer.stop()
+                self._blink_timer = None
+            self._cursor_visible = False
+        self.refresh()
+
+    def _toggle_cursor(self) -> None:
+        self._cursor_visible = not self._cursor_visible
+        self.refresh()
 
     def render(self) -> Text:
         text = Text()
         text.append("  > ", style=f"bold {self.accent}")
         text.append(self.query, style="bold")
-        text.append("▮", style="dim")
+        if self.active and self._cursor_visible:
+            text.append("▮", style=f"bold {self.accent}")
+        elif self.active:
+            text.append(" ")
+        else:
+            text.append("▮", style="dim")
         text.append(f"  {self.sort_mode}", style="dim italic")
         padding = " " * max(1, 60 - len(self.query) - len(self.sort_mode))
         text.append(padding)

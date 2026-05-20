@@ -219,7 +219,9 @@ class SessionsList(Widget):
             set_setting(self.conn, "hide_missing_dirs", new_val)
             self._load_sessions()
         elif event.key == "slash":
-            self.app.query_one(SearchBar).focus()
+            search = self.app.query_one(SearchBar)
+            search.active = True
+            search.focus()
         elif event.key == "escape":
             pass  # handled by app-level action_back_or_quit
         elif event.key == "enter":
@@ -231,6 +233,7 @@ class SessionsList(Widget):
         else:
             if event.is_printable and event.character:
                 search = self.app.query_one(SearchBar)
+                search.active = True
                 search.query += event.character
                 search.post_message(SearchChanged(search.query))
             elif event.key == "backspace":
