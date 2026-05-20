@@ -108,8 +108,10 @@ class ProjectsView(Widget):
             if 0 <= self.cursor < len(self._projects):
                 cwd = self._projects[self.cursor]["cwd"]
                 self.app.ctx_obj["here_cwd"] = cwd
-                self.app.action_view_sessions()
                 if hasattr(self.app, '_sessions_list'):
                     self.app._sessions_list.filter_cwd = cwd
+                self.app.action_view_sessions()
+                if hasattr(self.app, '_sessions_list'):
                     self.app._sessions_list._load_sessions()
+                    self.app._update_counts()
                 event.stop()
