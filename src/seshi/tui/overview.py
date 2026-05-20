@@ -17,6 +17,8 @@ class OverviewView(Widget):
     }
     """
 
+    can_focus = True
+
     def __init__(self, conn: sqlite3.Connection, **kwargs):
         super().__init__(**kwargs)
         self.conn = conn

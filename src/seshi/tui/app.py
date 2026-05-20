@@ -22,12 +22,12 @@ from seshi.tui.preview import Preview
 class SeshiApp(App):
     BINDINGS = [
         Binding("escape", "back_or_quit", "Back / Quit", show=False, priority=True),
-        Binding("tab", "next_view", "Next view", show=False),
-        Binding("shift+tab", "prev_view", "Previous view", show=False),
-        Binding("1", "view_sessions", "Sessions", show=False),
-        Binding("2", "view_overview", "Overview", show=False),
-        Binding("3", "view_projects", "Projects", show=False),
-        Binding("question_mark", "view_help", "Help", show=False),
+        Binding("tab", "next_view", "Next view", show=False, priority=True),
+        Binding("shift+tab", "prev_view", "Previous view", show=False, priority=True),
+        Binding("1", "view_sessions", "Sessions", show=False, priority=True),
+        Binding("2", "view_overview", "Overview", show=False, priority=True),
+        Binding("3", "view_projects", "Projects", show=False, priority=True),
+        Binding("question_mark", "view_help", "Help", show=False, priority=True),
     ]
 
     CSS = theme_css(get_theme("coral"))
@@ -128,11 +128,21 @@ class SeshiApp(App):
             return
 
         sl = self._sessions_list
+        search = self.query_one(SearchBar)
+
         if sl._input_mode:
             sl._input_mode = ""
             sl._input_buffer = ""
             sl._update_footer("normal")
             sl.refresh()
+        elif search.query or search.has_focus:
+            search.query = ""
+            search.post_message(SearchChanged(""))
+            sl.focus()
+        elif sl.filter_cwd:
+            sl.filter_cwd = None
+            sl._load_sessions()
+            self._update_counts()
         elif sl.selected:
             sl.selected.clear()
             sl.refresh()
@@ -179,13 +189,19 @@ class SeshiApp(App):
             self._sessions_list.focus()
         elif self.current_view == "overview":
             from seshi.tui.overview import OverviewView
-            main.mount(OverviewView(self._conn, id="overview"))
+            view = OverviewView(self._conn, id="overview")
+            main.mount(view)
+            view.focus()
         elif self.current_view == "projects":
             from seshi.tui.projects import ProjectsView
-            main.mount(ProjectsView(self._conn, id="projects-view"))
+            view = ProjectsView(self._conn, id="projects-view")
+            main.mount(view)
+            view.focus()
         elif self.current_view == "help":
             from seshi.tui.help_view import HelpView
-            main.mount(HelpView(id="help-view"))
+            view = HelpView(id="help-view")
+            main.mount(view)
+            view.focus()
 
     def on_unmount(self) -> None:
         if self._owns_conn and self._conn:

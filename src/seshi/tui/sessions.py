@@ -12,6 +12,7 @@ from seshi.search import fuzzy_match, list_sessions, frecency_score
 from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
+from seshi.tui.search_bar import SearchBar, SearchChanged
 
 
 class SessionsList(Widget):
@@ -217,6 +218,8 @@ class SessionsList(Widget):
             new_val = "0" if current == "1" else "1"
             set_setting(self.conn, "hide_missing_dirs", new_val)
             self._load_sessions()
+        elif event.key == "slash":
+            self.app.query_one(SearchBar).focus()
         elif event.key == "escape":
             pass  # handled by app-level action_back_or_quit
         elif event.key == "enter":
@@ -226,7 +229,17 @@ class SessionsList(Widget):
                 self.app.exit()
                 return
         else:
-            handled = False
+            if event.is_printable and event.character:
+                search = self.app.query_one(SearchBar)
+                search.query += event.character
+                search.post_message(SearchChanged(search.query))
+            elif event.key == "backspace":
+                search = self.app.query_one(SearchBar)
+                if search.query:
+                    search.query = search.query[:-1]
+                    search.post_message(SearchChanged(search.query))
+            else:
+                handled = False
 
         if handled:
             self.refresh()

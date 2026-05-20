@@ -30,6 +30,7 @@ HELP_TEXT = """
 
   Search & Filter
   ───────────────
+  /                  Focus search bar (type any character freely)
   Type to search     Fuzzy match against name, prompt, and cwd
   #tag               Filter by tag (AND semantics for multiple)
   Backspace          Delete last character
@@ -58,6 +59,8 @@ class HelpView(Widget):
         padding: 1 2;
     }
     """
+
+    can_focus = True
 
     def render(self) -> Text:
         text = Text()
