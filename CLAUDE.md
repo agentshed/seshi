@@ -1,0 +1,62 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Commands
+
+```sh
+uv run pytest                          # run all tests
+uv run pytest tests/test_drain.py      # run one test file
+uv run pytest -k "test_fuzzy"          # run tests matching name
+uv run seshi                           # launch the TUI
+uv run seshi doctor --fix              # health check + auto-repair
+```
+
+## Architecture
+
+Seshi is a session manager for Claude Code. It captures session metadata via a hook, stores it in SQLite, and provides a TUI and CLI for searching/resuming sessions.
+
+### Data flow
+
+```
+Claude Code → hook.sh → ~/.seshi/queue.jsonl → drain_queue() → SQLite → TUI/CLI
+```
+
+1. **Hook** (`hook/hook.sh`): Bash script registered in `~/.claude/settings.json` on `SessionStart` and `Stop` events. Reads JSON from stdin, captures argv/git/env, appends JSONL to the queue. Must never write to stdout/stderr.
+2. **Queue drain** (`drain.py`): Runs on every CLI invocation before any subcommand. Reads the JSONL queue, upserts into SQLite in a single transaction, truncates the queue. `INSERT OR IGNORE` for starts, `UPDATE` for stops.
+3. **Registry** (`db.py`): SQLite with WAL mode. Tables: `sessions`, `tags`, `settings`, `project_favorites`. `open_db()` context manager auto-initializes schema.
+
+### Stdout protocol (critical constraint)
+
+The shell wrapper `seshi()` captures stdout via `$(command seshi "$@")` and `eval`s resume lines. This means:
+- The TUI renders to `/dev/tty`, never stdout
+- Resume lines (`cd <cwd> && exec claude --resume <id>`) go to real stdout via `sys.__stdout__`
+- `launch_tui()` in `tui/app.py` handles the `/dev/tty` redirection
+
+### CLI structure
+
+`cli.py` defines a `SeshiGroup` (Click group) that routes unknown subcommands to fuzzy resume. Each command in `commands/` registers itself on the `main` group via import at the bottom of `cli.py`.
+
+### Session resolution
+
+All commands that take a session identifier use `search.session_resolve()`: try `custom_name` (case-insensitive) first, then `session_id`. Fuzzy resume uses `rank_sessions()` with weighted field scores (name×4, prompt×2, cwd×1).
+
+### Path unsanitization
+
+Claude Code encodes project dirs by replacing `/` with `-`. `paths.unsanitize_path()` uses power-set enumeration (≤6 dashes) to resolve the ambiguity. `resolve_best_cwd()` picks the first candidate that exists on disk.
+
+### Settings patch
+
+`settings.py` patches `~/.claude/settings.json` to register the hook. `hook_manager.py` copies the bundled `hook.sh` to `~/.seshi/hook.sh`. Both operations are idempotent.
+
+### TUI
+
+Built with Textual. `SeshiApp` has four views (sessions, overview, projects, help) switched via tab/number keys. `SessionsList` is the primary widget handling navigation, inline rename, tagging, and bulk selection.
+
+### Dependencies
+
+Before starting work, check all dependencies in `pyproject.toml` against their latest versions (`uv pip list --outdated` or PyPI). Suggest updates for any outdated packages. When adding new imports, verify the package is listed in `[project.dependencies]` — if missing, add it and run `uv lock && uv sync`. After any dependency changes, commit the updated `pyproject.toml` and `uv.lock` together.
+
+### Testing
+
+Tests use a `tmp_db` fixture (in-memory SQLite with schema initialized). Tests mock paths like `CLAUDE_SETTINGS` and `QUEUE_PATH` to avoid touching real user data. No TUI tests exist — only unit tests for core logic.

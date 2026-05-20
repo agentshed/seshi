@@ -1,0 +1,356 @@
+import os
+import time
+import sqlite3
+
+from textual.widget import Widget
+from textual.reactive import reactive
+from textual import events
+from rich.text import Text
+
+from seshi.models import Session
+from seshi.search import fuzzy_match, list_sessions, frecency_score
+from seshi.time_utils import relative_time, time_bucket
+from seshi.lang_detect import detect_language
+from seshi.db import get_setting, set_setting
+
+
+class SessionsList(Widget):
+    DEFAULT_CSS = """
+    SessionsList {
+        min-height: 10;
+    }
+    """
+
+    can_focus = True
+
+    cursor: reactive[int] = reactive(0)
+    sessions: reactive[list] = reactive(list, init=False)
+    selected: reactive[set] = reactive(set, init=False)
+    sort_mode: reactive[str] = reactive("frecency")
+
+    def __init__(self, conn: sqlite3.Connection, filter_cwd: str | None = None, **kwargs):
+        super().__init__(**kwargs)
+        self.conn = conn
+        self.filter_cwd = filter_cwd
+        self.sessions = []
+        self.selected = set()
+        self._all_sessions: list[Session] = []
+        self._load_sessions()
+
+    def _load_sessions(self, query: str = "", tags: list[str] | None = None):
+        hide_missing = get_setting(self.conn, "hide_missing_dirs") == "1"
+        sessions = list_sessions(
+            self.conn,
+            filter_cwd=self.filter_cwd,
+            tags=tags,
+            sort_mode=self.sort_mode,
+        )
+
+        if hide_missing:
+            sessions = [s for s in sessions if os.path.isdir(s.cwd)]
+
+        if query:
+            scored = []
+            for s in sessions:
+                s1 = fuzzy_match(query, s.custom_name or "") * 4
+                s2 = fuzzy_match(query, s.first_prompt or "") * 2
+                s3 = fuzzy_match(query, s.cwd) * 1
+                best = max(s1, s2, s3)
+                if best > 0:
+                    scored.append((s, best))
+            scored.sort(key=lambda x: (-x[0].is_favorite, -x[1]))
+            sessions = [s for s, _ in scored]
+
+        self._all_sessions = sessions
+        self.sessions = sessions
+        if self.cursor >= len(self.sessions):
+            self.cursor = max(0, len(self.sessions) - 1)
+        self.refresh()
+
+    def filter(self, query: str):
+        text, tags = _parse_search(query)
+        self._load_sessions(query=text, tags=tags if tags else None)
+
+    @property
+    def current_session(self) -> Session | None:
+        if 0 <= self.cursor < len(self.sessions):
+            return self.sessions[self.cursor]
+        return None
+
+    _scroll_offset: int = 0
+
+    def render(self) -> Text:
+        text = Text()
+
+        if self._input_mode:
+            label = "rename" if self._input_mode == "rename" else "tag"
+            text.append(f"  {label}: {self._input_buffer}▮\n\n", style="bold")
+
+        if not self.sessions:
+            text.append("  no sessions found\n", style="dim")
+            return text
+
+        visible_height = max(self.size.height - 2, 5) if self.size.height > 0 else 20
+
+        if self.cursor < self._scroll_offset:
+            self._scroll_offset = self.cursor
+        elif self.cursor >= self._scroll_offset + visible_height:
+            self._scroll_offset = self.cursor - visible_height + 1
+
+        home = os.path.expanduser("~")
+
+        lines: list[tuple[int, Session]] = list(enumerate(self.sessions))
+
+        row_index = 0
+        current_bucket = ""
+        visible_rows: list[tuple[str, str, bool]] = []
+
+        for i, s in lines:
+            bucket_header = None
+            if s.is_favorite and current_bucket != "favorites":
+                current_bucket = "favorites"
+                bucket_header = "  ── ★ favorites ──"
+            elif not s.is_favorite:
+                bucket = time_bucket(s.last_activity_at)
+                if bucket != current_bucket:
+                    current_bucket = bucket
+                    bucket_header = f"  ── {bucket} ──"
+
+            if bucket_header:
+                visible_rows.append((bucket_header, "dim", False))
+
+            is_selected = s.session_id in self.selected
+            is_cursor = i == self.cursor
+            style = "reverse" if is_cursor else ""
+
+            sel_mark = "[x]" if is_selected else "   "
+            fav = " * " if s.is_favorite else "   "
+            lang = detect_language(s.cwd)
+            lang_str = f"{lang:>3}" if lang else "   "
+            title = (s.custom_name or s.first_prompt or "(untitled)")[:38]
+            cwd = s.cwd
+            if cwd.startswith(home):
+                cwd = "~" + cwd[len(home):]
+            if len(cwd) > 30:
+                cwd = cwd[:14] + "…" + cwd[-15:]
+            rel = relative_time(s.last_activity_at)
+
+            tags_str = ""
+            tag_rows = self.conn.execute(
+                "SELECT tag FROM tags WHERE session_id = ?", (s.session_id,)
+            ).fetchall()
+            if tag_rows:
+                tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
+
+            line = f" {sel_mark}{fav}{lang_str}  {title:<38}  {cwd:<30}  {rel}{tags_str}"
+            visible_rows.append((line, style, is_cursor))
+
+        cursor_row_idx = 0
+        for idx, (_, _, is_cur) in enumerate(visible_rows):
+            if is_cur:
+                cursor_row_idx = idx
+                break
+
+        start = max(0, cursor_row_idx - visible_height // 2)
+        if start + visible_height > len(visible_rows):
+            start = max(0, len(visible_rows) - visible_height)
+        end = min(start + visible_height, len(visible_rows))
+
+        for row_line, row_style, _ in visible_rows[start:end]:
+            text.append(row_line + "\n", style=row_style)
+
+        remaining = visible_height - (end - start)
+        for _ in range(remaining):
+            text.append("~\n", style="dim")
+
+        return text
+
+    _input_mode: str = ""
+    _input_buffer: str = ""
+
+    def on_key(self, event: events.Key) -> None:
+        if self._input_mode:
+            self._handle_input_key(event)
+            return
+
+        handled = True
+        if event.key in ("up", "k"):
+            self.cursor = max(0, self.cursor - 1)
+        elif event.key in ("down", "j"):
+            self.cursor = min(len(self.sessions) - 1, self.cursor + 1)
+        elif event.key == "g":
+            self.cursor = 0
+        elif event.key in ("G", "shift+g"):
+            self.cursor = max(0, len(self.sessions) - 1)
+        elif event.key == "ctrl+u":
+            self.cursor = max(0, self.cursor - 10)
+        elif event.key == "ctrl+d":
+            self.cursor = min(len(self.sessions) - 1, self.cursor + 10)
+        elif event.key == "space":
+            s = self.current_session
+            if s:
+                if s.session_id in self.selected:
+                    self.selected.discard(s.session_id)
+                else:
+                    self.selected.add(s.session_id)
+        elif event.key == "a":
+            for s in self.sessions:
+                self.selected.add(s.session_id)
+        elif event.key == "r":
+            self._start_rename()
+        elif event.key == "t":
+            self._start_tag()
+        elif event.key == "f":
+            self._toggle_favorite()
+        elif event.key == "u":
+            self._toggle_archive()
+        elif event.key == "d":
+            self._delete_selected()
+        elif event.key == "s":
+            modes = ["frecency", "recency", "frequency"]
+            idx = modes.index(self.sort_mode) if self.sort_mode in modes else 0
+            self.sort_mode = modes[(idx + 1) % len(modes)]
+            set_setting(self.conn, "sort_mode", self.sort_mode)
+            self._load_sessions()
+        elif event.key == "H":
+            current = get_setting(self.conn, "hide_missing_dirs")
+            new_val = "0" if current == "1" else "1"
+            set_setting(self.conn, "hide_missing_dirs", new_val)
+            self._load_sessions()
+        elif event.key == "escape":
+            pass  # handled by app-level action_back_or_quit
+        elif event.key == "enter":
+            s = self.current_session
+            if s:
+                self.app.chosen_session = s
+                self.app.exit()
+                return
+        else:
+            handled = False
+
+        if handled:
+            self.refresh()
+            event.stop()
+
+    def _handle_input_key(self, event: events.Key):
+        if event.key == "escape":
+            self._input_mode = ""
+            self._input_buffer = ""
+            self._update_footer("normal")
+            self.refresh()
+            event.stop()
+            return
+        if event.key == "enter":
+            if self._input_mode == "rename":
+                self._apply_rename()
+            elif self._input_mode == "tag":
+                self._apply_tag()
+            self._input_mode = ""
+            self._input_buffer = ""
+            self._update_footer("normal")
+            self.refresh()
+            event.stop()
+            return
+        if event.key == "backspace":
+            self._input_buffer = self._input_buffer[:-1]
+            self.refresh()
+            event.stop()
+            return
+        if event.is_printable and event.character:
+            self._input_buffer += event.character
+            self.refresh()
+            event.stop()
+
+    def _update_footer(self, mode: str):
+        try:
+            footer = self.app.query_one("Footer")
+            footer.mode = mode
+        except Exception:
+            pass
+
+    def _start_rename(self):
+        s = self.current_session
+        if not s:
+            return
+        self._input_mode = "rename"
+        self._input_buffer = s.custom_name or ""
+        self._update_footer("rename")
+        self.refresh()
+
+    def _start_tag(self):
+        s = self.current_session
+        if not s:
+            return
+        self._input_mode = "tag"
+        self._input_buffer = ""
+        self._update_footer("tag")
+        self.refresh()
+
+    def _apply_rename(self):
+        s = self.current_session
+        if not s:
+            return
+        name = self._input_buffer.strip() or None
+        self.conn.execute("UPDATE sessions SET custom_name = ? WHERE session_id = ?", (name, s.session_id))
+        self.conn.commit()
+        self._load_sessions()
+
+    def _apply_tag(self):
+        import re
+        tag = self._input_buffer.strip()
+        if not tag or not re.match(r"^[\w\-]+$", tag):
+            return
+        targets = list(self.selected) if self.selected else [self.current_session.session_id] if self.current_session else []
+        for sid in targets:
+            existing = self.conn.execute("SELECT 1 FROM tags WHERE session_id = ? AND tag = ?", (sid, tag)).fetchone()
+            if existing:
+                self.conn.execute("DELETE FROM tags WHERE session_id = ? AND tag = ?", (sid, tag))
+            else:
+                self.conn.execute("INSERT INTO tags (session_id, tag) VALUES (?, ?)", (sid, tag))
+        self.conn.commit()
+        self._load_sessions()
+
+    def _toggle_favorite(self):
+        s = self.current_session
+        if not s:
+            return
+        targets = list(self.selected) if self.selected else [s.session_id]
+        for sid in targets:
+            self.conn.execute(
+                "UPDATE sessions SET is_favorite = CASE WHEN is_favorite = 1 THEN 0 ELSE 1 END WHERE session_id = ?",
+                (sid,),
+            )
+        self.conn.commit()
+        self._load_sessions()
+
+    def _toggle_archive(self):
+        s = self.current_session
+        if not s:
+            return
+        targets = list(self.selected) if self.selected else [s.session_id]
+        for sid in targets:
+            self.conn.execute(
+                "UPDATE sessions SET is_archived = CASE WHEN is_archived = 1 THEN 0 ELSE 1 END WHERE session_id = ?",
+                (sid,),
+            )
+        self.conn.commit()
+        self.selected.clear()
+        self._load_sessions()
+
+    def _delete_selected(self):
+        s = self.current_session
+        if not s:
+            return
+        targets = list(self.selected) if self.selected else [s.session_id]
+        for sid in targets:
+            self.conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
+        self.conn.commit()
+        self.selected.clear()
+        self._load_sessions()
+
+
+def _parse_search(query: str) -> tuple[str, list[str]]:
+    parts = query.split()
+    tags = [p[1:] for p in parts if p.startswith("#")]
+    text = " ".join(p for p in parts if not p.startswith("#"))
+    return text, tags
