@@ -38,6 +38,7 @@ Screen {{
 }}
 
 #session-list {{
+    height: 1fr;
     min-height: 10;
     border: solid {palette.border_dim};
     color: {palette.fg};

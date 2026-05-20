@@ -18,6 +18,7 @@ from seshi.tui.search_bar import SearchBar, SearchChanged
 class SessionsList(Widget):
     DEFAULT_CSS = """
     SessionsList {
+        height: 1fr;
         min-height: 10;
     }
     """
