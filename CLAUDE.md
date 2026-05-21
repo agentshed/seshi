@@ -59,4 +59,4 @@ Before starting work, check all dependencies in `pyproject.toml` against their l
 
 ### Testing
 
-Tests use a `tmp_db` fixture (in-memory SQLite with schema initialized). Tests mock paths like `CLAUDE_SETTINGS` and `QUEUE_PATH` to avoid touching real user data. No TUI tests exist — only unit tests for core logic.
+Tests use a `tmp_db` fixture (in-memory SQLite with schema initialized). Tests mock paths like `CLAUDE_SETTINGS` and `QUEUE_PATH` to avoid touching real user data. The suite includes unit tests for core logic and Textual-based TUI regression tests.
