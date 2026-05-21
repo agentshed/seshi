@@ -4,6 +4,7 @@ import termios
 import tty
 
 from seshi.models import Session
+from seshi.prompt_text import strip_markup_tags
 
 
 def confirm_resume(session: Session, query: str) -> str:
@@ -15,7 +16,11 @@ def confirm_resume(session: Session, query: str) -> str:
     tty_in = os.fdopen(tty_fd, "r", closefd=False)
     tty_out = os.fdopen(tty_fd, "w", closefd=False)
 
-    name = session.custom_name or session.first_prompt or session.session_id[:8]
+    name = (
+        session.custom_name
+        or strip_markup_tags(session.first_prompt or "")
+        or session.session_id[:8]
+    )
     home = os.path.expanduser("~")
     cwd = session.cwd
     if cwd.startswith(home):
