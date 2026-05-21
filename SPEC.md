@@ -151,11 +151,11 @@ Favorites always sort to the top regardless of sort mode. Sort mode is persisted
 | `t` | Tag | Toggle a tag on/off for current session (or bulk selection) |
 | `f` | Favorite | Toggles `is_favorite` (favorites sort to top) |
 | `u` | Archive | Toggles `is_archived` (hides from views). Reversible alternative to delete |
-| `d` | Delete | Removes from registry (no confirmation). Bulk: deletes all selected |
+| `d` | Delete | Removes from registry (with confirmation). Bulk: deletes all selected |
 | `s` | Sort mode | Cycles through: frecency → recency → frequency (persisted) |
 | `H` | Hide missing | Toggles `hide_missing_dirs` setting (persisted) |
 | `Space` | Select | Toggles row in/out of bulk selection (`[x]` mark) |
-| `a` | Select all | Adds all visible rows to selection |
+| `Ctrl-a` | Select all | Adds all visible rows to selection |
 | `Esc` | Clear/Quit | Clears selection if non-empty; otherwise quits |
 
 **Tag input rules**: only `[\w\-]` characters allowed. Toggle behavior: if session already has the tag, remove it; otherwise add it.
@@ -606,7 +606,7 @@ Used by the Projects view (section 4.27) and `seshi project` CLI commands (secti
 - **Creation**: sessions inserted via queue drain (hook events) or backfill scan
 - **Updates**: `custom_name`, `is_favorite`, `is_archived`, tags modified through TUI actions or CLI commands (`seshi rename`, `seshi tag`, `seshi favorite`, `seshi archive`); `message_count`/`token_count`/`status` updated on stop event
 - **Archival**: `seshi archive` or `u` key in TUI toggles `is_archived` — hides session from views without deleting data. Reversible.
-- **Hard deletion**: `d` key in TUI (no confirmation) or `seshi delete` (requires `--force` or interactive confirm). Cascades to tags. `seshi prune` bulk-deletes old unprotected sessions.
+- **Hard deletion**: `d` key in TUI (with confirmation dialog) or `seshi delete` (requires `--force` or interactive confirm). Cascades to tags. `seshi prune` bulk-deletes old unprotected sessions.
 - **Recovery**: deleted sessions can be re-discovered by running `seshi scan`, since transcript files on disk are never deleted
 
 ---
@@ -1039,7 +1039,7 @@ Used by `auto-name` to generate session names. Inherits the user's existing Clau
 
 - **Linux + macOS only.** Parent argv capture relies on `/proc/$PPID/cmdline` (Linux) or `ps -o args=` (macOS). Windows has no equivalent.
 - **No multi-machine sync.** The `origin_host` field is captured and stored but never used for synchronization.
-- **TUI delete has no confirmation.** The `d` key immediately removes sessions from the registry (CLI `seshi delete` requires `--force`). The underlying JSONL transcript on disk is not deleted. Use `u` (archive) for reversible hiding.
+- **TUI delete shows a confirmation dialog.** The `d` key prompts for confirmation before removing sessions from the registry. The underlying JSONL transcript on disk is not deleted. Use `u` (archive) for reversible hiding.
 - **`auto-name` requires `claude` on PATH.** It shells out to `claude -p` rather than calling the API directly.
 - **Quoted arguments lost on macOS.** `ps -o args=` gives a flat string; whitespace-split loses quoting context for arguments like `--system-prompt "multi word"`.
 

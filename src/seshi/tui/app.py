@@ -40,6 +40,7 @@ class SeshiApp(App):
         self.ctx_obj = ctx_obj or {}
         self._conn = conn
         self._owns_conn = conn is None
+        self._view_counter = 0
         theme_name = "coral"
         if conn:
             theme_name = get_setting(conn, "theme") or "coral"
@@ -101,8 +102,8 @@ class SeshiApp(App):
             "projects": "3 projects",
             "help": "? help",
         }
-        from rich.text import Text as RichText
-        text = RichText()
+        from rich.text import Text
+        text = Text()
         for key, label in views.items():
             text.append("  ")
             if key == self.current_view:
@@ -257,8 +258,6 @@ class SeshiApp(App):
         if self.current_view != "help":
             self.current_view = "help"
             self._switch_view()
-
-    _view_counter: int = 0
 
     def _switch_view(self) -> None:
         if hasattr(self, '_sessions_list') and self._sessions_list._input_mode:

@@ -8,21 +8,12 @@ from textual import events
 from rich.text import Text
 
 from seshi.models import Session
-from seshi.search import fuzzy_match, list_sessions
+from seshi.prompt_text import strip_markup_tags
+from seshi.search import fuzzy_match, list_sessions, FUZZY_THRESHOLD
 from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
 from seshi.tui.search_bar import SearchBar, SearchChanged
-
-_MARKUP_TAG_RE = re.compile(
-    r"</?[A-Za-z][A-Za-z0-9:_-]*(?:\s+[^<>]*)?/?>|<![^<>]*>"
-)
-
-FUZZY_THRESHOLD = 55
-
-
-def strip_markup_tags(text: str) -> str:
-    return _MARKUP_TAG_RE.sub("", text)
 
 
 class SessionsList(Widget):

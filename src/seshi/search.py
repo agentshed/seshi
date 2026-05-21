@@ -1,21 +1,13 @@
 import math
-import re
 import sqlite3
 import time
 
 from rapidfuzz import fuzz
 
 from seshi.models import Session
-
-_MARKUP_TAG_RE = re.compile(
-    r"</?[A-Za-z][A-Za-z0-9:_-]*(?:\s+[^<>]*)?/?>|<![^<>]*>"
-)
+from seshi.prompt_text import strip_markup_tags
 
 FUZZY_THRESHOLD = 55
-
-
-def _strip_markup(text: str) -> str:
-    return _MARKUP_TAG_RE.sub("", text)
 
 
 def fuzzy_match(query: str, string: str) -> int:
@@ -59,7 +51,7 @@ def rank_sessions(
     for row in rows:
         session = Session.from_row(row)
         r1 = fuzzy_match(query, session.custom_name or "")
-        r2 = fuzzy_match(query, _strip_markup(session.first_prompt or ""))
+        r2 = fuzzy_match(query, strip_markup_tags(session.first_prompt or ""))
         r3 = fuzzy_match(query, session.cwd)
         if max(r1, r2, r3) >= FUZZY_THRESHOLD:
             best = max(r1 * 4, r2 * 2, r3)

@@ -468,11 +468,11 @@ class SeshiApp(App):
 - `t`: tag toggle prompt
 - `f`: toggle favorite
 - `u`: toggle archive
-- `d`: delete (no confirmation)
+- `d`: delete (with confirmation)
 - `s`: cycle sort mode
 - `H`: toggle hide missing dirs
 - `Space`: toggle bulk selection
-- `a`: select all visible
+- `Ctrl-a`: select all visible
 - `g`/`G`: top/bottom
 - `Ctrl-u`/`Ctrl-d`: page up/down
 - `Esc`: clear selection or quit

@@ -7,8 +7,11 @@ import math
 import os
 import time
 
-from seshi.search import fuzzy_match, rank_sessions
-from seshi.tui.sessions import SessionsList, strip_markup_tags, FUZZY_THRESHOLD
+from unittest import mock
+
+from seshi.prompt_text import strip_markup_tags
+from seshi.search import rank_sessions, FUZZY_THRESHOLD
+from seshi.tui.sessions import SessionsList
 
 
 def _insert_session(conn, session_id, cwd="/tmp/project", custom_name=None,
@@ -160,19 +163,19 @@ def test_cursor_indicator_in_render(tmp_db):
 
 # === #39: Double slash normalization ===
 
-def test_drain_normalizes_double_slash(tmp_db):
+def test_drain_normalizes_double_slash(tmp_db, tmp_path):
     import json
     from seshi.drain import drain_queue
-    from seshi.paths import QUEUE_PATH
-    QUEUE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    q = tmp_path / "queue.jsonl"
     event = {
         "event": "start",
         "session_id": "test-double-slash",
         "cwd": "/home/user//project",
         "ts": int(time.time()),
     }
-    QUEUE_PATH.write_text(json.dumps(event) + "\n")
-    drain_queue(tmp_db)
+    q.write_text(json.dumps(event) + "\n")
+    with mock.patch("seshi.drain.QUEUE_PATH", q):
+        drain_queue(tmp_db)
     row = tmp_db.execute(
         "SELECT cwd FROM sessions WHERE session_id = ?", ("test-double-slash",)
     ).fetchone()
