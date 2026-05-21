@@ -36,7 +36,7 @@ class Footer(Widget):
             keys = [
                 ("↵", "resume"), ("r", "rename"), ("f", "favorite"),
                 ("t", "tag"), ("u", "archive"), ("d", "delete"),
-                ("s", "sort"), ("Space", "select"), ("Tab", "view"),
+                ("s", "sort"), ("Space", "select"), ("^A", "all"), ("Tab", "view"),
             ]
         elif self.view == "projects":
             keys = [

@@ -1,3 +1,5 @@
+import math
+import re
 import sqlite3
 import time
 
@@ -8,6 +10,8 @@ from seshi.cost import estimate_cost, format_usd
 from seshi.time_utils import relative_time
 
 SPARK_CHARS = " ▁▂▃▄▅▆▇█"
+
+_CTX_SUFFIX_RE = re.compile(r"\[[\d]+[kmKM]\]$")
 
 
 class OverviewView(Widget):
@@ -61,8 +65,12 @@ class OverviewView(Widget):
                 days[29 - d] = r["cnt"]
         max_val = max(days) if days else 1
         text.append("  ")
+        log_max = math.log1p(max_val)
         for v in days:
-            idx = int((v / max(max_val, 1)) * (len(SPARK_CHARS) - 1))
+            if v == 0:
+                idx = 0
+            else:
+                idx = int((math.log1p(v) / max(log_max, 1)) * (len(SPARK_CHARS) - 1))
             text.append(SPARK_CHARS[idx], style="#D97757")
         text.append("\n\n")
 
@@ -86,7 +94,7 @@ class OverviewView(Widget):
         if model_rows:
             text.append("  By model\n", style="bold")
             for r in model_rows:
-                model = r["model"] or "unknown"
+                model = _CTX_SUFFIX_RE.sub("", r["model"] or "unknown")
                 cost = estimate_cost(r["tokens"] or 0, model)
                 text.append(f"  {model:<30} {r['count']:>4} sessions  {format_usd(cost)}\n", style="dim")
             text.append("\n")

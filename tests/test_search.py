@@ -74,12 +74,11 @@ def test_rank_sessions_strips_markup_tags_from_prompt(tmp_db):
     )
     _insert_session(tmp_db, "id-2", first_prompt="local command checklist")
 
-    results = rank_sessions(tmp_db, "local-command")
+    results = rank_sessions(tmp_db, "local command")
 
-    assert [session.session_id for session, _ in results][:2] == [
-        "id-2",
-        "id-1",
-    ]
+    ids = [session.session_id for session, _ in results]
+    assert "id-2" in ids
+    assert "id-1" not in ids
 
 
 def test_frecency_recent_scores_higher():

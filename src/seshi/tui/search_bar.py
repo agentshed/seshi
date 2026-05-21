@@ -49,8 +49,6 @@ class SearchBar(Widget):
             text.append("▮", style=f"bold {self.accent}")
         elif self.active:
             text.append(" ")
-        else:
-            text.append("▮", style="dim")
         text.append(f"  {self.sort_mode}", style="dim italic")
         padding = " " * max(1, 60 - len(self.query) - len(self.sort_mode))
         text.append(padding)

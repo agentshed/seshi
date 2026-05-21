@@ -34,7 +34,6 @@ class TestSearchActivation:
 
 class TestTagSearch:
 
-    @pytest.mark.xfail(reason="Bug C1: '2' in '#sprint42' triggers view switch instead of typing — see issue #23")
     def test_single_tag_filter(self, tui_custom):
         ctrl, _ = tui_custom(seed_for_search)
         ctrl.send_keys("/")
@@ -45,7 +44,6 @@ class TestTagSearch:
         assert_session_visible(screen, "tagged-session")
         assert_search_bar_count(screen, 1, 1)
 
-    @pytest.mark.xfail(reason="Bug C1: '2' and '3' in tag names trigger view switches — see issue #23")
     def test_multi_tag_and_semantics(self, tui_custom):
         ctrl, _ = tui_custom(seed_for_search)
         ctrl.send_keys("/")
@@ -103,8 +101,6 @@ class TestSearchEscape:
         time.sleep(0.5)
         screen = ctrl.capture()
         assert_search_bar_count(screen, 1, 1)
-        ctrl.send_keys("Escape")
-        time.sleep(0.3)
         ctrl.send_keys("Escape")
         time.sleep(0.5)
         screen = ctrl.capture()

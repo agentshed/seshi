@@ -1,5 +1,3 @@
-"""Modal confirmation screen for bulk destructive actions."""
-
 from textual.app import ComposeResult
 from textual.screen import ModalScreen
 from textual.widgets import Static
@@ -7,11 +5,6 @@ from textual import events
 
 
 class ConfirmBulkScreen(ModalScreen[bool]):
-    """A modal that asks the user to confirm a bulk action.
-
-    Returns True if confirmed, False if cancelled.
-    """
-
     DEFAULT_CSS = """
     ConfirmBulkScreen {
         align: center middle;

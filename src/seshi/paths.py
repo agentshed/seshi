@@ -59,6 +59,7 @@ def unsanitize_path(name: str) -> list[str]:
 def resolve_best_cwd(name: str) -> str:
     candidates = unsanitize_path(name)
     for c in candidates:
-        if os.path.isdir(c):
-            return c
-    return candidates[0] if candidates else "/"
+        normalized = os.path.normpath(c)
+        if os.path.isdir(normalized):
+            return normalized
+    return os.path.normpath(candidates[0]) if candidates else "/"

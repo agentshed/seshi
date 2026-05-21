@@ -48,8 +48,7 @@ class SeshiApp(App):
 
     def compose(self) -> ComposeResult:
         yield Header(id="header")
-        tab_text = "  1 sessions    2 overview    3 projects    ? help"
-        yield Static(tab_text, id="tab-bar")
+        yield Static("", id="tab-bar")
         yield SearchBar(id="search-bar")
         with Vertical(id="main-content"):
             yield Static("Loading...", id="placeholder")
@@ -84,6 +83,7 @@ class SeshiApp(App):
         self._sessions_list.focus()
         self._apply_palette()
         self._update_counts()
+        self._update_tab_bar()
 
     def _apply_palette(self):
         accent = self._palette.accent
@@ -94,9 +94,23 @@ class SeshiApp(App):
         except Exception:
             pass
 
-    def action_request_quit(self) -> None:
-        self._quit_toast_active = True
-        super().action_request_quit()
+    def _update_tab_bar(self):
+        views = {
+            "sessions": "1 sessions",
+            "overview": "2 overview",
+            "projects": "3 projects",
+            "help": "? help",
+        }
+        from rich.text import Text as RichText
+        text = RichText()
+        for key, label in views.items():
+            text.append("  ")
+            if key == self.current_view:
+                text.append(f"[{label}]", style=f"bold {self._palette.accent}")
+            else:
+                text.append(f" {label} ", style="dim")
+        tab_bar = self.query_one("#tab-bar", Static)
+        tab_bar.update(text)
 
     def _update_counts(self):
         header = self.query_one(Header)
@@ -156,12 +170,11 @@ class SeshiApp(App):
             sl._input_buffer = ""
             sl._update_footer("normal")
             sl.refresh()
-        elif search.active or search.has_focus:
+        elif search.active or search.has_focus or search.query:
             search.active = False
-            sl.focus()
-        elif search.query:
             search.query = ""
             search.post_message(SearchChanged(""))
+            sl.focus()
             self._update_counts()
         elif sl.filter_cwd:
             sl.filter_cwd = None
@@ -173,35 +186,89 @@ class SeshiApp(App):
         else:
             self.exit()
 
+    def _is_in_input_mode(self) -> bool:
+        if hasattr(self, '_sessions_list') and self._sessions_list._input_mode:
+            return True
+        try:
+            search = self.query_one(SearchBar)
+            if search.active:
+                return True
+        except Exception:
+            pass
+        return False
+
+    def _forward_char_to_input(self, char: str) -> None:
+        if hasattr(self, '_sessions_list') and self._sessions_list._input_mode:
+            self._sessions_list._input_buffer += char
+            self._sessions_list.refresh()
+            return
+        try:
+            search = self.query_one(SearchBar)
+            if search.active:
+                search.query += char
+                search.post_message(SearchChanged(search.query))
+        except Exception:
+            pass
+
     def action_next_view(self) -> None:
+        if self._is_in_input_mode():
+            return
         views = ["sessions", "overview", "projects", "help"]
         idx = views.index(self.current_view) if self.current_view in views else 0
         self.current_view = views[(idx + 1) % len(views)]
         self._switch_view()
 
     def action_prev_view(self) -> None:
+        if self._is_in_input_mode():
+            return
         views = ["sessions", "overview", "projects", "help"]
         idx = views.index(self.current_view) if self.current_view in views else 0
         self.current_view = views[(idx - 1) % len(views)]
         self._switch_view()
 
     def action_view_sessions(self) -> None:
-        self.current_view = "sessions"
-        self._switch_view()
+        if self._is_in_input_mode():
+            self._forward_char_to_input("1")
+            return
+        if self.current_view != "sessions":
+            self.current_view = "sessions"
+            self._switch_view()
 
     def action_view_overview(self) -> None:
-        self.current_view = "overview"
-        self._switch_view()
+        if self._is_in_input_mode():
+            self._forward_char_to_input("2")
+            return
+        if self.current_view != "overview":
+            self.current_view = "overview"
+            self._switch_view()
 
     def action_view_projects(self) -> None:
-        self.current_view = "projects"
-        self._switch_view()
+        if self._is_in_input_mode():
+            self._forward_char_to_input("3")
+            return
+        if self.current_view != "projects":
+            self.current_view = "projects"
+            self._switch_view()
 
     def action_view_help(self) -> None:
-        self.current_view = "help"
-        self._switch_view()
+        if self._is_in_input_mode():
+            self._forward_char_to_input("?")
+            return
+        if self.current_view != "help":
+            self.current_view = "help"
+            self._switch_view()
+
+    _view_counter: int = 0
 
     def _switch_view(self) -> None:
+        if hasattr(self, '_sessions_list') and self._sessions_list._input_mode:
+            self._sessions_list._input_mode = ""
+            self._sessions_list._input_buffer = ""
+            self._sessions_list._update_footer("normal")
+
+        self._view_counter += 1
+        vid = self._view_counter
+
         main = self.query_one("#main-content")
         for child in list(main.children):
             child.remove()
@@ -213,19 +280,21 @@ class SeshiApp(App):
             self._sessions_list.focus()
         elif self.current_view == "overview":
             from seshi.tui.overview import OverviewView
-            view = OverviewView(self._conn, id="overview")
+            view = OverviewView(self._conn, id=f"overview-{vid}")
             main.mount(view)
             view.focus()
         elif self.current_view == "projects":
             from seshi.tui.projects import ProjectsView
-            view = ProjectsView(self._conn, id="projects-view")
+            view = ProjectsView(self._conn, id=f"projects-view-{vid}")
             main.mount(view)
             view.focus()
         elif self.current_view == "help":
             from seshi.tui.help_view import HelpView
-            view = HelpView(id="help-view")
+            view = HelpView(id=f"help-view-{vid}")
             main.mount(view)
             view.focus()
+
+        self._update_tab_bar()
 
     def on_unmount(self) -> None:
         if self._owns_conn and self._conn:
