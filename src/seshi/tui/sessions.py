@@ -13,6 +13,7 @@ from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
 from seshi.tui.search_bar import SearchBar, SearchChanged
+from seshi.prompt_text import strip_markup_tags
 
 
 class SessionsList(Widget):
@@ -55,7 +56,7 @@ class SessionsList(Widget):
             scored = []
             for s in sessions:
                 s1 = fuzzy_match(query, s.custom_name or "") * 4
-                s2 = fuzzy_match(query, s.first_prompt or "") * 2
+                s2 = fuzzy_match(query, strip_markup_tags(s.first_prompt or "")) * 2
                 s3 = fuzzy_match(query, s.cwd) * 1
                 best = max(s1, s2, s3)
                 if best > 0:
@@ -129,7 +130,9 @@ class SessionsList(Widget):
             fav = " * " if s.is_favorite else "   "
             lang = detect_language(s.cwd)
             lang_str = f"{lang:>3}" if lang else "   "
-            title = (s.custom_name or s.first_prompt or "(untitled)")[:38]
+            title = (
+                s.custom_name or strip_markup_tags(s.first_prompt or "") or "(untitled)"
+            )[:38]
             cwd = s.cwd
             if cwd.startswith(home):
                 cwd = "~" + cwd[len(home):]

@@ -64,6 +64,24 @@ def test_rank_sessions(tmp_db):
     assert results[0][0].session_id in ("id-1", "id-2")
 
 
+def test_rank_sessions_strips_markup_tags_from_prompt(tmp_db):
+    _insert_session(
+        tmp_db,
+        "id-1",
+        first_prompt=(
+            "<local-command-caveat>Caveat</local-command-caveat> Open the repo"
+        ),
+    )
+    _insert_session(tmp_db, "id-2", first_prompt="local command checklist")
+
+    results = rank_sessions(tmp_db, "local-command")
+
+    assert [session.session_id for session, _ in results][:2] == [
+        "id-2",
+        "id-1",
+    ]
+
+
 def test_frecency_recent_scores_higher():
     now = int(time.time())
     recent = Session("r", "/", "[]", None, None, None, None, None, 0, 0, 0, 0, 0, None, now, now - 3600, None, 1)
