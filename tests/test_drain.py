@@ -123,3 +123,28 @@ def test_empty_queue(tmp_db, tmp_path):
     with mock.patch("seshi.drain.QUEUE_PATH", q):
         count = drain_queue(tmp_db)
     assert count == 0
+
+
+def test_drain_normalizes_double_slashes(tmp_db, tmp_path):
+    from unittest import mock
+    q = _write_queue(tmp_path, [
+        {"event": "start", "ts": 1000, "session_id": "norm-1", "cwd": "/home/user/projects//repo", "argv": "claude"},
+    ])
+    with mock.patch("seshi.drain.QUEUE_PATH", q):
+        count = drain_queue(tmp_db)
+    assert count == 1
+    row = tmp_db.execute("SELECT cwd FROM sessions WHERE session_id = 'norm-1'").fetchone()
+    assert row["cwd"] == "/home/user/projects/repo"
+    assert "//" not in row["cwd"]
+
+
+def test_drain_normalizes_trailing_slash(tmp_db, tmp_path):
+    from unittest import mock
+    q = _write_queue(tmp_path, [
+        {"event": "start", "ts": 1000, "session_id": "norm-2", "cwd": "/home/user/projects/repo/", "argv": "claude"},
+    ])
+    with mock.patch("seshi.drain.QUEUE_PATH", q):
+        count = drain_queue(tmp_db)
+    assert count == 1
+    row = tmp_db.execute("SELECT cwd FROM sessions WHERE session_id = 'norm-2'").fetchone()
+    assert row["cwd"] == "/home/user/projects/repo"
