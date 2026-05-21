@@ -52,6 +52,8 @@ class SessionsList(Widget):
         if hide_missing:
             sessions = [s for s in sessions if os.path.isdir(s.cwd)]
 
+        self._all_sessions = sessions
+
         if query:
             scored = []
             for s in sessions:
@@ -64,7 +66,6 @@ class SessionsList(Widget):
             scored.sort(key=lambda x: (-x[0].is_favorite, -x[1]))
             sessions = [s for s, _ in scored]
 
-        self._all_sessions = sessions
         self.sessions = sessions
         if self.cursor >= len(self.sessions):
             self.cursor = max(0, len(self.sessions) - 1)
