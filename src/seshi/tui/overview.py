@@ -1,3 +1,4 @@
+import math
 import sqlite3
 import time
 
@@ -62,7 +63,10 @@ class OverviewView(Widget):
         max_val = max(days) if days else 1
         text.append("  ")
         for v in days:
-            idx = int((v / max(max_val, 1)) * (len(SPARK_CHARS) - 1))
+            if v == 0:
+                idx = 0
+            else:
+                idx = int(math.log1p(v) / math.log1p(max_val) * (len(SPARK_CHARS) - 1))
             text.append(SPARK_CHARS[idx], style="#D97757")
         text.append("\n\n")
 
