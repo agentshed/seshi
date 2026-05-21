@@ -18,6 +18,8 @@ seshi = "seshi.cli:main"
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
+    "pytest-timeout>=2.3",
+    "pytest-xdist>=3.5",
 ]
 
 [build-system]
@@ -30,3 +32,12 @@ packages = ["src/seshi"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "tui: TUI tests requiring tmux",
+    "smoke: fast TUI smoke tests",
+    "regression: regression tests for known bugs",
+    "slow: tests taking > 15 seconds",
+    "visual: visual/theme tests",
+    "stress: stress and adversarial tests",
+    "performance: performance benchmark tests",
+]
