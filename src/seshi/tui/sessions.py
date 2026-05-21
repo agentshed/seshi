@@ -44,6 +44,7 @@ class SessionsList(Widget):
 
     def _load_sessions(self, query: str = "", tags: list[str] | None = None):
         hide_missing = get_setting(self.conn, "hide_missing_dirs") == "1"
+        hide_stale = get_setting(self.conn, "hide_stale_sessions") == "1"
         sessions = list_sessions(
             self.conn,
             filter_cwd=self.filter_cwd,
@@ -53,6 +54,11 @@ class SessionsList(Widget):
 
         if hide_missing:
             sessions = [s for s in sessions if os.path.isdir(s.cwd)]
+
+        if hide_stale:
+            from seshi.transcript import get_existing_session_ids
+            existing = get_existing_session_ids()
+            sessions = [s for s in sessions if s.session_id in existing]
 
         self._all_sessions = sessions
 
@@ -95,7 +101,20 @@ class SessionsList(Widget):
             text.append(f"  {label}: {self._input_buffer}▮\n\n", style="bold")
 
         if not self.sessions:
-            text.append("  no sessions found\n", style="dim")
+            if self._current_query or self._current_tags:
+                text.append("  No sessions match your search.\n", style="dim")
+                text.append("  Press Esc to clear the filter.\n", style="dim")
+            elif self.filter_cwd:
+                text.append("  No sessions for this project.\n", style="dim")
+                text.append("  Press Esc to show all sessions.\n", style="dim")
+            elif not self._all_sessions:
+                text.append("  No sessions yet.\n", style="dim")
+                text.append("  Start a Claude Code session, or run ", style="dim")
+                text.append("seshi scan", style="bold")
+                text.append(" to import existing ones.\n", style="dim")
+            else:
+                text.append("  No sessions found (all filtered out).\n", style="dim")
+                text.append("  Press H to toggle hidden-dir filter, S for stale filter.\n", style="dim")
             return text
 
         visible_height = max(self.size.height - 2, 5) if self.size.height > 0 else 20
@@ -166,7 +185,12 @@ class SessionsList(Widget):
         end = min(start + visible_height, len(visible_rows))
 
         for row_line, row_style, _ in visible_rows[start:end]:
-            text.append(row_line + "\n", style=row_style)
+            if self._current_query and row_style != "dim":
+                line_text = Text(row_line + "\n", style=row_style)
+                line_text.highlight_words([self._current_query], style="bold underline", case_sensitive=False)
+                text.append_text(line_text)
+            else:
+                text.append(row_line + "\n", style=row_style)
 
         remaining = visible_height - (end - start)
         for _ in range(remaining):
@@ -231,6 +255,14 @@ class SessionsList(Widget):
             new_val = "0" if current == "1" else "1"
             set_setting(self.conn, "hide_missing_dirs", new_val)
             self._reload_with_current_filter()
+        elif event.key == "S":
+            current = get_setting(self.conn, "hide_stale_sessions")
+            new_val = "0" if current == "1" else "1"
+            set_setting(self.conn, "hide_stale_sessions", new_val)
+            self._reload_with_current_filter()
+        elif event.key == "p":
+            if hasattr(self.app, '_preview'):
+                self.app._preview.display = not self.app._preview.display
         elif event.key == "slash":
             search = self.app.query_one(SearchBar)
             search.active = True

@@ -130,7 +130,7 @@ class TestProjectsView:
         ctrl.send_keys("3")
         time.sleep(0.5)
         screen = ctrl.capture()
-        assert_screen_contains(screen, "no projects found")
+        assert_screen_contains(screen, "No projects found")
 
 
 class TestHelpView:

@@ -141,3 +141,21 @@ def find_transcript_path(session_id: str) -> Path | None:
                 if f.suffix == ".jsonl":
                     return f
     return None
+
+
+def get_existing_session_ids() -> set[str]:
+    from seshi.paths import UUID_RE
+    ids: set[str] = set()
+    if not CLAUDE_PROJECTS.is_dir():
+        return ids
+    for project_dir in CLAUDE_PROJECTS.iterdir():
+        if not project_dir.is_dir():
+            continue
+        for entry in project_dir.iterdir():
+            if entry.name == "skill-injections.jsonl":
+                continue
+            if entry.is_file() and entry.suffix == ".jsonl" and UUID_RE.match(entry.stem):
+                ids.add(entry.stem)
+            elif entry.is_dir() and UUID_RE.match(entry.name):
+                ids.add(entry.name)
+    return ids

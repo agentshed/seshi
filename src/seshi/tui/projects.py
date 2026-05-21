@@ -61,7 +61,11 @@ class ProjectsView(Widget):
             text.append(f"  rename: {self._input_buffer}▮\n\n", style="bold")
 
         if not self._projects:
-            text.append("  no projects found\n", style="dim")
+            text.append("  No projects found.\n", style="dim")
+            text.append("  Start a Claude Code session in a project directory,\n", style="dim")
+            text.append("  or run ", style="dim")
+            text.append("seshi scan", style="bold")
+            text.append(" to import existing ones.\n", style="dim")
             return text
 
         max_count = max(p["count"] for p in self._projects)
@@ -103,6 +107,14 @@ class ProjectsView(Widget):
             event.stop()
         elif event.key in ("down", "j"):
             self.cursor = min(len(self._projects) - 1, self.cursor + 1)
+            self.refresh()
+            event.stop()
+        elif event.key == "g":
+            self.cursor = 0
+            self.refresh()
+            event.stop()
+        elif event.key in ("G", "shift+g"):
+            self.cursor = max(0, len(self._projects) - 1)
             self.refresh()
             event.stop()
         elif event.key == "f":

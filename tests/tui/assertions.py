@@ -97,4 +97,7 @@ def assert_footer_shows(screen: CapturedScreen, key: str) -> None:
 
 
 def assert_empty_state(screen: CapturedScreen) -> None:
-    assert_screen_contains(screen, "no sessions found", "Expected 'no sessions found' message")
+    for marker in ("No sessions", "no sessions found"):
+        if marker in screen:
+            return
+    raise AssertionError(f"Expected empty state message\n\nScreen content:\n{screen.raw}")
