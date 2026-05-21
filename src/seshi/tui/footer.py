@@ -34,16 +34,20 @@ class Footer(Widget):
 
         if self.view == "sessions":
             keys = [
-                ("↵", "resume"), ("r", "rename"), ("f", "favorite"),
+                ("↵", "resume"), ("/", "search"), ("r", "rename"), ("f", "fav"),
                 ("t", "tag"), ("u", "archive"), ("d", "delete"),
-                ("s", "sort"), ("Space", "select"), ("^A", "all"), ("Tab", "view"),
+                ("s", "sort"), ("H", "hide"), ("p", "preview"),
+                ("Space", "select"), ("?", "help"),
             ]
         elif self.view == "projects":
             keys = [
-                ("↵", "open"), ("f", "favorite"), ("r", "rename"), ("Tab", "view"),
+                ("↵", "open"), ("f", "favorite"), ("r", "rename"),
+                ("g/G", "top/end"), ("Tab", "view"),
             ]
+        elif self.view == "overview":
+            keys = [("j/k", "scroll"), ("Tab", "view")]
         else:
-            keys = [("Tab", "view")]
+            keys = [("j/k", "scroll"), ("Tab", "view")]
 
         for key, label in keys:
             text.append(f"  {key}", style=f"bold {self.accent}")

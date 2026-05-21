@@ -1,4 +1,5 @@
 from textual.widget import Widget
+from textual import events
 from rich.text import Text
 
 
@@ -18,14 +19,16 @@ HELP_TEXT = """
   t                  Toggle tag on session
   f                  Toggle favorite
   u                  Toggle archive (reversible hide)
-  d                  Delete from registry (no confirmation)
+  d                  Delete from registry (with confirmation)
   s                  Cycle sort mode (frecency → recency → frequency)
+  p                  Toggle preview pane
   H                  Toggle hide sessions with missing directories
+  S                  Toggle hide stale sessions (no longer in Claude Code)
 
   Bulk Selection
   ──────────────
   Space              Toggle selection on current row
-  a                  Select all visible rows
+  Ctrl-a             Select all visible rows
   Esc                Clear selection (or quit if none selected)
 
   Search & Filter
@@ -34,13 +37,14 @@ HELP_TEXT = """
   Type to search     Fuzzy match against name, prompt, and cwd
   #tag               Filter by tag (AND semantics for multiple)
   Backspace          Delete last character
-  Esc                Clear search query
+  Esc                Clear search and deactivate
 
   Projects View
   ─────────────
   Enter              Open Sessions view filtered to project
   f                  Toggle project favorite
   r                  Rename project
+  g / G              Jump to top / bottom
 
   Shell Commands
   ──────────────
@@ -80,3 +84,11 @@ class HelpView(Widget):
             else:
                 text.append(line + "\n", style="dim")
         return text
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key in ("down", "j"):
+            self.scroll_relative(y=1)
+            event.stop()
+        elif event.key in ("up", "k"):
+            self.scroll_relative(y=-1)
+            event.stop()

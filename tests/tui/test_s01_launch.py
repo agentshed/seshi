@@ -43,10 +43,12 @@ class TestLaunch:
         screen = ctrl.capture()
         assert_footer_shows(screen, "resume")
         assert_footer_shows(screen, "rename")
-        assert_footer_shows(screen, "favorite")
+        assert_footer_shows(screen, "fav")
         assert_footer_shows(screen, "tag")
         assert_footer_shows(screen, "delete")
         assert_footer_shows(screen, "sort")
+        assert_footer_shows(screen, "search")
+        assert_footer_shows(screen, "help")
 
     def test_session_list_populates(self, tui):
         ctrl, _ = tui
@@ -79,7 +81,7 @@ class TestLaunchEmpty:
         ctrl.send_keys("3")
         time.sleep(0.5)
         screen = ctrl.capture()
-        assert_screen_contains(screen, "no projects found")
+        assert_screen_contains(screen, "No projects found")
 
 
 @pytest.mark.smoke

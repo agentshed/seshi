@@ -4,6 +4,7 @@ import sqlite3
 import time
 
 from textual.widget import Widget
+from textual import events
 from rich.text import Text
 
 from seshi.cost import estimate_cost, format_usd
@@ -22,6 +23,7 @@ class OverviewView(Widget):
     """
 
     can_focus = True
+    _scroll_offset: int = 0
 
     def __init__(self, conn: sqlite3.Connection, **kwargs):
         super().__init__(**kwargs)
@@ -105,3 +107,15 @@ class OverviewView(Widget):
             text.append(f"  {relative_time(totals['oldest'])} — {relative_time(totals['newest'])}\n", style="dim")
 
         return text
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key in ("down", "j"):
+            self._scroll_offset = min(self._scroll_offset + 1, 20)
+            self.scroll_relative(y=1)
+            self.refresh()
+            event.stop()
+        elif event.key in ("up", "k"):
+            self._scroll_offset = max(self._scroll_offset - 1, 0)
+            self.scroll_relative(y=-1)
+            self.refresh()
+            event.stop()
