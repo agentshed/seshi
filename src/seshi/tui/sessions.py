@@ -220,6 +220,7 @@ class SessionsList(Widget):
             new_val = "0" if current == "1" else "1"
             set_setting(self.conn, "hide_missing_dirs", new_val)
             self._load_sessions()
+            self.app._update_counts()
         elif event.key == "slash":
             search = self.app.query_one(SearchBar)
             search.active = True
