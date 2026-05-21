@@ -5,6 +5,7 @@ import time
 from rapidfuzz import fuzz
 
 from seshi.models import Session
+from seshi.prompt_text import strip_markup_tags
 
 
 def fuzzy_match(query: str, string: str) -> int:
@@ -48,7 +49,10 @@ def rank_sessions(
     for row in rows:
         session = Session.from_row(row)
         s1 = fuzzy_match(query, session.custom_name or "") * 4
-        s2 = fuzzy_match(query, session.first_prompt or "") * 2
+        s2 = fuzzy_match(
+            query,
+            strip_markup_tags(session.first_prompt or ""),
+        ) * 2
         s3 = fuzzy_match(query, session.cwd) * 1
         best = max(s1, s2, s3)
         if best > 0:
