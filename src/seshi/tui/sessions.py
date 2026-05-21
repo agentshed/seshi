@@ -200,7 +200,7 @@ class SessionsList(Widget):
                     self.selected.discard(s.session_id)
                 else:
                     self.selected.add(s.session_id)
-        elif event.key == "a":
+        elif event.key == "ctrl+a":
             for s in self.sessions:
                 self.selected.add(s.session_id)
         elif event.key == "r":
@@ -350,6 +350,21 @@ class SessionsList(Widget):
         if not s:
             return
         targets = list(self.selected) if self.selected else [s.session_id]
+        if len(targets) > 1:
+            from seshi.tui.confirm_bulk import ConfirmBulkScreen
+
+            def _on_confirm(confirmed: bool) -> None:
+                if confirmed:
+                    self._execute_archive(targets)
+
+            self.app.push_screen(
+                ConfirmBulkScreen(f"Archive {len(targets)} sessions?"),
+                _on_confirm,
+            )
+        else:
+            self._execute_archive(targets)
+
+    def _execute_archive(self, targets: list[str]) -> None:
         for sid in targets:
             self.conn.execute(
                 "UPDATE sessions SET is_archived = CASE WHEN is_archived = 1 THEN 0 ELSE 1 END WHERE session_id = ?",
@@ -364,6 +379,21 @@ class SessionsList(Widget):
         if not s:
             return
         targets = list(self.selected) if self.selected else [s.session_id]
+        if len(targets) > 1:
+            from seshi.tui.confirm_bulk import ConfirmBulkScreen
+
+            def _on_confirm(confirmed: bool) -> None:
+                if confirmed:
+                    self._execute_delete(targets)
+
+            self.app.push_screen(
+                ConfirmBulkScreen(f"Delete {len(targets)} sessions?"),
+                _on_confirm,
+            )
+        else:
+            self._execute_delete(targets)
+
+    def _execute_delete(self, targets: list[str]) -> None:
         for sid in targets:
             self.conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
         self.conn.commit()
