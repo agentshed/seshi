@@ -24,6 +24,8 @@ class ProjectsView(Widget):
         super().__init__(**kwargs)
         self.conn = conn
         self._projects: list[dict] = []
+        self._input_mode: str = ""
+        self._input_buffer: str = ""
         self._load_projects()
 
     def _load_projects(self):
@@ -54,6 +56,8 @@ class ProjectsView(Widget):
 
     def render(self) -> Text:
         text = Text()
+        if self._input_mode:
+            text.append(f"  rename: {self._input_buffer}▮\n\n", style="bold")
         if not self._projects:
             text.append("  no projects found\n", style="dim")
             return text
@@ -85,6 +89,10 @@ class ProjectsView(Widget):
         return text
 
     def on_key(self, event: events.Key) -> None:
+        if self._input_mode:
+            self._handle_input_key(event)
+            return
+
         if event.key in ("up", "k"):
             self.cursor = max(0, self.cursor - 1)
             self.refresh()
@@ -92,6 +100,9 @@ class ProjectsView(Widget):
         elif event.key in ("down", "j"):
             self.cursor = min(len(self._projects) - 1, self.cursor + 1)
             self.refresh()
+            event.stop()
+        elif event.key == "r":
+            self._start_rename()
             event.stop()
         elif event.key == "f":
             if 0 <= self.cursor < len(self._projects):
@@ -116,3 +127,66 @@ class ProjectsView(Widget):
                     self.app._sessions_list._load_sessions()
                     self.app._update_counts()
                 event.stop()
+
+    def _handle_input_key(self, event: events.Key):
+        if event.key == "escape":
+            self._input_mode = ""
+            self._input_buffer = ""
+            self._update_footer("normal")
+            self.refresh()
+            event.stop()
+            return
+        if event.key == "enter":
+            self._apply_rename()
+            self._input_mode = ""
+            self._input_buffer = ""
+            self._update_footer("normal")
+            self.refresh()
+            event.stop()
+            return
+        if event.key == "backspace":
+            self._input_buffer = self._input_buffer[:-1]
+            self.refresh()
+            event.stop()
+            return
+        if event.is_printable and event.character:
+            self._input_buffer += event.character
+            self.refresh()
+            event.stop()
+
+    def _update_footer(self, mode: str):
+        try:
+            footer = self.app.query_one("Footer")
+            footer.mode = mode
+        except Exception:
+            pass
+
+    def _start_rename(self):
+        if not (0 <= self.cursor < len(self._projects)):
+            return
+        self._input_mode = "rename"
+        self._input_buffer = self._projects[self.cursor].get("custom_name") or ""
+        self._update_footer("rename")
+        self.refresh()
+
+    def _apply_rename(self):
+        if not (0 <= self.cursor < len(self._projects)):
+            return
+        cwd = self._projects[self.cursor]["cwd"]
+        name = self._input_buffer.strip() or None
+        # Ensure project_favorites row exists for this cwd
+        existing = self.conn.execute(
+            "SELECT 1 FROM project_favorites WHERE cwd = ?", (cwd,)
+        ).fetchone()
+        if existing:
+            self.conn.execute(
+                "UPDATE project_favorites SET custom_name = ? WHERE cwd = ?",
+                (name, cwd),
+            )
+        else:
+            self.conn.execute(
+                "INSERT INTO project_favorites (cwd, custom_name) VALUES (?, ?)",
+                (cwd, name),
+            )
+        self.conn.commit()
+        self._load_projects()
