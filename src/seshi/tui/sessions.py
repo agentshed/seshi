@@ -171,6 +171,11 @@ class SessionsList(Widget):
     _input_buffer: str = ""
 
     def on_key(self, event: events.Key) -> None:
+        if getattr(self.app, "_quit_toast_active", False):
+            self.app._quit_toast_active = False
+            event.stop()
+            return
+
         if self._input_mode:
             self._handle_input_key(event)
             return
