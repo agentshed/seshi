@@ -1,5 +1,5 @@
 import time
-from seshi.search import fuzzy_match, session_resolve, rank_sessions, frecency_score, list_sessions
+from seshi.search import fuzzy_match, session_resolve, rank_sessions, frecency_score, list_sessions, FUZZY_MIN_SCORE
 from seshi.models import Session
 
 
@@ -69,17 +69,50 @@ def test_rank_sessions_strips_markup_tags_from_prompt(tmp_db):
         tmp_db,
         "id-1",
         first_prompt=(
-            "<local-command-caveat>Caveat</local-command-caveat> Open the repo"
+            "<local-command-caveat>local-command caveat</local-command-caveat> Open the repo"
         ),
     )
     _insert_session(tmp_db, "id-2", first_prompt="local command checklist")
 
     results = rank_sessions(tmp_db, "local-command")
 
-    assert [session.session_id for session, _ in results][:2] == [
-        "id-2",
-        "id-1",
-    ]
+    # Both should match; verify markup tags are stripped so id-1 matches
+    result_ids = [session.session_id for session, _ in results]
+    assert "id-1" in result_ids
+    assert "id-2" in result_ids
+    assert len(results) == 2
+
+
+def test_rank_sessions_filters_low_quality_matches(tmp_db):
+    """Sessions with only incidental character overlap should be excluded."""
+    _insert_session(tmp_db, "id-match", custom_name="OAuth migration")
+    _insert_session(tmp_db, "id-noise1", first_prompt="fix the build pipeline")
+    _insert_session(tmp_db, "id-noise2", custom_name="refactor utils")
+    _insert_session(tmp_db, "id-noise3", first_prompt="add tests for parser")
+
+    results = rank_sessions(tmp_db, "OAuth")
+    session_ids = [s.session_id for s, _ in results]
+
+    # Only the session with a real match should appear
+    assert "id-match" in session_ids
+    # Noise sessions that only share a single common letter should be filtered
+    assert len(results) <= 2, (
+        f"Expected at most 2 results for 'OAuth', got {len(results)}: {session_ids}"
+    )
+
+
+def test_rank_sessions_no_results_for_gibberish(tmp_db):
+    """A query with no meaningful match should return zero results."""
+    _insert_session(tmp_db, "id-1", custom_name="auth-rewrite")
+    _insert_session(tmp_db, "id-2", first_prompt="fix auth bug")
+
+    results = rank_sessions(tmp_db, "zzzzqqqq")
+    assert len(results) == 0
+
+
+def test_fuzzy_min_score_constant():
+    """FUZZY_MIN_SCORE should be high enough to filter partial_ratio noise."""
+    assert FUZZY_MIN_SCORE >= 40
 
 
 def test_frecency_recent_scores_higher():

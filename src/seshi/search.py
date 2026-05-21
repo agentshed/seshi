@@ -7,6 +7,11 @@ from rapidfuzz import fuzz
 from seshi.models import Session
 from seshi.prompt_text import strip_markup_tags
 
+# Minimum raw fuzzy score (before field weighting) to consider a match
+# meaningful.  ``partial_ratio`` returns 20-40 for incidental single-
+# character overlaps; 50 filters that noise while keeping real matches.
+FUZZY_MIN_SCORE = 50
+
 
 def fuzzy_match(query: str, string: str) -> int:
     if not query or not string:
@@ -48,14 +53,11 @@ def rank_sessions(
     scored = []
     for row in rows:
         session = Session.from_row(row)
-        s1 = fuzzy_match(query, session.custom_name or "") * 4
-        s2 = fuzzy_match(
-            query,
-            strip_markup_tags(session.first_prompt or ""),
-        ) * 2
-        s3 = fuzzy_match(query, session.cwd) * 1
-        best = max(s1, s2, s3)
-        if best > 0:
+        r1 = fuzzy_match(query, session.custom_name or "")
+        r2 = fuzzy_match(query, strip_markup_tags(session.first_prompt or ""))
+        r3 = fuzzy_match(query, session.cwd)
+        if max(r1, r2, r3) >= FUZZY_MIN_SCORE:
+            best = max(r1 * 4, r2 * 2, r3 * 1)
             scored.append((session, best))
 
     scored.sort(key=lambda x: x[1], reverse=True)

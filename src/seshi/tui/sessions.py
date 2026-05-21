@@ -8,7 +8,7 @@ from textual import events
 from rich.text import Text
 
 from seshi.models import Session
-from seshi.search import fuzzy_match, list_sessions, frecency_score
+from seshi.search import fuzzy_match, list_sessions, frecency_score, FUZZY_MIN_SCORE
 from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
@@ -55,11 +55,11 @@ class SessionsList(Widget):
         if query:
             scored = []
             for s in sessions:
-                s1 = fuzzy_match(query, s.custom_name or "") * 4
-                s2 = fuzzy_match(query, strip_markup_tags(s.first_prompt or "")) * 2
-                s3 = fuzzy_match(query, s.cwd) * 1
-                best = max(s1, s2, s3)
-                if best > 0:
+                r1 = fuzzy_match(query, s.custom_name or "")
+                r2 = fuzzy_match(query, strip_markup_tags(s.first_prompt or ""))
+                r3 = fuzzy_match(query, s.cwd)
+                best = max(r1 * 4, r2 * 2, r3 * 1)
+                if max(r1, r2, r3) >= FUZZY_MIN_SCORE:
                     scored.append((s, best))
             scored.sort(key=lambda x: (-x[0].is_favorite, -x[1]))
             sessions = [s for s, _ in scored]
