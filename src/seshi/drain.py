@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 import time
 
@@ -47,6 +48,7 @@ def drain_queue(conn: sqlite3.Connection) -> int:
                 env = event.get("env", {})
                 env_json = json.dumps(env) if env else None
 
+                cwd = os.path.normpath(event.get("cwd", "") or "/")
                 conn.execute(
                     """INSERT OR IGNORE INTO sessions
                     (session_id, cwd, launch_argv_json, env_json,
@@ -55,7 +57,7 @@ def drain_queue(conn: sqlite3.Connection) -> int:
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         session_id,
-                        event.get("cwd", ""),
+                        cwd,
                         argv_json,
                         env_json,
                         event.get("git_branch") or None,

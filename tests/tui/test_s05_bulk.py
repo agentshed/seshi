@@ -26,7 +26,7 @@ class TestBulkSelection:
 
     def test_select_all(self, tui_custom):
         ctrl, _ = tui_custom(lambda conn: seed_for_bulk(conn, count=5))
-        ctrl.send_keys("a")
+        ctrl.send_keys("C-a")
         time.sleep(0.3)
         screen = ctrl.capture()
         assert screen.count_lines_containing("[x]") >= 5

@@ -204,6 +204,8 @@ class TestDelete:
         assert_session_visible(ctrl.capture(), "old-name")
         ctrl.send_keys("d")
         time.sleep(0.5)
+        ctrl.send_keys("y")
+        time.sleep(0.5)
         screen = ctrl.capture()
         assert_session_not_visible(screen, "old-name")
         rows = TmuxController.query_db(
@@ -216,6 +218,8 @@ class TestDelete:
     def test_delete_last_session_shows_empty(self, tui_custom):
         ctrl, _ = tui_custom(lambda conn: insert_session(conn, custom_name="only-one"))
         ctrl.send_keys("d")
+        time.sleep(0.5)
+        ctrl.send_keys("y")
         time.sleep(0.5)
         assert_empty_state(ctrl.capture())
 

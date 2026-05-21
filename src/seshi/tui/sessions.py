@@ -1,5 +1,5 @@
 import os
-import time
+import re
 import sqlite3
 
 from textual.widget import Widget
@@ -8,12 +8,12 @@ from textual import events
 from rich.text import Text
 
 from seshi.models import Session
-from seshi.search import fuzzy_match, list_sessions, frecency_score
+from seshi.prompt_text import strip_markup_tags
+from seshi.search import fuzzy_match, list_sessions, FUZZY_THRESHOLD
 from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
 from seshi.tui.search_bar import SearchBar, SearchChanged
-from seshi.prompt_text import strip_markup_tags
 
 
 class SessionsList(Widget):
@@ -38,6 +38,8 @@ class SessionsList(Widget):
         self.sessions = []
         self.selected = set()
         self._all_sessions: list[Session] = []
+        self._current_query: str = ""
+        self._current_tags: list[str] | None = None
         self._load_sessions()
 
     def _load_sessions(self, query: str = "", tags: list[str] | None = None):
@@ -52,19 +54,20 @@ class SessionsList(Widget):
         if hide_missing:
             sessions = [s for s in sessions if os.path.isdir(s.cwd)]
 
+        self._all_sessions = sessions
+
         if query:
             scored = []
             for s in sessions:
-                s1 = fuzzy_match(query, s.custom_name or "") * 4
-                s2 = fuzzy_match(query, strip_markup_tags(s.first_prompt or "")) * 2
-                s3 = fuzzy_match(query, s.cwd) * 1
-                best = max(s1, s2, s3)
-                if best > 0:
+                r1 = fuzzy_match(query, s.custom_name or "")
+                r2 = fuzzy_match(query, strip_markup_tags(s.first_prompt or ""))
+                r3 = fuzzy_match(query, s.cwd)
+                if max(r1, r2, r3) >= FUZZY_THRESHOLD:
+                    best = max(r1 * 4, r2 * 2, r3)
                     scored.append((s, best))
             scored.sort(key=lambda x: (-x[0].is_favorite, -x[1]))
             sessions = [s for s, _ in scored]
 
-        self._all_sessions = sessions
         self.sessions = sessions
         if self.cursor >= len(self.sessions):
             self.cursor = max(0, len(self.sessions) - 1)
@@ -72,7 +75,9 @@ class SessionsList(Widget):
 
     def filter(self, query: str):
         text, tags = _parse_search(query)
-        self._load_sessions(query=text, tags=tags if tags else None)
+        self._current_query = text
+        self._current_tags = tags if tags else None
+        self._load_sessions(query=text, tags=self._current_tags)
 
     @property
     def current_session(self) -> Session | None:
@@ -126,13 +131,12 @@ class SessionsList(Widget):
             is_cursor = i == self.cursor
             style = "reverse" if is_cursor else ""
 
+            cursor_mark = "▸" if is_cursor else " "
             sel_mark = "[x]" if is_selected else "   "
             fav = " * " if s.is_favorite else "   "
             lang = detect_language(s.cwd)
             lang_str = f"{lang:>3}" if lang else "   "
-            title = (
-                s.custom_name or strip_markup_tags(s.first_prompt or "") or "(untitled)"
-            )[:38]
+            title = (s.custom_name or strip_markup_tags(s.first_prompt or "") or "(untitled)")[:38]
             cwd = s.cwd
             if cwd.startswith(home):
                 cwd = "~" + cwd[len(home):]
@@ -147,7 +151,7 @@ class SessionsList(Widget):
             if tag_rows:
                 tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
 
-            line = f" {sel_mark}{fav}{lang_str}  {title:<38}  {cwd:<30}  {rel}{tags_str}"
+            line = f"{cursor_mark}{sel_mark}{fav}{lang_str}  {title:<38}  {cwd:<30}  {rel}{tags_str}"
             visible_rows.append((line, style, is_cursor))
 
         cursor_row_idx = 0
@@ -221,14 +225,12 @@ class SessionsList(Widget):
             idx = modes.index(self.sort_mode) if self.sort_mode in modes else 0
             self.sort_mode = modes[(idx + 1) % len(modes)]
             set_setting(self.conn, "sort_mode", self.sort_mode)
-            self._load_sessions()
-            self.app._update_counts()
+            self._reload_with_current_filter()
         elif event.key == "H":
             current = get_setting(self.conn, "hide_missing_dirs")
             new_val = "0" if current == "1" else "1"
             set_setting(self.conn, "hide_missing_dirs", new_val)
-            self._load_sessions()
-            self.app._update_counts()
+            self._reload_with_current_filter()
         elif event.key == "slash":
             search = self.app.query_one(SearchBar)
             search.active = True
@@ -313,6 +315,13 @@ class SessionsList(Widget):
         self._update_footer("tag")
         self.refresh()
 
+    def _reload_with_current_filter(self):
+        self._load_sessions(query=self._current_query, tags=self._current_tags)
+        try:
+            self.app._update_counts()
+        except Exception:
+            pass
+
     def _apply_rename(self):
         s = self.current_session
         if not s:
@@ -320,10 +329,9 @@ class SessionsList(Widget):
         name = self._input_buffer.strip() or None
         self.conn.execute("UPDATE sessions SET custom_name = ? WHERE session_id = ?", (name, s.session_id))
         self.conn.commit()
-        self._load_sessions()
+        self._reload_with_current_filter()
 
     def _apply_tag(self):
-        import re
         tag = self._input_buffer.strip()
         if not tag or not re.match(r"^[\w\-]+$", tag):
             return
@@ -335,7 +343,7 @@ class SessionsList(Widget):
             else:
                 self.conn.execute("INSERT INTO tags (session_id, tag) VALUES (?, ?)", (sid, tag))
         self.conn.commit()
-        self._load_sessions()
+        self._reload_with_current_filter()
 
     def _toggle_favorite(self):
         s = self.current_session
@@ -348,7 +356,7 @@ class SessionsList(Widget):
                 (sid,),
             )
         self.conn.commit()
-        self._load_sessions()
+        self._reload_with_current_filter()
 
     def _toggle_archive(self):
         s = self.current_session
@@ -357,14 +365,9 @@ class SessionsList(Widget):
         targets = list(self.selected) if self.selected else [s.session_id]
         if len(targets) > 1:
             from seshi.tui.confirm_bulk import ConfirmBulkScreen
-
-            def _on_confirm(confirmed: bool) -> None:
-                if confirmed:
-                    self._execute_archive(targets)
-
             self.app.push_screen(
                 ConfirmBulkScreen(f"Archive {len(targets)} sessions?"),
-                _on_confirm,
+                lambda confirmed: self._execute_archive(targets) if confirmed else None,
             )
         else:
             self._execute_archive(targets)
@@ -377,33 +380,25 @@ class SessionsList(Widget):
             )
         self.conn.commit()
         self.selected.clear()
-        self._load_sessions()
+        self._reload_with_current_filter()
 
     def _delete_selected(self):
         s = self.current_session
         if not s:
             return
         targets = list(self.selected) if self.selected else [s.session_id]
-        if len(targets) > 1:
-            from seshi.tui.confirm_bulk import ConfirmBulkScreen
-
-            def _on_confirm(confirmed: bool) -> None:
-                if confirmed:
-                    self._execute_delete(targets)
-
-            self.app.push_screen(
-                ConfirmBulkScreen(f"Delete {len(targets)} sessions?"),
-                _on_confirm,
-            )
-        else:
-            self._execute_delete(targets)
+        from seshi.tui.confirm_bulk import ConfirmBulkScreen
+        self.app.push_screen(
+            ConfirmBulkScreen(f"Delete {len(targets)} session{'s' if len(targets) > 1 else ''}?"),
+            lambda confirmed: self._execute_delete(targets) if confirmed else None,
+        )
 
     def _execute_delete(self, targets: list[str]) -> None:
         for sid in targets:
             self.conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
         self.conn.commit()
         self.selected.clear()
-        self._load_sessions()
+        self._reload_with_current_filter()
 
 
 def _parse_search(query: str) -> tuple[str, list[str]]:

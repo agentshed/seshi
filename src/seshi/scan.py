@@ -67,12 +67,13 @@ def scan_projects(
                 if jsonl_file.exists():
                     continue
 
+                dir_mtime = int(entry.stat().st_mtime)
                 result = conn.execute(
                     """INSERT OR IGNORE INTO sessions
                     (session_id, cwd, launch_argv_json, is_backfilled,
                      created_at, last_activity_at)
                     VALUES (?, ?, '[]', 1, ?, ?)""",
-                    (session_id, cwd, int(entry.stat().st_mtime), int(entry.stat().st_mtime)),
+                    (session_id, cwd, dir_mtime, dir_mtime),
                 )
                 if result.rowcount > 0:
                     count += 1

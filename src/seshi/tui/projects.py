@@ -19,6 +19,8 @@ class ProjectsView(Widget):
 
     can_focus = True
     cursor: reactive[int] = reactive(0)
+    _input_mode: str = ""
+    _input_buffer: str = ""
 
     def __init__(self, conn: sqlite3.Connection, **kwargs):
         super().__init__(**kwargs)
@@ -54,6 +56,10 @@ class ProjectsView(Widget):
 
     def render(self) -> Text:
         text = Text()
+
+        if self._input_mode == "rename":
+            text.append(f"  rename: {self._input_buffer}▮\n\n", style="bold")
+
         if not self._projects:
             text.append("  no projects found\n", style="dim")
             return text
@@ -73,6 +79,8 @@ class ProjectsView(Widget):
             display = p["custom_name"] or p["cwd"]
             if display.startswith(home):
                 display = "~" + display[len(home):]
+            if len(display) > 40:
+                display = display[:19] + "…" + display[-20:]
 
             bar_len = int((p["count"] / max(max_count, 1)) * bar_width)
             bar = "█" * bar_len + "░" * (bar_width - bar_len)
@@ -85,6 +93,10 @@ class ProjectsView(Widget):
         return text
 
     def on_key(self, event: events.Key) -> None:
+        if self._input_mode:
+            self._handle_input_key(event)
+            return
+
         if event.key in ("up", "k"):
             self.cursor = max(0, self.cursor - 1)
             self.refresh()
@@ -105,6 +117,12 @@ class ProjectsView(Widget):
                 self._load_projects()
                 self.refresh()
                 event.stop()
+        elif event.key == "r":
+            if 0 <= self.cursor < len(self._projects):
+                self._input_mode = "rename"
+                self._input_buffer = self._projects[self.cursor].get("custom_name") or ""
+                self.refresh()
+                event.stop()
         elif event.key == "enter":
             if 0 <= self.cursor < len(self._projects):
                 cwd = self._projects[self.cursor]["cwd"]
@@ -116,3 +134,38 @@ class ProjectsView(Widget):
                     self.app._sessions_list._load_sessions()
                     self.app._update_counts()
                 event.stop()
+
+    def _handle_input_key(self, event: events.Key) -> None:
+        if event.key == "escape":
+            self._input_mode = ""
+            self._input_buffer = ""
+            self.refresh()
+            event.stop()
+        elif event.key == "enter":
+            if self._input_mode == "rename":
+                self._apply_rename()
+            self._input_mode = ""
+            self._input_buffer = ""
+            self.refresh()
+            event.stop()
+        elif event.key == "backspace":
+            self._input_buffer = self._input_buffer[:-1]
+            self.refresh()
+            event.stop()
+        elif event.is_printable and event.character:
+            self._input_buffer += event.character
+            self.refresh()
+            event.stop()
+
+    def _apply_rename(self):
+        if not (0 <= self.cursor < len(self._projects)):
+            return
+        cwd = self._projects[self.cursor]["cwd"]
+        name = self._input_buffer.strip() or None
+        existing = self.conn.execute("SELECT 1 FROM project_favorites WHERE cwd = ?", (cwd,)).fetchone()
+        if existing:
+            self.conn.execute("UPDATE project_favorites SET custom_name = ? WHERE cwd = ?", (name, cwd))
+        else:
+            self.conn.execute("INSERT INTO project_favorites (cwd, custom_name) VALUES (?, ?)", (cwd, name))
+        self.conn.commit()
+        self._load_projects()
