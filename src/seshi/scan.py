@@ -1,6 +1,4 @@
-import re
 import sqlite3
-import time
 
 from seshi.paths import CLAUDE_PROJECTS, UUID_RE, resolve_best_cwd
 from seshi.transcript import parse_transcript
@@ -16,7 +14,6 @@ def scan_projects(
         return 0
 
     count = 0
-    now = int(time.time())
 
     for project_dir in sorted(root.iterdir()):
         if not project_dir.is_dir():
@@ -36,8 +33,9 @@ def scan_projects(
                     continue
 
                 summary = parse_transcript(entry)
-                created = summary.first_ts or now
-                last_activity = summary.last_ts or now
+                mtime = int(entry.stat().st_mtime)
+                created = summary.first_ts or mtime
+                last_activity = summary.last_ts or mtime
 
                 result = conn.execute(
                     """INSERT OR IGNORE INTO sessions
@@ -74,7 +72,7 @@ def scan_projects(
                     (session_id, cwd, launch_argv_json, is_backfilled,
                      created_at, last_activity_at)
                     VALUES (?, ?, '[]', 1, ?, ?)""",
-                    (session_id, cwd, now, now),
+                    (session_id, cwd, int(entry.stat().st_mtime), int(entry.stat().st_mtime)),
                 )
                 if result.rowcount > 0:
                     count += 1
