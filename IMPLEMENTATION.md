@@ -8,7 +8,7 @@
 - **uv** for project management, dependency resolution, and virtual environments
 - Install: `uv tool install .` from the project root
 - Run: `uvx seshi` or `seshi` (after tool install)
-- Dev: `uv run pytest` for tests
+- Dev: `uv run python -m pytest` for tests
 
 ### pyproject.toml
 

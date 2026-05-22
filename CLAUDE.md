@@ -5,9 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```sh
-uv run pytest                          # run all tests
-uv run pytest tests/test_drain.py      # run one test file
-uv run pytest -k "test_fuzzy"          # run tests matching name
+uv run python -m pytest                          # run all tests
+uv run python -m pytest tests/test_drain.py      # run one test file
+uv run python -m pytest -k "test_fuzzy"          # run tests matching name
 uv run seshi                           # launch the TUI
 uv run seshi doctor --fix              # health check + auto-repair
 ```
