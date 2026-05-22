@@ -15,9 +15,12 @@ from seshi.time_utils import relative_time
 @click.option("--limit", type=int, default=3, help="Max matches per session")
 @click.option("--role", type=click.Choice(["user", "assistant"]), help="Filter by role")
 @click.option("--json", "as_json", is_flag=True, help="JSON output")
+@click.option("--here", is_flag=True, help="Filter to current directory")
 @click.pass_context
-def grep_cmd(ctx, pattern, limit, role, as_json):
+def grep_cmd(ctx, pattern, limit, role, as_json, here):
     """Search message content across all session transcripts."""
+    from seshi.cli import _merge_here
+    _merge_here(ctx, here)
     if not CLAUDE_PROJECTS.is_dir():
         click.echo(f"projects directory not found: {CLAUDE_PROJECTS}", err=True)
         raise SystemExit(1)

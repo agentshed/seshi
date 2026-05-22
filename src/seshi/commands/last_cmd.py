@@ -9,9 +9,12 @@ from seshi.resume import build_resume_line
 
 
 @main.command("last")
+@click.option("--here", is_flag=True, help="Filter to current directory")
 @click.pass_context
-def last(ctx):
+def last(ctx, here):
     """Resume the most recent session."""
+    from seshi.cli import _merge_here
+    _merge_here(ctx, here)
     with open_db() as conn:
         sql = "SELECT * FROM sessions WHERE is_archived = 0"
         params = []

@@ -11,9 +11,12 @@ from seshi.time_utils import relative_time
 
 @main.command("stats")
 @click.option("--json", "as_json", is_flag=True, help="JSON output")
+@click.option("--here", is_flag=True, help="Filter to current directory")
 @click.pass_context
-def stats(ctx, as_json):
+def stats(ctx, as_json, here):
     """Print aggregate session statistics."""
+    from seshi.cli import _merge_here
+    _merge_here(ctx, here)
     with open_db() as conn:
         filter_cwd = ctx.obj.get("here_cwd")
         where = "WHERE is_archived = 0"
