@@ -20,6 +20,8 @@ def seed_db(db_path: str) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     init_schema(conn)
+    conn.execute("UPDATE settings SET value = '0' WHERE key = 'hide_stale_sessions'")
+    conn.commit()
     return conn
 
 

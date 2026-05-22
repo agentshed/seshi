@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS project_favorites (
 DEFAULT_SETTINGS = {
     "prune_days": "0",
     "hide_missing_dirs": "0",
+    "hide_stale_sessions": "1",
     "delete_jsonl_with_session": "ask",
     "accent_color": "#D97757",
     "theme": "coral",
