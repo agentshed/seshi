@@ -88,7 +88,9 @@ def open_db(path: Path | None = None, readonly: bool = False):
 
 def get_setting(conn: sqlite3.Connection, key: str) -> str | None:
     row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-    return row["value"] if row else None
+    if row:
+        return row["value"]
+    return DEFAULT_SETTINGS.get(key)
 
 
 def set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:

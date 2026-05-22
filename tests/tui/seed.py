@@ -6,7 +6,7 @@ import time
 import uuid
 from typing import Sequence
 
-from seshi.db import init_schema
+from seshi.db import init_schema, set_setting
 
 
 def make_session_id() -> str:
@@ -20,8 +20,7 @@ def seed_db(db_path: str) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     init_schema(conn)
-    conn.execute("UPDATE settings SET value = '0' WHERE key = 'hide_stale_sessions'")
-    conn.commit()
+    set_setting(conn, "hide_stale_sessions", "0")
     return conn
 
 

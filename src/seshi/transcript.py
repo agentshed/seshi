@@ -157,5 +157,6 @@ def get_existing_session_ids() -> set[str]:
             if entry.is_file() and entry.suffix == ".jsonl" and UUID_RE.match(entry.stem):
                 ids.add(entry.stem)
             elif entry.is_dir() and UUID_RE.match(entry.name):
-                ids.add(entry.name)
+                if any(f.suffix == ".jsonl" for f in entry.iterdir()):
+                    ids.add(entry.name)
     return ids
