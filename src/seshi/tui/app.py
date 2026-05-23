@@ -331,6 +331,12 @@ def launch_tui(ctx_obj: dict | None = None):
             break
 
         session = app.chosen_session
+        with open_db() as conn:
+            conn.execute(
+                "UPDATE sessions SET resume_count = resume_count + 1, frecency_rank = frecency_rank + 1.0 WHERE session_id = ?",
+                (session.session_id,),
+            )
+            conn.commit()
         try:
             argv = json.loads(session.launch_argv_json)
         except (json.JSONDecodeError, TypeError):

@@ -68,6 +68,14 @@ def init_schema(conn: sqlite3.Connection) -> None:
             "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
             (key, value),
         )
+    for col, defn in [
+        ("resume_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("frecency_rank", "REAL NOT NULL DEFAULT 1.0"),
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE sessions ADD COLUMN {col} {defn}")
+        except sqlite3.OperationalError:
+            pass
     conn.commit()
 
 

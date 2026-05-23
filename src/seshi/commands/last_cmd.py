@@ -24,11 +24,16 @@ def last(ctx, here):
         sql += " ORDER BY last_activity_at DESC LIMIT 1"
         row = conn.execute(sql, params).fetchone()
 
-    if not row:
-        click.echo("no sessions in registry. Run `seshi scan` to discover existing sessions.", err=True)
-        raise SystemExit(1)
+        if not row:
+            click.echo("no sessions in registry. Run `seshi scan` to discover existing sessions.", err=True)
+            raise SystemExit(1)
 
-    session = Session.from_row(row)
-    line = build_resume_line(session)
-    sys.stdout.write(line)
-    sys.stdout.flush()
+        session = Session.from_row(row)
+        conn.execute(
+            "UPDATE sessions SET resume_count = resume_count + 1, frecency_rank = frecency_rank + 1.0 WHERE session_id = ?",
+            (session.session_id,),
+        )
+        conn.commit()
+        line = build_resume_line(session)
+        sys.stdout.write(line)
+        sys.stdout.flush()

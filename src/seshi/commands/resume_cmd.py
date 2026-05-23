@@ -17,6 +17,11 @@ def resume(ctx, query):
     with open_db() as conn:
         session = session_resolve(conn, query_str)
         if session:
+            conn.execute(
+                "UPDATE sessions SET resume_count = resume_count + 1, frecency_rank = frecency_rank + 1.0 WHERE session_id = ?",
+                (session.session_id,),
+            )
+            conn.commit()
             line = build_resume_line(session)
             sys.stdout.write(line)
             sys.stdout.flush()
@@ -39,6 +44,11 @@ def resume(ctx, query):
                 input()
             except (KeyboardInterrupt, EOFError):
                 raise SystemExit(0)
+            conn.execute(
+                "UPDATE sessions SET resume_count = resume_count + 1, frecency_rank = frecency_rank + 1.0 WHERE session_id = ?",
+                (session.session_id,),
+            )
+            conn.commit()
             line = build_resume_line(session)
             sys.stdout.write(line)
             sys.stdout.flush()
