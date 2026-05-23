@@ -1,10 +1,14 @@
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.screen import ModalScreen
 from textual.widgets import Static
 from textual import events
 
 
 class ConfirmBulkScreen(ModalScreen[bool]):
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel", show=False, priority=True),
+    ]
     DEFAULT_CSS = """
     ConfirmBulkScreen {
         align: center middle;
@@ -28,9 +32,12 @@ class ConfirmBulkScreen(ModalScreen[bool]):
             id="confirm-dialog",
         )
 
+    def action_cancel(self) -> None:
+        self.dismiss(False)
+
     def on_key(self, event: events.Key) -> None:
         if event.key in ("y", "Y"):
             self.dismiss(True)
-        elif event.key in ("n", "N", "escape"):
+        elif event.key in ("n", "N"):
             self.dismiss(False)
         event.stop()

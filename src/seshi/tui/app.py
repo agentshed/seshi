@@ -150,6 +150,14 @@ class SeshiApp(App):
         self._quit_toast_active = False
 
     def action_back_or_quit(self) -> None:
+        from textual.screen import ModalScreen
+        try:
+            if isinstance(self.screen, ModalScreen):
+                self.screen.dismiss(False)
+                return
+        except Exception:
+            pass
+
         if self._quit_toast_active:
             self._quit_toast_active = False
             return

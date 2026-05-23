@@ -28,6 +28,7 @@ def main(ctx, no_color, here):
     ctx.obj["no_color"] = no_color
     ctx.obj["here_cwd"] = os.getcwd() if here else None
 
+
     if no_color:
         os.environ["NO_COLOR"] = "1"
 
@@ -41,6 +42,12 @@ def main(ctx, no_color, here):
     if ctx.invoked_subcommand is None:
         from seshi.tui.app import launch_tui
         launch_tui(ctx.obj)
+
+
+def _merge_here(ctx, here):
+    """Set here_cwd if the local --here flag is set and the group didn't already."""
+    if here and not ctx.obj.get("here_cwd"):
+        ctx.obj["here_cwd"] = os.getcwd()
 
 
 # Import commands to register them

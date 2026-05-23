@@ -16,9 +16,12 @@ from seshi.lang_detect import detect_language
 @click.option("--tag", multiple=True, help="Filter by tag (repeatable)")
 @click.option("--sort", type=click.Choice(["frecency", "recency", "frequency"]), help="Sort mode")
 @click.option("--archived", is_flag=True, help="Include archived sessions")
+@click.option("--here", is_flag=True, help="Filter to current directory")
 @click.pass_context
-def list_cmd(ctx, fmt, limit, tag, sort, archived):
+def list_cmd(ctx, fmt, limit, tag, sort, archived, here):
     """List sessions non-interactively."""
+    from seshi.cli import _merge_here
+    _merge_here(ctx, here)
     with open_db() as conn:
         sort_mode = sort or "frecency"
         sessions = list_sessions(
