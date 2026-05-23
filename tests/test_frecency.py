@@ -257,6 +257,25 @@ class TestAgeFrecencyRanks:
         row = tmp_db.execute("SELECT frecency_rank FROM sessions WHERE session_id = 'id-active'").fetchone()
         assert row["frecency_rank"] == 5.0
 
+    def test_skips_when_recently_aged(self, tmp_db, monkeypatch):
+        monkeypatch.setattr(
+            "seshi.transcript.get_existing_session_ids",
+            lambda: {"id-1"},
+        )
+        now = int(time.time())
+        _insert_session(tmp_db, "id-1", ts=now, frecency_rank=2000.0)
+
+        age_frecency_ranks(tmp_db)
+        row = tmp_db.execute("SELECT frecency_rank FROM sessions WHERE session_id = 'id-1'").fetchone()
+        aged_rank = row["frecency_rank"]
+        assert aged_rank < 2000.0
+
+        tmp_db.execute("UPDATE sessions SET frecency_rank = 2000.0 WHERE session_id = 'id-1'")
+        tmp_db.commit()
+        age_frecency_ranks(tmp_db)
+        row = tmp_db.execute("SELECT frecency_rank FROM sessions WHERE session_id = 'id-1'").fetchone()
+        assert row["frecency_rank"] == 2000.0
+
     def test_stale_sessions_excluded_from_sum(self, tmp_db, monkeypatch):
         monkeypatch.setattr(
             "seshi.transcript.get_existing_session_ids",
@@ -315,17 +334,11 @@ class TestSchemaMigration:
 class TestEdgeCases:
 
     def test_resume_count_increments(self, tmp_db):
+        from seshi.db import record_resume
         now = int(time.time())
         _insert_session(tmp_db, "id-1", ts=now)
-        tmp_db.execute(
-            "UPDATE sessions SET resume_count = resume_count + 1, frecency_rank = frecency_rank + 1.0 WHERE session_id = ?",
-            ("id-1",),
-        )
-        tmp_db.execute(
-            "UPDATE sessions SET resume_count = resume_count + 1, frecency_rank = frecency_rank + 1.0 WHERE session_id = ?",
-            ("id-1",),
-        )
-        tmp_db.commit()
+        record_resume(tmp_db, "id-1")
+        record_resume(tmp_db, "id-1")
         row = tmp_db.execute("SELECT resume_count, frecency_rank FROM sessions WHERE session_id = 'id-1'").fetchone()
         assert row["resume_count"] == 2
         assert row["frecency_rank"] == 3.0

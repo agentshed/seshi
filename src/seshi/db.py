@@ -101,6 +101,14 @@ def get_setting(conn: sqlite3.Connection, key: str) -> str | None:
     return DEFAULT_SETTINGS.get(key)
 
 
+def record_resume(conn: sqlite3.Connection, session_id: str) -> None:
+    conn.execute(
+        "UPDATE sessions SET resume_count = resume_count + 1, frecency_rank = frecency_rank + 1.0 WHERE session_id = ?",
+        (session_id,),
+    )
+    conn.commit()
+
+
 def set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
     conn.execute(
         "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",

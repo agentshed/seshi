@@ -143,6 +143,13 @@ def list_sessions(
 
 
 def age_frecency_ranks(conn: sqlite3.Connection) -> int:
+    from seshi.db import get_setting, set_setting
+
+    now_ts = int(time.time())
+    last_aged = get_setting(conn, "last_aged_at")
+    if last_aged and now_ts - int(last_aged) < 300:
+        return 0
+
     from seshi.transcript import get_existing_session_ids
 
     rows = conn.execute(
@@ -181,4 +188,5 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
     )
     archived_count = result.rowcount
     conn.commit()
+    set_setting(conn, "last_aged_at", str(now_ts))
     return archived_count

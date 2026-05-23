@@ -3,7 +3,7 @@ import sys
 import click
 
 from seshi.cli import main
-from seshi.db import open_db
+from seshi.db import open_db, record_resume
 from seshi.resume import build_resume_line
 from seshi.search import session_resolve, rank_sessions
 
@@ -17,11 +17,7 @@ def resume(ctx, query):
     with open_db() as conn:
         session = session_resolve(conn, query_str)
         if session:
-            conn.execute(
-                "UPDATE sessions SET resume_count = resume_count + 1, frecency_rank = frecency_rank + 1.0 WHERE session_id = ?",
-                (session.session_id,),
-            )
-            conn.commit()
+            record_resume(conn, session.session_id)
             line = build_resume_line(session)
             sys.stdout.write(line)
             sys.stdout.flush()
@@ -44,11 +40,7 @@ def resume(ctx, query):
                 input()
             except (KeyboardInterrupt, EOFError):
                 raise SystemExit(0)
-            conn.execute(
-                "UPDATE sessions SET resume_count = resume_count + 1, frecency_rank = frecency_rank + 1.0 WHERE session_id = ?",
-                (session.session_id,),
-            )
-            conn.commit()
+            record_resume(conn, session.session_id)
             line = build_resume_line(session)
             sys.stdout.write(line)
             sys.stdout.flush()
