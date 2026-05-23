@@ -67,7 +67,7 @@ pythonpath = ["src"]
 | `subprocess` | Shell out to `claude -p` for auto-name |
 | `shutil.which` | Check `claude` on PATH (doctor command) |
 | `importlib.resources` | Locate bundled `hook.sh` at runtime |
-| `math` | (unused — removed in frecency rewrite) |
+| `math` | `log1p()` for sparkline log-scaling in overview |
 | `os` / `platform` / `socket` | System info capture (hostname, platform detection) |
 | `pathlib` | Path manipulation throughout |
 

@@ -58,6 +58,18 @@ def frecency_score(
     return session.frecency_rank * _recency_multiplier(age_hours)
 
 
+def blend_fuzzy_frecency(
+    scored: list[tuple[Session, int, float]],
+) -> list[tuple[Session, int]]:
+    if not scored:
+        return []
+    max_frecency = max(f for _, _, f in scored) or 1.0
+    return [
+        (session, int(fuzzy * (1.0 + frec / max_frecency)))
+        for session, fuzzy, frec in scored
+    ]
+
+
 def rank_sessions(
     conn: sqlite3.Connection,
     query: str,
@@ -83,15 +95,7 @@ def rank_sessions(
             frec = frecency_score(session, now)
             scored.append((session, fuzzy, frec))
 
-    if not scored:
-        return []
-
-    max_frecency = max(f for _, _, f in scored) or 1.0
-    results = []
-    for session, fuzzy, frec in scored:
-        blended = fuzzy * (1.0 + frec / max_frecency)
-        results.append((session, int(blended)))
-
+    results = blend_fuzzy_frecency(scored)
     results.sort(key=lambda x: x[1], reverse=True)
     return results
 
@@ -178,13 +182,14 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
     )
 
     result = conn.execute(
-        """UPDATE sessions SET is_archived = 1
+        f"""UPDATE sessions SET is_archived = 1
            WHERE is_archived = 0
              AND frecency_rank < ?
              AND is_favorite = 0
              AND custom_name IS NULL
-             AND session_id NOT IN (SELECT session_id FROM tags)""",
-        (ARCHIVE_RANK_THRESHOLD,),
+             AND session_id NOT IN (SELECT session_id FROM tags)
+             AND session_id IN ({placeholders})""",
+        [ARCHIVE_RANK_THRESHOLD] + live_ids,
     )
     archived_count = result.rowcount
     conn.commit()

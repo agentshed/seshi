@@ -9,7 +9,7 @@ from rich.text import Text
 
 from seshi.models import Session
 from seshi.prompt_text import strip_markup_tags
-from seshi.search import fuzzy_match, frecency_score, list_sessions, FUZZY_THRESHOLD
+from seshi.search import fuzzy_match, frecency_score, blend_fuzzy_frecency, list_sessions, FUZZY_THRESHOLD
 from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
@@ -74,16 +74,9 @@ class SessionsList(Widget):
                     fuzzy = max(r1 * 4, r2 * 2, r3)
                     frec = frecency_score(s, now)
                     scored.append((s, fuzzy, frec))
-            if scored:
-                max_frecency = max(f for _, _, f in scored) or 1.0
-                blended = []
-                for s, fuzzy, frec in scored:
-                    score = fuzzy * (1.0 + frec / max_frecency)
-                    blended.append((s, score))
-                blended.sort(key=lambda x: (-x[0].is_favorite, -x[1]))
-                sessions = [s for s, _ in blended]
-            else:
-                sessions = []
+            blended = blend_fuzzy_frecency(scored)
+            blended.sort(key=lambda x: (-x[0].is_favorite, -x[1]))
+            sessions = [s for s, _ in blended]
 
         self.sessions = sessions
         if self.cursor >= len(self.sessions):
