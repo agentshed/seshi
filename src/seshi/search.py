@@ -154,13 +154,17 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
     if last_aged and now_ts - int(last_aged) < 300:
         return 0
 
-    from seshi.transcript import get_existing_session_ids
-
     rows = conn.execute(
         "SELECT session_id, frecency_rank FROM sessions WHERE is_archived = 0"
     ).fetchall()
     if not rows:
         return 0
+
+    upper_bound = sum(r["frecency_rank"] for r in rows)
+    if upper_bound <= AGING_THRESHOLD:
+        return 0
+
+    from seshi.transcript import get_existing_session_ids
 
     existing_ids = get_existing_session_ids()
     live_ids = [r["session_id"] for r in rows if r["session_id"] in existing_ids]
