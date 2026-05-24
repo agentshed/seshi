@@ -39,7 +39,7 @@ The shell wrapper `seshi()` captures stdout via `$(command seshi "$@")` and `eva
 
 ### Session resolution
 
-All commands that take a session identifier use `search.session_resolve()`: try `custom_name` (case-insensitive) first, then `session_id`. Fuzzy resume uses `rank_sessions()` with weighted field scores (name×4, prompt×2, cwd×1).
+All commands that take a session identifier use `search.session_resolve()`: try `custom_name` (case-insensitive) first, then `session_id`. Fuzzy resume uses `rank_sessions()` with weighted field scores (name×4, prompt×2, cwd×1), boosted by frecency (1×–2× multiplier) so frequently-used sessions win ties.
 
 ### Path unsanitization
 

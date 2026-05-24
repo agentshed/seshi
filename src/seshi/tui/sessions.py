@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+import time
 
 from textual.widget import Widget
 from textual.reactive import reactive
@@ -63,8 +64,7 @@ class SessionsList(Widget):
         self._all_sessions = sessions
 
         if query:
-            import time as _time
-            now = int(_time.time())
+            now = int(time.time())
             scored = []
             for s in sessions:
                 r1 = fuzzy_match(query, s.custom_name or "")
