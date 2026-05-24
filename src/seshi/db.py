@@ -23,7 +23,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at        INTEGER NOT NULL,
     last_activity_at  INTEGER NOT NULL,
     origin_host       TEXT,
-    schema_version    INTEGER NOT NULL DEFAULT 1
+    schema_version    INTEGER NOT NULL DEFAULT 1,
+    resume_count      INTEGER NOT NULL DEFAULT 0,
+    frecency_rank     REAL NOT NULL DEFAULT 1.0
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_last_activity ON sessions (last_activity_at DESC);

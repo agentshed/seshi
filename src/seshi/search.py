@@ -170,6 +170,7 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
 
     existing_ids = get_existing_session_ids()
     live_ids = [r["session_id"] for r in rows if r["session_id"] in existing_ids]
+    stale_ids = [r["session_id"] for r in rows if r["session_id"] not in existing_ids]
     if not live_ids:
         return 0
 
@@ -186,6 +187,13 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
         f"WHERE session_id IN ({placeholders})",
         [scale] + live_ids,
     )
+
+    if stale_ids:
+        stale_ph = ",".join("?" * len(stale_ids))
+        conn.execute(
+            f"UPDATE sessions SET frecency_rank = 0.0 WHERE session_id IN ({stale_ph})",
+            stale_ids,
+        )
 
     result = conn.execute(
         f"""UPDATE sessions SET is_archived = 1
