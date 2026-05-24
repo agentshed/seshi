@@ -179,9 +179,9 @@ class SeshiApp(App):
             sl._input_buffer = ""
             sl._update_footer("normal")
             sl.refresh()
-        elif search.active or search.has_focus or search.query:
+        elif search.active or search.has_focus or search.search_text:
             search.active = False
-            search.query = ""
+            search.search_text = ""
             search.post_message(SearchChanged(""))
             sl.focus()
             self._update_counts()
@@ -214,8 +214,8 @@ class SeshiApp(App):
         try:
             search = self.query_one(SearchBar)
             if search.active:
-                search.query += char
-                search.post_message(SearchChanged(search.query))
+                search.search_text += char
+                search.post_message(SearchChanged(search.search_text))
         except Exception:
             pass
 
