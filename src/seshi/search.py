@@ -154,6 +154,8 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
     if last_aged and now_ts - int(last_aged) < 300:
         return 0
 
+    set_setting(conn, "last_aged_at", str(now_ts))
+
     rows = conn.execute(
         "SELECT session_id, frecency_rank FROM sessions WHERE is_archived = 0"
     ).fetchall()
@@ -197,5 +199,4 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
     )
     archived_count = result.rowcount
     conn.commit()
-    set_setting(conn, "last_aged_at", str(now_ts))
     return archived_count
