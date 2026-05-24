@@ -154,8 +154,6 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
     if last_aged and now_ts - int(last_aged) < 300:
         return 0
 
-    set_setting(conn, "last_aged_at", str(now_ts))
-
     rows = conn.execute(
         "SELECT session_id, frecency_rank FROM sessions WHERE is_archived = 0"
     ).fetchall()
@@ -171,13 +169,25 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
     existing_ids = get_existing_session_ids()
     live_ids = [r["session_id"] for r in rows if r["session_id"] in existing_ids]
     stale_ids = [r["session_id"] for r in rows if r["session_id"] not in existing_ids]
+
+    if stale_ids:
+        stale_ph = ",".join("?" * len(stale_ids))
+        conn.execute(
+            f"UPDATE sessions SET frecency_rank = 0.0 WHERE session_id IN ({stale_ph})",
+            stale_ids,
+        )
+
     if not live_ids:
+        conn.commit()
+        set_setting(conn, "last_aged_at", str(now_ts))
         return 0
 
     total = sum(
         r["frecency_rank"] for r in rows if r["session_id"] in existing_ids
     )
     if total <= AGING_THRESHOLD:
+        conn.commit()
+        set_setting(conn, "last_aged_at", str(now_ts))
         return 0
 
     scale = AGING_FACTOR * AGING_THRESHOLD / total
@@ -187,13 +197,6 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
         f"WHERE session_id IN ({placeholders})",
         [scale] + live_ids,
     )
-
-    if stale_ids:
-        stale_ph = ",".join("?" * len(stale_ids))
-        conn.execute(
-            f"UPDATE sessions SET frecency_rank = 0.0 WHERE session_id IN ({stale_ph})",
-            stale_ids,
-        )
 
     result = conn.execute(
         f"""UPDATE sessions SET is_archived = 1
@@ -207,4 +210,5 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
     )
     archived_count = result.rowcount
     conn.commit()
+    set_setting(conn, "last_aged_at", str(now_ts))
     return archived_count

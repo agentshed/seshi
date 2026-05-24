@@ -290,7 +290,7 @@ class TestAgeFrecencyRanks:
         row = tmp_db.execute("SELECT frecency_rank FROM sessions WHERE session_id = 'id-live'").fetchone()
         assert row["frecency_rank"] == 5.0
         row = tmp_db.execute("SELECT frecency_rank FROM sessions WHERE session_id = 'id-stale'").fetchone()
-        assert row["frecency_rank"] == 5000.0
+        assert row["frecency_rank"] == 0.0
 
 
 # --- Frequency sort mode ---
