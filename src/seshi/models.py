@@ -22,6 +22,8 @@ class Session:
     last_activity_at: int
     origin_host: str | None
     schema_version: int
+    resume_count: int = 0
+    frecency_rank: float = 1.0
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "Session":

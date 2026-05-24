@@ -942,7 +942,7 @@ Goal: Take a messy session list and organize it.
 
 ```
 1. Launch TUI
-2. Press `s` twice to switch to frequency sort (see most-used projects first)
+2. Press `s` twice to switch to frequency sort (see most-resumed sessions first)
 3. Navigate to a frequently-used session → press `r` → rename to descriptive name → Enter
 4. Navigate to another → press `f` to favorite it
 5. Select 5 related sessions with Space

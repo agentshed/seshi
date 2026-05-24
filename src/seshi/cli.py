@@ -36,6 +36,8 @@ def main(ctx, no_color, here):
         try:
             with open_db() as conn:
                 drain_queue(conn)
+                from seshi.search import age_frecency_ranks
+                age_frecency_ranks(conn)
         except Exception:
             pass
 

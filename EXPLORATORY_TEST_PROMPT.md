@@ -308,7 +308,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - **Verify:** Search bar shows updated sort mode label
 - **Verify:** Session order changes (now pure recency — most recent first)
 - Press `s` again: changes to "frequency"
-- **Verify:** Sessions sorted by cwd frequency (most-used project first)
+- **Verify:** Sessions sorted by resume count (most-resumed sessions first)
 - Press `s` again: cycles back to "frecency"
 - **Verify:** Setting persists in DB (re-launch TUI, sort mode is remembered)
 

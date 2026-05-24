@@ -67,7 +67,7 @@ pythonpath = ["src"]
 | `subprocess` | Shell out to `claude -p` for auto-name |
 | `shutil.which` | Check `claude` on PATH (doctor command) |
 | `importlib.resources` | Locate bundled `hook.sh` at runtime |
-| `math` | `log()` for frecency calculation |
+| `math` | `log1p()` for sparkline log-scaling in overview |
 | `os` / `platform` / `socket` | System info capture (hostname, platform detection) |
 | `pathlib` | Path manipulation throughout |
 
@@ -325,8 +325,8 @@ def session_resolve(conn, identifier: str) -> Session:
 def rank_sessions(conn, query: str, filter_cwd=None) -> list[Session]:
     """Score = max(custom_name×4, first_prompt×2, cwd×1). For fuzzy resume."""
 
-def frecency_score(session, now, cwd_counts) -> float:
-    """recency×0.7 + frequency×0.3. recency = 1/(1 + age_hours/24)."""
+def frecency_score(session, now) -> float:
+    """frecency_rank × step_function_multiplier(age_hours). Multiplicative blend."""
 ```
 
 ### Phase 4: Shell Integration (Week 2)

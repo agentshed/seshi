@@ -557,6 +557,8 @@ Local embedded database at `~/.seshi/db.sqlite`. WAL journal mode. Foreign keys 
 | `last_activity_at` | INTEGER | NOT NULL | — | Unix timestamp of last event |
 | `origin_host` | TEXT | nullable | — | Hostname where session ran (reserved for future multi-machine sync) |
 | `schema_version` | INTEGER | NOT NULL | 1 | Schema version for forward compatibility |
+| `resume_count` | INTEGER | NOT NULL | 0 | Number of times this session has been resumed |
+| `frecency_rank` | REAL | NOT NULL | 1.0 | Decaying frecency score, incremented on resume, scaled down by aging |
 
 **Indexes**:
 - `idx_sessions_last_activity`: `(last_activity_at DESC)`
@@ -590,6 +592,7 @@ Local embedded database at `~/.seshi/db.sqlite`. WAL journal mode. Foreign keys 
 | `accent_color` | `"#D97757"` | Legacy accent color override |
 | `theme` | `"coral"` | Active TUI palette name |
 | `sort_mode` | `"frecency"` | Session list sort mode (`frecency`, `recency`, or `frequency`) |
+| `hide_stale_sessions` | `"1"` | Hide sessions whose transcript JSONL no longer exists on disk |
 | `schema_version` | `"1"` | Schema version |
 
 #### project_favorites
@@ -605,6 +608,7 @@ Used by the Projects view (section 4.27) and `seshi project` CLI commands (secti
 
 - **Creation**: sessions inserted via queue drain (hook events) or backfill scan
 - **Updates**: `custom_name`, `is_favorite`, `is_archived`, tags modified through TUI actions or CLI commands (`seshi rename`, `seshi tag`, `seshi favorite`, `seshi archive`); `message_count`/`token_count`/`status` updated on stop event
+- **Aging**: on every CLI invocation (throttled to once per 5 minutes), if the sum of `frecency_rank` across all live (non-archived, non-stale) sessions exceeds 1000, all live ranks are scaled by `0.9 × 1000 / total`. Sessions whose rank falls below 1.0 are auto-archived — unless they are favorited, named, or tagged.
 - **Archival**: `seshi archive` or `u` key in TUI toggles `is_archived` — hides session from views without deleting data. Reversible.
 - **Hard deletion**: `d` key in TUI (with confirmation dialog) or `seshi delete` (requires `--force` or interactive confirm). Cascades to tags. `seshi prune` bulk-deletes old unprotected sessions.
 - **Recovery**: deleted sessions can be re-discovered by running `seshi scan`, since transcript files on disk are never deleted
@@ -766,6 +770,8 @@ score = max(
 
 Clear winner threshold: `top_score >= second_score × 1.4`
 
+When searching, fuzzy scores are boosted by frecency: `blended = fuzzy × (1 + frecency / max_frecency)`. This gives a 1×–2× boost based on relative frecency across the result set, so frequently-used sessions win ties without overriding strong text matches.
+
 ### Cost Estimation
 
 Total token count is split into estimated input/output using a fixed 1:3 ratio:
@@ -821,21 +827,23 @@ Sessions are ordered according to the active sort mode. Favorites always sort fi
 
 **Recency**: ordered by `last_activity_at DESC`.
 
-**Frequency**: sessions grouped by `cwd`, groups ordered by session count descending, then by `last_activity_at DESC` within each group.
+**Frequency**: sessions ordered by `resume_count` descending, then by `last_activity_at DESC` to break ties.
 
-**Frecency** (default): combines recency and frequency into a single score per session:
+**Frecency** (default): combines recency and frequency into a single score per session using multiplicative blending:
 
 ```
 frecencyScore(session, now):
   age_hours = (now - last_activity_at) / 3600
-  recency = 1 / (1 + age_hours / 24)
-  frequency = ln(1 + session_count_for_cwd)
-  return recency × 0.7 + frequency × 0.3
+  multiplier = stepFunction(age_hours):
+    < 4 hours  → 4.0
+    < 1 day    → 2.0
+    < 1 week   → 1.0
+    < 4 weeks  → 0.5
+    ≥ 4 weeks  → 0.25
+  return frecency_rank × multiplier
 ```
 
-Sessions are ordered by `frecencyScore DESC`. The recency component decays with a half-life of ~24 hours, ensuring recently used sessions surface quickly while frequently visited projects remain accessible.
-
-**Performance**: the frequency component (`session_count_for_cwd`) is computed via a single aggregate subquery (`SELECT cwd, COUNT(*) FROM sessions GROUP BY cwd`) joined to the session list, not per-row lookups.
+`frecency_rank` starts at 1.0 for new sessions and increments by 1.0 on each resume. The step-function decay gives a strong boost to sessions accessed in the last few hours while penalizing stale ones. The multiplicative blend means frequently-resumed sessions always score proportionally higher than rarely-used ones at the same age.
 
 Then filtered client-side by: cwd match → tag AND filter → fuzzy text match (if query present).
 

@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+import time
 
 from textual.widget import Widget
 from textual.reactive import reactive
@@ -9,7 +10,7 @@ from rich.text import Text
 
 from seshi.models import Session
 from seshi.prompt_text import strip_markup_tags
-from seshi.search import fuzzy_match, list_sessions, FUZZY_THRESHOLD
+from seshi.search import fuzzy_match, frecency_score, blend_fuzzy_frecency, list_sessions, FUZZY_THRESHOLD
 from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
@@ -63,16 +64,19 @@ class SessionsList(Widget):
         self._all_sessions = sessions
 
         if query:
+            now = int(time.time())
             scored = []
             for s in sessions:
                 r1 = fuzzy_match(query, s.custom_name or "")
                 r2 = fuzzy_match(query, strip_markup_tags(s.first_prompt or ""))
                 r3 = fuzzy_match(query, s.cwd)
                 if max(r1, r2, r3) >= FUZZY_THRESHOLD:
-                    best = max(r1 * 4, r2 * 2, r3)
-                    scored.append((s, best))
-            scored.sort(key=lambda x: (-x[0].is_favorite, -x[1]))
-            sessions = [s for s, _ in scored]
+                    fuzzy = max(r1 * 4, r2 * 2, r3)
+                    frec = frecency_score(s, now)
+                    scored.append((s, fuzzy, frec))
+            blended = blend_fuzzy_frecency(scored)
+            blended.sort(key=lambda x: (-x[0].is_favorite, -x[1]))
+            sessions = [s for s, _ in blended]
 
         self.sessions = sessions
         if self.cursor >= len(self.sessions):

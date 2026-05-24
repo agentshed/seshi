@@ -8,7 +8,7 @@ from textual.containers import Vertical, Horizontal
 from textual.reactive import reactive
 from textual.widgets import Static
 
-from seshi.db import open_db, get_setting
+from seshi.db import open_db, get_setting, record_resume
 from seshi.models import Session
 from seshi.themes import get_theme
 from seshi.tui.styles import theme_css
@@ -331,6 +331,8 @@ def launch_tui(ctx_obj: dict | None = None):
             break
 
         session = app.chosen_session
+        with open_db() as conn:
+            record_resume(conn, session.session_id)
         try:
             argv = json.loads(session.launch_argv_json)
         except (json.JSONDecodeError, TypeError):

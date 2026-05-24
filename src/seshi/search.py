@@ -1,4 +1,3 @@
-import math
 import sqlite3
 import time
 
@@ -8,6 +7,9 @@ from seshi.models import Session
 from seshi.prompt_text import strip_markup_tags
 
 FUZZY_THRESHOLD = 55
+AGING_THRESHOLD = 1000.0
+AGING_FACTOR = 0.9
+ARCHIVE_RANK_THRESHOLD = 1.0
 
 
 def fuzzy_match(query: str, string: str) -> int:
@@ -34,6 +36,40 @@ def session_resolve(conn: sqlite3.Connection, identifier: str) -> Session | None
     return None
 
 
+def _recency_multiplier(age_hours: float) -> float:
+    if age_hours < 4:
+        return 4.0
+    if age_hours < 24:
+        return 2.0
+    if age_hours < 24 * 7:
+        return 1.0
+    if age_hours < 24 * 28:
+        return 0.5
+    return 0.25
+
+
+def frecency_score(
+    session: Session,
+    now: int | None = None,
+) -> float:
+    if now is None:
+        now = int(time.time())
+    age_hours = (now - session.last_activity_at) / 3600
+    return session.frecency_rank * _recency_multiplier(age_hours)
+
+
+def blend_fuzzy_frecency(
+    scored: list[tuple[Session, int, float]],
+) -> list[tuple[Session, int]]:
+    if not scored:
+        return []
+    max_frecency = max(f for _, _, f in scored) or 1.0
+    return [
+        (session, int(fuzzy * (1.0 + frec / max_frecency)))
+        for session, fuzzy, frec in scored
+    ]
+
+
 def rank_sessions(
     conn: sqlite3.Connection,
     query: str,
@@ -47,6 +83,7 @@ def rank_sessions(
     sql += " ORDER BY is_favorite DESC, last_activity_at DESC"
     rows = conn.execute(sql, params).fetchall()
 
+    now = int(time.time())
     scored = []
     for row in rows:
         session = Session.from_row(row)
@@ -54,25 +91,13 @@ def rank_sessions(
         r2 = fuzzy_match(query, strip_markup_tags(session.first_prompt or ""))
         r3 = fuzzy_match(query, session.cwd)
         if max(r1, r2, r3) >= FUZZY_THRESHOLD:
-            best = max(r1 * 4, r2 * 2, r3)
-            scored.append((session, best))
+            fuzzy = max(r1 * 4, r2 * 2, r3)
+            frec = frecency_score(session, now)
+            scored.append((session, fuzzy, frec))
 
-    scored.sort(key=lambda x: x[1], reverse=True)
-    return scored
-
-
-def frecency_score(
-    session: Session,
-    now: int | None = None,
-    cwd_counts: dict[str, int] | None = None,
-) -> float:
-    if now is None:
-        now = int(time.time())
-    age_hours = (now - session.last_activity_at) / 3600
-    recency = 1.0 / (1.0 + age_hours / 24.0)
-    count = (cwd_counts or {}).get(session.cwd, 1)
-    frequency = math.log(1 + count)
-    return recency * 0.7 + frequency * 0.3
+    results = blend_fuzzy_frecency(scored)
+    results.sort(key=lambda x: x[1], reverse=True)
+    return results
 
 
 def list_sessions(
@@ -104,24 +129,86 @@ def list_sessions(
 
     if sort_mode == "frecency":
         now = int(time.time())
-        cwd_counts: dict[str, int] = {}
-        for s in sessions:
-            cwd_counts[s.cwd] = cwd_counts.get(s.cwd, 0) + 1
         favorites = [s for s in sessions if s.is_favorite]
         non_favorites = [s for s in sessions if not s.is_favorite]
-        favorites.sort(key=lambda s: frecency_score(s, now, cwd_counts), reverse=True)
-        non_favorites.sort(key=lambda s: frecency_score(s, now, cwd_counts), reverse=True)
+        favorites.sort(key=lambda s: frecency_score(s, now), reverse=True)
+        non_favorites.sort(key=lambda s: frecency_score(s, now), reverse=True)
         sessions = favorites + non_favorites
     elif sort_mode == "frequency":
-        cwd_counts = {}
-        for s in sessions:
-            cwd_counts[s.cwd] = cwd_counts.get(s.cwd, 0) + 1
         favorites = [s for s in sessions if s.is_favorite]
         non_favorites = [s for s in sessions if not s.is_favorite]
-        non_favorites.sort(key=lambda s: (-cwd_counts.get(s.cwd, 0), -s.last_activity_at))
+        non_favorites.sort(key=lambda s: (-s.resume_count, -s.last_activity_at))
         sessions = favorites + non_favorites
 
     if limit:
         sessions = sessions[:limit]
 
     return sessions
+
+
+def age_frecency_ranks(conn: sqlite3.Connection) -> int:
+    from seshi.db import get_setting, set_setting
+
+    now_ts = int(time.time())
+    last_aged = get_setting(conn, "last_aged_at")
+    if last_aged and now_ts - int(last_aged) < 300:
+        return 0
+
+    rows = conn.execute(
+        "SELECT session_id, frecency_rank FROM sessions WHERE is_archived = 0"
+    ).fetchall()
+    if not rows:
+        return 0
+
+    upper_bound = sum(r["frecency_rank"] for r in rows)
+    if upper_bound <= AGING_THRESHOLD:
+        return 0
+
+    from seshi.transcript import get_existing_session_ids
+
+    existing_ids = get_existing_session_ids()
+    live_ids = [r["session_id"] for r in rows if r["session_id"] in existing_ids]
+    stale_ids = [r["session_id"] for r in rows if r["session_id"] not in existing_ids]
+
+    if stale_ids:
+        stale_ph = ",".join("?" * len(stale_ids))
+        conn.execute(
+            f"UPDATE sessions SET frecency_rank = 0.0 WHERE session_id IN ({stale_ph})",
+            stale_ids,
+        )
+
+    if not live_ids:
+        conn.commit()
+        set_setting(conn, "last_aged_at", str(now_ts))
+        return 0
+
+    total = sum(
+        r["frecency_rank"] for r in rows if r["session_id"] in existing_ids
+    )
+    if total <= AGING_THRESHOLD:
+        conn.commit()
+        set_setting(conn, "last_aged_at", str(now_ts))
+        return 0
+
+    scale = AGING_FACTOR * AGING_THRESHOLD / total
+    placeholders = ",".join("?" * len(live_ids))
+    conn.execute(
+        f"UPDATE sessions SET frecency_rank = frecency_rank * ? "
+        f"WHERE session_id IN ({placeholders})",
+        [scale] + live_ids,
+    )
+
+    result = conn.execute(
+        f"""UPDATE sessions SET is_archived = 1
+           WHERE is_archived = 0
+             AND frecency_rank < ?
+             AND is_favorite = 0
+             AND custom_name IS NULL
+             AND session_id NOT IN (SELECT session_id FROM tags)
+             AND session_id IN ({placeholders})""",
+        [ARCHIVE_RANK_THRESHOLD] + live_ids,
+    )
+    archived_count = result.rowcount
+    conn.commit()
+    set_setting(conn, "last_aged_at", str(now_ts))
+    return archived_count

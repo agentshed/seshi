@@ -3,7 +3,7 @@ import sys
 import click
 
 from seshi.cli import main
-from seshi.db import open_db
+from seshi.db import open_db, record_resume
 from seshi.models import Session
 from seshi.resume import build_resume_line
 
@@ -24,11 +24,12 @@ def last(ctx, here):
         sql += " ORDER BY last_activity_at DESC LIMIT 1"
         row = conn.execute(sql, params).fetchone()
 
-    if not row:
-        click.echo("no sessions in registry. Run `seshi scan` to discover existing sessions.", err=True)
-        raise SystemExit(1)
+        if not row:
+            click.echo("no sessions in registry. Run `seshi scan` to discover existing sessions.", err=True)
+            raise SystemExit(1)
 
-    session = Session.from_row(row)
-    line = build_resume_line(session)
-    sys.stdout.write(line)
-    sys.stdout.flush()
+        session = Session.from_row(row)
+        record_resume(conn, session.session_id)
+        line = build_resume_line(session)
+        sys.stdout.write(line)
+        sys.stdout.flush()

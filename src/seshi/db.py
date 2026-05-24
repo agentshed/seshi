@@ -23,7 +23,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     created_at        INTEGER NOT NULL,
     last_activity_at  INTEGER NOT NULL,
     origin_host       TEXT,
-    schema_version    INTEGER NOT NULL DEFAULT 1
+    schema_version    INTEGER NOT NULL DEFAULT 1,
+    resume_count      INTEGER NOT NULL DEFAULT 0,
+    frecency_rank     REAL NOT NULL DEFAULT 1.0
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_last_activity ON sessions (last_activity_at DESC);
@@ -68,6 +70,14 @@ def init_schema(conn: sqlite3.Connection) -> None:
             "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
             (key, value),
         )
+    for col, defn in [
+        ("resume_count", "INTEGER NOT NULL DEFAULT 0"),
+        ("frecency_rank", "REAL NOT NULL DEFAULT 1.0"),
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE sessions ADD COLUMN {col} {defn}")
+        except sqlite3.OperationalError:
+            pass
     conn.commit()
 
 
@@ -91,6 +101,14 @@ def get_setting(conn: sqlite3.Connection, key: str) -> str | None:
     if row:
         return row["value"]
     return DEFAULT_SETTINGS.get(key)
+
+
+def record_resume(conn: sqlite3.Connection, session_id: str) -> None:
+    conn.execute(
+        "UPDATE sessions SET resume_count = resume_count + 1, frecency_rank = frecency_rank + 1.0 WHERE session_id = ?",
+        (session_id,),
+    )
+    conn.commit()
 
 
 def set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
