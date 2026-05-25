@@ -14,7 +14,7 @@ class SearchBar(Widget):
     }
     """
 
-    query: reactive[str] = reactive("")
+    search_text: reactive[str] = reactive("")
     shown: reactive[int] = reactive(0)
     total: reactive[int] = reactive(0)
     sort_mode: reactive[str] = reactive("frecency")
@@ -44,27 +44,27 @@ class SearchBar(Widget):
     def render(self) -> Text:
         text = Text()
         text.append("  > ", style=f"bold {self.accent}")
-        text.append(self.query, style="bold")
+        text.append(self.search_text, style="bold")
         if self.active and self._cursor_visible:
             text.append("▮", style=f"bold {self.accent}")
         elif self.active:
             text.append(" ")
         text.append(f"  {self.sort_mode}", style="dim italic")
-        padding = " " * max(1, 60 - len(self.query) - len(self.sort_mode))
+        padding = " " * max(1, 60 - len(self.search_text) - len(self.sort_mode))
         text.append(padding)
         text.append(f"{self.shown} / {self.total}", style="dim")
         return text
 
     def on_key(self, event: events.Key) -> None:
         if event.key == "backspace":
-            if self.query:
-                self.query = self.query[:-1]
-                self.post_message(SearchChanged(self.query))
+            if self.search_text:
+                self.search_text = self.search_text[:-1]
+                self.post_message(SearchChanged(self.search_text))
             event.stop()
         elif event.key == "escape":
-            if self.query:
-                self.query = ""
-                self.post_message(SearchChanged(self.query))
+            if self.search_text:
+                self.search_text = ""
+                self.post_message(SearchChanged(self.search_text))
                 event.stop()
         elif event.key in ("up", "down", "enter"):
             sl = getattr(self.app, "_sessions_list", None)
@@ -83,12 +83,12 @@ class SearchBar(Widget):
                         return
             event.stop()
         elif event.is_printable and event.character:
-            self.query += event.character
-            self.post_message(SearchChanged(self.query))
+            self.search_text += event.character
+            self.post_message(SearchChanged(self.search_text))
             event.stop()
 
     def parse_query(self) -> tuple[str, list[str]]:
-        parts = self.query.split()
+        parts = self.search_text.split()
         tags = [p[1:] for p in parts if p.startswith("#")]
         text = " ".join(p for p in parts if not p.startswith("#"))
         return text, tags

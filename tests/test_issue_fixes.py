@@ -1,7 +1,7 @@
 """Tests for batch issue fixes.
 
 Covers: #1, #12, #13, #15, #23, #24, #25, #28, #29, #30, #31, #32, #33, #34,
-        #35, #37, #38, #39, #40, #43, #48
+        #35, #37, #38, #39, #40, #43, #48, #71
 """
 import math
 import os
@@ -234,7 +234,7 @@ def test_search_bar_no_dim_cursor_when_inactive():
     from seshi.tui.search_bar import SearchBar
     bar = SearchBar()
     bar.active = False
-    bar.query = ""
+    bar.search_text = ""
     rendered = bar.render().plain
     assert "▮" not in rendered
 
@@ -291,3 +291,46 @@ def test_execute_delete_removes_session(tmp_db):
     view._execute_delete(["s1"])
     row = tmp_db.execute("SELECT 1 FROM sessions WHERE session_id = ?", ("s1",)).fetchone()
     assert row is None
+
+
+# === #71: SearchBar.query shadows Widget.query() ===
+
+def test_searchbar_does_not_shadow_widget_query():
+    from textual.widget import Widget
+    from seshi.tui.search_bar import SearchBar
+    bar = SearchBar()
+    assert callable(bar.query), "SearchBar must not shadow Widget.query()"
+    assert bar.query is not None
+    assert hasattr(bar.query, "__call__")
+
+
+def test_searchbar_search_text_reactive_works():
+    from seshi.tui.search_bar import SearchBar
+    bar = SearchBar()
+    assert bar.search_text == ""
+    bar.search_text = "hello"
+    assert bar.search_text == "hello"
+
+
+def test_no_reactive_shadows_widget_methods():
+    import inspect
+    from textual.widget import Widget
+    from textual.reactive import Reactive
+    from seshi.tui.search_bar import SearchBar
+    from seshi.tui.sessions import SessionsList
+    from seshi.tui.header import Header
+    from seshi.tui.footer import Footer
+    from seshi.tui.preview import Preview
+
+    widget_methods = {
+        name for name, _ in inspect.getmembers(Widget, predicate=inspect.isfunction)
+        if not name.startswith("_")
+    }
+
+    for cls in [SearchBar, SessionsList, Header, Footer, Preview]:
+        reactives = {
+            name for name, val in vars(cls).items()
+            if isinstance(val, Reactive)
+        }
+        collisions = reactives & widget_methods
+        assert not collisions, f"{cls.__name__} reactive(s) shadow Widget method(s): {collisions}"

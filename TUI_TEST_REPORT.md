@@ -143,7 +143,7 @@ The tab bar `"  1 sessions    2 overview    3 projects    ? help"` is a plain `S
 
 When Escape is pressed with search active, the app's priority binding fires first, setting `search.active = False` and moving focus away. But the query text and filter remain. This requires a SECOND Escape to clear the query. Users expect one Escape to fully dismiss search.
 
-The layering order is: input_mode → search.active → search.query → filter_cwd → selection → quit. This means escaping from a complex state (search active + query + selection + filter_cwd) requires 5-6 Escape presses.
+The layering order is: input_mode → search.active → search.search_text → filter_cwd → selection → quit. This means escaping from a complex state (search active + query + selection + filter_cwd) requires 5-6 Escape presses.
 
 ### M4. Session Row Layout Breaks with Long CWD Paths
 
