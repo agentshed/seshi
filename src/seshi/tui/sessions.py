@@ -132,6 +132,14 @@ class SessionsList(Widget):
 
         lines: list[tuple[int, Session]] = list(enumerate(self.sessions))
 
+        w = self.size.width if self.size.width > 0 else 120
+        max_rel_len = max((len(relative_time(s.last_activity_at)) for _, s in lines), default=8)
+        # prefix: cursor(1)+sel(3)+fav(3)+lang(3)+gap(2)=12; gaps: 2+2=4
+        overhead = 12 + 4 + max_rel_len
+        avail = max(30, w - overhead)
+        title_w = min(50, max(12, avail * 40 // 100))
+        cwd_w = min(40, max(12, avail * 33 // 100))
+
         current_bucket = ""
         visible_rows: list[tuple[str, str, bool]] = []
 
@@ -160,13 +168,6 @@ class SessionsList(Widget):
             lang_str = f"{lang:>3}" if lang else "   "
             rel = relative_time(s.last_activity_at)
 
-            w = self.size.width if self.size.width > 0 else 120
-            # prefix: cursor(1)+sel(3)+fav(3)+lang(3)+gap(2)=12; gaps: 2+2=4
-            overhead = 12 + 4 + len(rel)
-            avail = max(30, w - overhead)
-            title_w = min(50, max(12, avail * 40 // 100))
-            cwd_w = min(40, max(12, avail * 33 // 100))
-
             title = (s.custom_name or strip_markup_tags(s.first_prompt or "") or "(untitled)")[:title_w]
             cwd = s.cwd
             if cwd.startswith(home):
@@ -182,7 +183,7 @@ class SessionsList(Widget):
             if tag_rows:
                 tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
 
-            base = f"{cursor_mark}{sel_mark}{fav}{lang_str}  {title:<{title_w}}  {cwd:<{cwd_w}}  {rel}"
+            base = f"{cursor_mark}{sel_mark}{fav}{lang_str}  {title:<{title_w}}  {cwd:<{cwd_w}}  {rel:>{max_rel_len}}"
             tags_budget = w - len(base)
             if tags_str and tags_budget > 3:
                 tags_str = tags_str[:tags_budget]

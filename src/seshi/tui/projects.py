@@ -72,6 +72,10 @@ class ProjectsView(Widget):
         w = self.size.width if self.size.width > 0 else 120
         bar_width = min(20, max(8, (w - 50) * 30 // 100))
         home = os.path.expanduser("~")
+        max_rel_len = max(len(relative_time(p["last_active"])) for p in self._projects)
+        # indent(2)+fav(2)+lang(4)+gap(2)+bar+gap(2)+count(3)+space(1)+label(8)+gap(2)+rel
+        fixed = 2 + 2 + 4 + 2 + bar_width + 2 + 3 + 1 + 8 + 2 + max_rel_len
+        display_w = max(15, w - fixed)
 
         for i, p in enumerate(self._projects):
             is_cursor = i == self.cursor
@@ -84,20 +88,16 @@ class ProjectsView(Widget):
             display = p["custom_name"] or p["cwd"]
             if display.startswith(home):
                 display = "~" + display[len(home):]
-
-            rel = relative_time(p["last_active"])
-            label = "session" if p["count"] == 1 else "sessions"
-            # indent(2)+fav(2)+lang(4)+gap(2)+bar+gap(2)+count(3)+space(1)+label(8)+gap(2)+rel
-            fixed = 2 + 2 + 4 + 2 + bar_width + 2 + 3 + 1 + 8 + 2 + len(rel)
-            display_w = max(15, w - fixed)
             if len(display) > display_w:
                 half = (display_w - 1) // 2
                 display = display[:half] + "…" + display[-(display_w - 1 - half):]
 
+            rel = relative_time(p["last_active"])
+            label = "session" if p["count"] == 1 else "sessions"
             bar_len = int((p["count"] / max(max_count, 1)) * bar_width)
             bar = "█" * bar_len + "░" * (bar_width - bar_len)
 
-            row = f"  {fav}{lang_str}{display:<{display_w}}  {bar}  {p['count']:>3} {label}  {rel}"
+            row = f"  {fav}{lang_str}{display:<{display_w}}  {bar}  {p['count']:>3} {label}  {rel:>{max_rel_len}}"
             text.append(row[:w] + "\n", style=style)
 
         return text
