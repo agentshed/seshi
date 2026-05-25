@@ -4,7 +4,7 @@ from seshi.themes import Palette
 def theme_css(palette: Palette) -> str:
     return f"""
 Screen {{
-    background: #1a1a2e;
+    background: #000000;
 }}
 
 #header {{
@@ -12,7 +12,7 @@ Screen {{
     border: solid {palette.border};
     padding: 0 2;
     color: {palette.fg};
-    background: #1a1a2e;
+    background: #000000;
 }}
 
 #header .logo {{
@@ -34,7 +34,7 @@ Screen {{
     height: 1;
     padding: 0 1;
     color: {palette.fg};
-    background: #1a1a2e;
+    background: #000000;
 }}
 
 #session-list {{
@@ -42,7 +42,7 @@ Screen {{
     min-height: 10;
     border: solid {palette.border_dim};
     color: {palette.fg};
-    background: #1a1a2e;
+    background: #000000;
 }}
 
 .session-row {{
@@ -82,7 +82,7 @@ Screen {{
     border: solid {palette.border_dim};
     padding: 0 1;
     color: {palette.fg_muted};
-    background: #1a1a2e;
+    background: #000000;
 }}
 
 #preview .role-user {{
@@ -98,7 +98,7 @@ Screen {{
     dock: bottom;
     color: {palette.fg_dim};
     padding: 0 1;
-    background: #1a1a2e;
+    background: #000000;
 }}
 
 #footer .key {{
@@ -109,7 +109,7 @@ Screen {{
 #overview, #projects-view, #help-view {{
     padding: 1 2;
     color: {palette.fg};
-    background: #1a1a2e;
+    background: #000000;
 }}
 
 .sparkline {{
