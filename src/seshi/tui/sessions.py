@@ -89,6 +89,13 @@ class SessionsList(Widget):
         self._current_tags = tags if tags else None
         self._load_sessions(query=text, tags=self._current_tags)
 
+    def watch_cursor(self, cursor: int) -> None:
+        try:
+            if hasattr(self.app, '_preview'):
+                self.app._preview.session = self.current_session
+        except Exception:
+            pass
+
     @property
     def current_session(self) -> Session | None:
         if 0 <= self.cursor < len(self.sessions):
