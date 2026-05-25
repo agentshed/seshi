@@ -1,6 +1,9 @@
+import logging
 import sqlite3
 
 from seshi.paths import CLAUDE_PROJECTS, UUID_RE, resolve_best_cwd
+
+log = logging.getLogger(__name__)
 from seshi.transcript import parse_transcript
 
 
@@ -86,6 +89,6 @@ def scan_projects(
     try:
         index_pending(conn)
     except Exception:
-        pass
+        log.debug("FTS indexing failed", exc_info=True)
 
     return count
