@@ -92,9 +92,15 @@ class SeshiApp(App):
 
     @work(thread=True)
     def _index_transcripts_async(self) -> None:
+        from seshi.paths import DB_PATH
         from seshi.transcript_index import index_pending
         try:
-            index_pending(self._conn)
+            conn = sqlite3.connect(str(DB_PATH))
+            conn.row_factory = sqlite3.Row
+            try:
+                index_pending(conn)
+            finally:
+                conn.close()
         except Exception:
             pass
 
