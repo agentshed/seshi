@@ -132,7 +132,14 @@ class SessionsList(Widget):
 
         lines: list[tuple[int, Session]] = list(enumerate(self.sessions))
 
-        row_index = 0
+        w = self.size.width if self.size.width > 0 else 120
+        max_rel_len = max((len(relative_time(s.last_activity_at)) for _, s in lines), default=8)
+        # prefix: cursor(1)+sel(3)+fav(3)+lang(3)+gap(2)=12; gaps: 2+2=4
+        overhead = 12 + 4 + max_rel_len
+        avail = max(30, w - overhead)
+        title_w = min(50, max(12, avail * 40 // 100))
+        cwd_w = min(40, max(12, avail * 33 // 100))
+
         current_bucket = ""
         visible_rows: list[tuple[str, str, bool]] = []
 
@@ -159,13 +166,15 @@ class SessionsList(Widget):
             fav = " * " if s.is_favorite else "   "
             lang = detect_language(s.cwd)
             lang_str = f"{lang:>3}" if lang else "   "
-            title = (s.custom_name or strip_markup_tags(s.first_prompt or "") or "(untitled)")[:38]
+            rel = relative_time(s.last_activity_at)
+
+            title = (s.custom_name or strip_markup_tags(s.first_prompt or "") or "(untitled)")[:title_w]
             cwd = s.cwd
             if cwd.startswith(home):
                 cwd = "~" + cwd[len(home):]
-            if len(cwd) > 30:
-                cwd = cwd[:14] + "…" + cwd[-15:]
-            rel = relative_time(s.last_activity_at)
+            if len(cwd) > cwd_w:
+                half = (cwd_w - 1) // 2
+                cwd = cwd[:half] + "…" + cwd[-(cwd_w - 1 - half):]
 
             tags_str = ""
             tag_rows = self.conn.execute(
@@ -174,7 +183,13 @@ class SessionsList(Widget):
             if tag_rows:
                 tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
 
-            line = f"{cursor_mark}{sel_mark}{fav}{lang_str}  {title:<38}  {cwd:<30}  {rel}{tags_str}"
+            base = f"{cursor_mark}{sel_mark}{fav}{lang_str}  {title:<{title_w}}  {cwd:<{cwd_w}}  {rel:>{max_rel_len}}"
+            tags_budget = w - len(base)
+            if tags_str and tags_budget > 3:
+                tags_str = tags_str[:tags_budget]
+            else:
+                tags_str = ""
+            line = (base + tags_str)[:w]
             visible_rows.append((line, style, is_cursor))
 
         cursor_row_idx = 0

@@ -242,7 +242,7 @@ def test_search_bar_no_dim_cursor_when_inactive():
 # === #34: Long CWD paths truncated in projects ===
 
 def test_projects_truncates_long_cwd(tmp_db):
-    long_cwd = "/home/user/very/deeply/nested/project/path/that/is/extremely/long"
+    long_cwd = "/home/user/very/deeply/nested/project/path/that/is/extremely/long/and/goes/on/even/further/still"
     _insert_session(tmp_db, "s1", cwd=long_cwd)
     from seshi.tui.projects import ProjectsView
     view = ProjectsView(tmp_db)
