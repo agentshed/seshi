@@ -196,8 +196,72 @@ def test_search_transcripts_special_chars(tmp_db, tmp_path, monkeypatch):
     index_session(tmp_db, "sess-030")
     tmp_db.commit()
 
-    results = search_transcripts(tmp_db, "database AND connection")
+    results = search_transcripts(tmp_db, "database connection")
     assert "sess-030" in results
+
+
+def test_search_fts5_operators_treated_as_literals(tmp_db, tmp_path, monkeypatch):
+    """FTS5 keywords (AND, OR, NOT, NEAR) must be treated as literal search terms."""
+    project_dir = tmp_path / "projects" / "test-project"
+    project_dir.mkdir(parents=True)
+
+    t1 = project_dir / "sess-fts-op1.jsonl"
+    _make_transcript(t1, [("user", "the NOT operator is tricky")])
+    t2 = project_dir / "sess-fts-op2.jsonl"
+    _make_transcript(t2, [("user", "this should not match anything")])
+
+    lookup = {"sess-fts-op1": t1, "sess-fts-op2": t2}
+    monkeypatch.setattr(
+        "seshi.transcript_index.find_transcript_path",
+        lambda sid: lookup.get(sid),
+    )
+
+    _insert_session(tmp_db, "sess-fts-op1")
+    _insert_session(tmp_db, "sess-fts-op2")
+    index_session(tmp_db, "sess-fts-op1")
+    index_session(tmp_db, "sess-fts-op2")
+    tmp_db.commit()
+
+    results = search_transcripts(tmp_db, "NOT operator")
+    assert "sess-fts-op1" in results
+
+
+def test_search_or_keyword_literal(tmp_db, tmp_path, monkeypatch):
+    project_dir = tmp_path / "projects" / "test-project"
+    project_dir.mkdir(parents=True)
+    transcript = project_dir / "sess-or.jsonl"
+    _make_transcript(transcript, [("user", "use OR conditions in the query")])
+
+    monkeypatch.setattr(
+        "seshi.transcript_index.find_transcript_path",
+        lambda sid: transcript if sid == "sess-or" else None,
+    )
+
+    _insert_session(tmp_db, "sess-or")
+    index_session(tmp_db, "sess-or")
+    tmp_db.commit()
+
+    results = search_transcripts(tmp_db, "OR conditions")
+    assert "sess-or" in results
+
+
+def test_search_near_keyword_literal(tmp_db, tmp_path, monkeypatch):
+    project_dir = tmp_path / "projects" / "test-project"
+    project_dir.mkdir(parents=True)
+    transcript = project_dir / "sess-near.jsonl"
+    _make_transcript(transcript, [("user", "NEAR field communication protocol")])
+
+    monkeypatch.setattr(
+        "seshi.transcript_index.find_transcript_path",
+        lambda sid: transcript if sid == "sess-near" else None,
+    )
+
+    _insert_session(tmp_db, "sess-near")
+    index_session(tmp_db, "sess-near")
+    tmp_db.commit()
+
+    results = search_transcripts(tmp_db, "NEAR field")
+    assert "sess-near" in results
 
 
 def test_search_multi_term(tmp_db, tmp_path, monkeypatch):

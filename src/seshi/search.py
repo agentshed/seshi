@@ -75,6 +75,8 @@ def rank_sessions(
     query: str,
     filter_cwd: str | None = None,
 ) -> list[tuple[Session, int]]:
+    from seshi.transcript_index import search_transcripts
+
     sql = "SELECT * FROM sessions WHERE is_archived = 0"
     params: list = []
     if filter_cwd:
@@ -83,6 +85,8 @@ def rank_sessions(
     sql += " ORDER BY is_favorite DESC, last_activity_at DESC"
     rows = conn.execute(sql, params).fetchall()
 
+    fts_ids = search_transcripts(conn, query)
+
     now = int(time.time())
     scored = []
     for row in rows:
@@ -90,8 +94,9 @@ def rank_sessions(
         r1 = fuzzy_match(query, session.custom_name or "")
         r2 = fuzzy_match(query, strip_markup_tags(session.first_prompt or ""))
         r3 = fuzzy_match(query, session.cwd)
-        if max(r1, r2, r3) >= FUZZY_THRESHOLD:
-            fuzzy = max(r1 * 4, r2 * 2, r3)
+        r4 = 80 if session.session_id in fts_ids else 0
+        if max(r1, r2, r3, r4) >= FUZZY_THRESHOLD:
+            fuzzy = max(r1 * 4, r2 * 2, r3, r4)
             frec = frecency_score(session, now)
             scored.append((session, fuzzy, frec))
 

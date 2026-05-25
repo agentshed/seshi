@@ -108,8 +108,9 @@ def search_transcripts(conn: sqlite3.Connection, query: str) -> set[str]:
     if not terms:
         return set()
 
-    terms[-1] += "*"
-    fts_query = " ".join(terms)
+    quoted = [f'"{t}"' for t in terms[:-1]]
+    quoted.append(f'"{terms[-1]}"*')
+    fts_query = " ".join(quoted)
 
     try:
         rows = conn.execute(

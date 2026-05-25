@@ -3,6 +3,7 @@ import sys
 import sqlite3
 
 from textual.app import App, ComposeResult
+from textual import work
 from textual.binding import Binding
 from textual.containers import Vertical, Horizontal
 from textual.reactive import reactive
@@ -87,6 +88,10 @@ class SeshiApp(App):
         self._update_counts()
         self._update_tab_bar()
 
+        self._index_transcripts_async()
+
+    @work(thread=True)
+    def _index_transcripts_async(self) -> None:
         from seshi.transcript_index import index_pending
         try:
             index_pending(self._conn)
