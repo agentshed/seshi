@@ -79,6 +79,7 @@ class SeshiApp(App):
         main.mount(self._sessions_list)
 
         self._preview = Preview(id="preview")
+        self._preview.session = self._sessions_list.current_session
         main.mount(self._preview)
 
         self._sessions_list.focus()
