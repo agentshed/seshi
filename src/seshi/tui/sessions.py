@@ -11,6 +11,7 @@ from rich.text import Text
 from seshi.models import Session
 from seshi.prompt_text import strip_markup_tags
 from seshi.search import fuzzy_match, frecency_score, blend_fuzzy_frecency, list_sessions, FUZZY_THRESHOLD
+from seshi.transcript_index import search_transcripts
 from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
@@ -64,14 +65,16 @@ class SessionsList(Widget):
         self._all_sessions = sessions
 
         if query:
+            fts_ids = search_transcripts(self.conn, query)
             now = int(time.time())
             scored = []
             for s in sessions:
                 r1 = fuzzy_match(query, s.custom_name or "")
                 r2 = fuzzy_match(query, strip_markup_tags(s.first_prompt or ""))
                 r3 = fuzzy_match(query, s.cwd)
-                if max(r1, r2, r3) >= FUZZY_THRESHOLD:
-                    fuzzy = max(r1 * 4, r2 * 2, r3)
+                r4 = 80 if s.session_id in fts_ids else 0
+                if max(r1, r2, r3, r4) >= FUZZY_THRESHOLD:
+                    fuzzy = max(r1 * 4, r2 * 2, r3, r4)
                     frec = frecency_score(s, now)
                     scored.append((s, fuzzy, frec))
             blended = blend_fuzzy_frecency(scored)

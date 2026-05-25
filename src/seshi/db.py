@@ -78,6 +78,17 @@ def init_schema(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE sessions ADD COLUMN {col} {defn}")
         except sqlite3.OperationalError:
             pass
+    try:
+        conn.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS transcript_fts USING fts5("
+            "session_id UNINDEXED, content, tokenize='porter unicode61')"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS transcript_index_meta ("
+            "session_id TEXT PRIMARY KEY, file_size INTEGER NOT NULL)"
+        )
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
 
 

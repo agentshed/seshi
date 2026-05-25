@@ -81,4 +81,11 @@ def scan_projects(
                         print(f"  + {session_id[:8]} (dir only)")
 
     conn.commit()
+
+    from seshi.transcript_index import index_pending
+    try:
+        index_pending(conn)
+    except Exception:
+        pass
+
     return count

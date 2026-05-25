@@ -87,6 +87,12 @@ class SeshiApp(App):
         self._update_counts()
         self._update_tab_bar()
 
+        from seshi.transcript_index import index_pending
+        try:
+            index_pending(self._conn)
+        except Exception:
+            pass
+
     def _apply_palette(self):
         accent = self._palette.accent
         try:
