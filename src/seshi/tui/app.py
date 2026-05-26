@@ -77,11 +77,14 @@ class SeshiApp(App):
         placeholder = self.query_one("#placeholder")
         main = self.query_one("#main-content")
         placeholder.remove()
-        main.mount(self._sessions_list)
 
         self._preview = Preview(id="preview")
         self._preview.session = self._sessions_list.current_session
-        main.mount(self._preview)
+
+        self._sessions_pane = Horizontal(id="sessions-pane")
+        main.mount(self._sessions_pane)
+        self._sessions_pane.mount(self._sessions_list)
+        self._sessions_pane.mount(self._preview)
 
         self._sessions_list.focus()
         self._apply_palette()
@@ -302,9 +305,11 @@ class SeshiApp(App):
             child.remove()
 
         if self.current_view == "sessions":
-            main.mount(self._sessions_list)
+            self._sessions_pane = Horizontal(id="sessions-pane")
+            main.mount(self._sessions_pane)
+            self._sessions_pane.mount(self._sessions_list)
             if hasattr(self, '_preview'):
-                main.mount(self._preview)
+                self._sessions_pane.mount(self._preview)
             self._sessions_list.focus()
         elif self.current_view == "overview":
             from seshi.tui.overview import OverviewView
