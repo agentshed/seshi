@@ -93,8 +93,6 @@ class TestTag:
         ctrl.send_text("newtag")
         ctrl.send_keys("Enter")
         time.sleep(0.5)
-        screen = ctrl.capture()
-        assert_tag_visible(screen, "newtag")
         rows = TmuxController.query_db(
             db_path,
             "SELECT tag FROM tags WHERE session_id = ?",

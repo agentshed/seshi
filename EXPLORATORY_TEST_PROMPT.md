@@ -650,9 +650,9 @@ Rate each of these on a 1-5 scale and document observations:
 - Do the same keys work the same way in Sessions vs Projects view?
 
 #### 16.5 Information Density
-- Is the session row layout (selection + favorite + lang + title + cwd + time + tags) too dense?
+- Is the session row layout appropriate? In narrow mode (width < 60, e.g. the left panel of horizontal split), the compact format shows selection + favorite + title + time. In wide mode (width >= 60), the full format shows selection + favorite + lang + title + cwd + time + tags.
 - Can users scan the list quickly?
-- Is truncation (38 char title, 30 char cwd) appropriate?
+- Is truncation appropriate for both narrow and wide rendering modes?
 
 #### 16.6 Accessibility
 - Does the TUI work with screen readers (basic terminal accessibility)?

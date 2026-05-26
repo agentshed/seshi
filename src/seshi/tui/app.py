@@ -310,6 +310,10 @@ class SeshiApp(App):
             self._sessions_pane.mount(self._sessions_list)
             if hasattr(self, '_preview'):
                 self._sessions_pane.mount(self._preview)
+                if self._preview.display:
+                    self._sessions_list.styles.width = 45
+                else:
+                    self._sessions_list.styles.width = "1fr"
             self._sessions_list.focus()
         elif self.current_view == "overview":
             from seshi.tui.overview import OverviewView
