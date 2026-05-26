@@ -85,6 +85,7 @@ Event-driven pipeline with command dispatch. The system has three layers:
 
 **Acceptance criteria**:
 - Queue drained on every CLI invocation (before any subcommand runs)
+- After draining, `age_frecency_ranks()` decays session scores (rate-limited to every 300s) and `auto_scan()` discovers new sessions from transcript files on disk (rate-limited to every 120s). Both are silent on failure.
 - Draining is idempotent: `INSERT OR IGNORE` keyed on `session_id`
 - Draining preserves user-set metadata (`custom_name`, `is_favorite`, tags)
 - Stop events update `message_count`, `token_count`, `last_activity_at`, and `status`

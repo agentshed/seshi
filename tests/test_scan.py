@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from seshi.scan import fix_prompts, scan_projects
+from seshi.scan import auto_scan, fix_prompts, scan_projects
 
 
 def _make_transcript(path: Path, messages=None):
@@ -110,6 +110,46 @@ def test_fix_prompts_no_change_when_correct(tmp_db, tmp_path, monkeypatch):
     )
     fixed = fix_prompts(tmp_db)
     assert fixed == 0
+
+
+def test_auto_scan_rate_limited(tmp_db, tmp_path, monkeypatch):
+    monkeypatch.setattr("seshi.scan.CLAUDE_PROJECTS", tmp_path)
+    project = tmp_path / "-home"
+    project.mkdir()
+    sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    _make_transcript(project / f"{sid}.jsonl")
+
+    auto_scan(tmp_db)
+    row = tmp_db.execute("SELECT 1 FROM sessions WHERE session_id = ?", (sid,)).fetchone()
+    assert row is not None
+
+    sid2 = "bbbbbbbb-cccc-dddd-eeee-ffffffffffff"
+    _make_transcript(project / f"{sid2}.jsonl")
+    auto_scan(tmp_db)
+    row2 = tmp_db.execute("SELECT 1 FROM sessions WHERE session_id = ?", (sid2,)).fetchone()
+    assert row2 is None
+
+
+def test_auto_scan_runs_fix_prompts_once(tmp_db, tmp_path, monkeypatch):
+    from seshi.db import get_setting
+
+    monkeypatch.setattr("seshi.scan.CLAUDE_PROJECTS", tmp_path)
+    project = tmp_path / "-home"
+    project.mkdir()
+    sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    transcript = project / f"{sid}.jsonl"
+    _make_transcript(transcript)
+
+    monkeypatch.setattr(
+        "seshi.scan.find_transcript_path",
+        lambda s: transcript if s == sid else None,
+    )
+
+    auto_scan(tmp_db, interval=0)
+    assert get_setting(tmp_db, "prompts_fixed") == "1"
+
+    auto_scan(tmp_db, interval=0)
+    assert get_setting(tmp_db, "prompts_fixed") == "1"
 
 
 def test_scan_uses_mtime_not_now(tmp_db, tmp_path):

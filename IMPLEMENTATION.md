@@ -99,7 +99,7 @@ seshi/
 │       ├── search.py                # fuzzy_match(), session_resolve(), rank_sessions()
 │       ├── transcript_index.py      # FTS5 full-text indexing of session transcripts
 │       ├── resume.py                # build_resume_line(), shell_quote()
-│       ├── scan.py                  # scan_projects() — backfill from transcript files
+│       ├── scan.py                  # scan_projects(), fix_prompts(), auto_scan() — backfill + startup scan
 │       ├── transcript.py            # parse_transcript(), extract_messages()
 │       ├── hook.py                  # install_hook(), patch_settings(), unpatch_settings()
 │       ├── themes.py                # 5 palettes, get_theme(), THEMES dict
@@ -309,12 +309,10 @@ def find_transcript_path(session_id) -> Path | None:
     """Search ~/.claude/projects/ for the session's JSONL file."""
 ```
 
-**`scan.py`** — `scan_projects(conn, verbose=False)`:
-- Walk `~/.claude/projects/`
-- Pattern A: `<uuid>.jsonl` files (not `skill-injections.jsonl`)
-- Pattern B: `<uuid>/` directories without matching JSONL
-- `INSERT OR IGNORE` with `is_backfilled=1`
-- Repair pass for stale cwds
+**`scan.py`**:
+- `scan_projects(conn, verbose=False)` — Walk `~/.claude/projects/`, Pattern A: `<uuid>.jsonl` files (not `skill-injections.jsonl`), Pattern B: `<uuid>/` directories without matching JSONL. `INSERT OR IGNORE` with `is_backfilled=1`.
+- `fix_prompts(conn, verbose=False)` — Re-derive `first_prompt` from transcripts for all sessions. Used to correct stale prompts (e.g. isMeta system messages captured as first_prompt).
+- `auto_scan(conn, interval=120)` — Rate-limited wrapper called on every CLI invocation. Runs `scan_projects()`, then `fix_prompts()` once as a one-time migration (tracked by `prompts_fixed` setting).
 
 **`search.py`**:
 ```python
@@ -381,9 +379,11 @@ def main(ctx, no_color, here):
     ctx.ensure_object(dict)
     ctx.obj["no_color"] = no_color
     ctx.obj["here_cwd"] = os.getcwd() if here else None
-    # Drain queue before any command
+    # Startup tasks before any command
     with open_db() as conn:
         drain_queue(conn)
+        age_frecency_ranks(conn)  # rate-limited: every 300s
+        auto_scan(conn)           # rate-limited: every 120s
     if ctx.invoked_subcommand is None:
         launch_tui(ctx.obj)
 ```

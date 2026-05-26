@@ -38,6 +38,8 @@ def main(ctx, no_color, here):
                 drain_queue(conn)
                 from seshi.search import age_frecency_ranks
                 age_frecency_ranks(conn)
+                from seshi.scan import auto_scan
+                auto_scan(conn)
         except Exception:
             pass
 
