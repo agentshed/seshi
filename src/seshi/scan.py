@@ -1,5 +1,6 @@
 import logging
 import sqlite3
+import time
 
 from seshi.paths import CLAUDE_PROJECTS, UUID_RE, resolve_best_cwd
 from seshi.transcript import find_transcript_path, parse_transcript
@@ -119,3 +120,19 @@ def fix_prompts(
                 print(f"  ~ {session_id[:8]}: {label}")
     conn.commit()
     return count
+
+
+def auto_scan(conn: sqlite3.Connection, interval: int = 120) -> None:
+    from seshi.db import get_setting, set_setting
+
+    now_ts = int(time.time())
+    last_scan = get_setting(conn, "last_scan_at")
+    if last_scan and now_ts - int(last_scan) < interval:
+        return
+
+    scan_projects(conn)
+    set_setting(conn, "last_scan_at", str(now_ts))
+
+    if not get_setting(conn, "prompts_fixed"):
+        fix_prompts(conn)
+        set_setting(conn, "prompts_fixed", "1")
