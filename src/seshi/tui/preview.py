@@ -9,7 +9,7 @@ from seshi.transcript import find_transcript_path, extract_messages
 class Preview(Widget):
     DEFAULT_CSS = """
     Preview {
-        height: 8;
+        height: 1fr;
         padding: 0 1;
     }
     """
@@ -35,12 +35,14 @@ class Preview(Widget):
             return text
 
         messages = extract_messages(path)
-        display = messages[-6:] if len(messages) > 6 else messages
+        available_lines = max(self.size.height - 2, 4) if self.size.height > 0 else 6
+        max_text_width = max(self.size.width - 12, 40) if self.size.width > 0 else 120
+        display = messages[-available_lines:] if len(messages) > available_lines else messages
         for msg in display:
             role_map = {"user": "you", "assistant": "asst", "system": "sys", "tool": "tool"}
             role_label = role_map.get(msg.role, msg.role)
             role_style = "#E08A5E" if msg.role == "user" else "#6BAED6"
             text.append(f"  ▎ {role_label:<5}", style=role_style)
-            text.append(f" {msg.text[:120]}\n", style="dim")
+            text.append(f" {msg.text[:max_text_width]}\n", style="dim")
 
         return text

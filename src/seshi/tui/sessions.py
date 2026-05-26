@@ -131,12 +131,19 @@ class SessionsList(Widget):
         lines: list[tuple[int, Session]] = list(enumerate(self.sessions))
 
         w = self.size.width if self.size.width > 0 else 120
+        narrow = w < 60
         max_rel_len = max((len(relative_time(s.last_activity_at)) for _, s in lines), default=8)
-        # prefix: cursor(1)+sel(3)+fav(3)+lang(3)+gap(2)=12; gaps: 2+2=4
-        overhead = 12 + 4 + max_rel_len
-        avail = max(30, w - overhead)
-        title_w = min(50, max(12, avail * 40 // 100))
-        cwd_w = min(40, max(12, avail * 33 // 100))
+
+        if narrow:
+            # Compact: cursor(1)+sel(3)+fav(2)+gap(2)+rel = 8+max_rel_len
+            compact_overhead = 8 + max_rel_len
+            title_w = max(10, w - compact_overhead)
+        else:
+            # prefix: cursor(1)+sel(3)+fav(3)+lang(3)+gap(2)=12; gaps: 2+2=4
+            overhead = 12 + 4 + max_rel_len
+            avail = max(30, w - overhead)
+            title_w = min(50, max(12, avail * 40 // 100))
+            cwd_w = min(40, max(12, avail * 33 // 100))
 
         current_bucket = ""
         visible_rows: list[tuple[str, str, bool]] = []
@@ -161,33 +168,38 @@ class SessionsList(Widget):
 
             cursor_mark = "▸" if is_cursor else " "
             sel_mark = "[x]" if is_selected else "   "
-            fav = " * " if s.is_favorite else "   "
-            lang = detect_language(s.cwd)
-            lang_str = f"{lang:>3}" if lang else "   "
             rel = relative_time(s.last_activity_at)
-
             title = (s.custom_name or strip_markup_tags(s.first_prompt or "") or "(untitled)")[:title_w]
-            cwd = s.cwd
-            if cwd.startswith(home):
-                cwd = "~" + cwd[len(home):]
-            if len(cwd) > cwd_w:
-                half = (cwd_w - 1) // 2
-                cwd = cwd[:half] + "…" + cwd[-(cwd_w - 1 - half):]
 
-            tags_str = ""
-            tag_rows = self.conn.execute(
-                "SELECT tag FROM tags WHERE session_id = ?", (s.session_id,)
-            ).fetchall()
-            if tag_rows:
-                tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
-
-            base = f"{cursor_mark}{sel_mark}{fav}{lang_str}  {title:<{title_w}}  {cwd:<{cwd_w}}  {rel:>{max_rel_len}}"
-            tags_budget = w - len(base)
-            if tags_str and tags_budget > 3:
-                tags_str = tags_str[:tags_budget]
+            if narrow:
+                fav = " *" if s.is_favorite else "  "
+                base = f"{cursor_mark}{sel_mark}{fav} {title:<{title_w}}  {rel:>{max_rel_len}}"
+                line = base[:w]
             else:
+                fav = " * " if s.is_favorite else "   "
+                lang = detect_language(s.cwd)
+                lang_str = f"{lang:>3}" if lang else "   "
+                cwd = s.cwd
+                if cwd.startswith(home):
+                    cwd = "~" + cwd[len(home):]
+                if len(cwd) > cwd_w:
+                    half = (cwd_w - 1) // 2
+                    cwd = cwd[:half] + "…" + cwd[-(cwd_w - 1 - half):]
+
                 tags_str = ""
-            line = (base + tags_str)[:w]
+                tag_rows = self.conn.execute(
+                    "SELECT tag FROM tags WHERE session_id = ?", (s.session_id,)
+                ).fetchall()
+                if tag_rows:
+                    tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
+
+                base = f"{cursor_mark}{sel_mark}{fav}{lang_str}  {title:<{title_w}}  {cwd:<{cwd_w}}  {rel:>{max_rel_len}}"
+                tags_budget = w - len(base)
+                if tags_str and tags_budget > 3:
+                    tags_str = tags_str[:tags_budget]
+                else:
+                    tags_str = ""
+                line = (base + tags_str)[:w]
             visible_rows.append((line, style, is_cursor))
 
         cursor_row_idx = 0
@@ -280,6 +292,10 @@ class SessionsList(Widget):
         elif event.key == "p":
             if hasattr(self.app, '_preview'):
                 self.app._preview.display = not self.app._preview.display
+                if self.app._preview.display:
+                    self.styles.width = 45
+                else:
+                    self.styles.width = "1fr"
         elif event.key == "slash":
             search = self.app.query_one(SearchBar)
             search.active = True

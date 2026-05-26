@@ -37,7 +37,12 @@ Screen {{
     background: #000000;
 }}
 
+#sessions-pane {{
+    height: 1fr;
+}}
+
 #session-list {{
+    width: 45;
     height: 1fr;
     min-height: 10;
     border: solid {palette.border_dim};
@@ -78,7 +83,8 @@ Screen {{
 }}
 
 #preview {{
-    height: 8;
+    width: 1fr;
+    height: 1fr;
     border: solid {palette.border_dim};
     padding: 0 1;
     color: {palette.fg_muted};
