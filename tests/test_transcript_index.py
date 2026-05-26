@@ -495,6 +495,30 @@ def test_index_pending_mixed_with_and_without_transcripts(tmp_db, tmp_path, monk
     assert "has-001" in search_transcripts(tmp_db, "some content")
 
 
+def test_index_pending_reindexes_grown_transcripts(tmp_db, tmp_path, monkeypatch):
+    transcript = tmp_path / "growing.jsonl"
+    _make_transcript(transcript, [("user", "initial message about python")])
+
+    monkeypatch.setattr(
+        "seshi.transcript_index.find_transcript_path",
+        lambda sid: transcript if sid == "grow-001" else None,
+    )
+
+    _insert_session(tmp_db, "grow-001")
+    assert index_pending(tmp_db) == 1
+
+    assert "grow-001" in search_transcripts(tmp_db, "python")
+    assert "grow-001" not in search_transcripts(tmp_db, "kubernetes")
+
+    _make_transcript(transcript, [
+        ("user", "initial message about python"),
+        ("assistant", "let me help with kubernetes deployment"),
+    ])
+    assert index_pending(tmp_db) == 1
+
+    assert "grow-001" in search_transcripts(tmp_db, "kubernetes")
+
+
 def test_index_pending_fts_not_available(tmp_path):
     import sqlite3
     db_path = tmp_path / "nofts.db"

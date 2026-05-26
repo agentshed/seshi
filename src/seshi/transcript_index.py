@@ -76,19 +76,12 @@ def index_pending(conn: sqlite3.Connection) -> int:
     rows = conn.execute(
         "SELECT session_id FROM sessions WHERE is_archived = 0"
     ).fetchall()
-    all_ids = {r["session_id"] for r in rows}
-
-    indexed = conn.execute(
-        "SELECT session_id FROM transcript_index_meta"
-    ).fetchall()
-    indexed_ids = {r["session_id"] for r in indexed}
-
-    pending = all_ids - indexed_ids
-    if not pending:
+    all_ids = [r["session_id"] for r in rows]
+    if not all_ids:
         return 0
 
     count = 0
-    for session_id in pending:
+    for session_id in all_ids:
         if index_session(conn, session_id):
             count += 1
     if count:
