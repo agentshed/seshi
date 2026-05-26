@@ -92,6 +92,7 @@ class SeshiApp(App):
 
     @work(thread=True)
     def _index_transcripts_async(self) -> None:
+        import logging
         from seshi.paths import DB_PATH
         from seshi.transcript_index import index_pending
         try:
@@ -103,7 +104,7 @@ class SeshiApp(App):
             finally:
                 conn.close()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("transcript indexing failed", exc_info=True)
 
     def _apply_palette(self):
         accent = self._palette.accent

@@ -2,9 +2,9 @@ import logging
 import sqlite3
 
 from seshi.paths import CLAUDE_PROJECTS, UUID_RE, resolve_best_cwd
+from seshi.transcript import parse_transcript
 
 log = logging.getLogger(__name__)
-from seshi.transcript import parse_transcript
 
 
 def scan_projects(
