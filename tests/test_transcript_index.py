@@ -175,10 +175,10 @@ def test_search_transcripts_prefix(tmp_db, tmp_path, monkeypatch):
 
 def test_search_transcripts_short_query(tmp_db):
     results = search_transcripts(tmp_db, "a")
-    assert results == set()
+    assert results == {}
 
     results = search_transcripts(tmp_db, "")
-    assert results == set()
+    assert results == {}
 
 
 def test_search_transcripts_special_chars(tmp_db, tmp_path, monkeypatch):
@@ -558,12 +558,12 @@ def test_index_pending_fts_not_available(tmp_path):
 
 def test_search_only_special_chars(tmp_db):
     results = search_transcripts(tmp_db, "!@#$%^&*()")
-    assert results == set()
+    assert results == {}
 
 
 def test_search_whitespace_only(tmp_db):
     results = search_transcripts(tmp_db, "   ")
-    assert results == set()
+    assert results == {}
 
 
 def test_search_two_char_boundary(tmp_db, tmp_path, monkeypatch):
@@ -578,7 +578,7 @@ def test_search_two_char_boundary(tmp_db, tmp_path, monkeypatch):
     tmp_db.commit()
 
     results = search_transcripts(tmp_db, "db")
-    assert isinstance(results, set)
+    assert isinstance(results, dict)
 
 
 def test_search_porter_stemming(tmp_db, tmp_path, monkeypatch):
@@ -614,7 +614,7 @@ def test_search_case_insensitive(tmp_db, tmp_path, monkeypatch):
 
 def test_search_empty_fts_table(tmp_db):
     results = search_transcripts(tmp_db, "anything")
-    assert results == set()
+    assert results == {}
 
 
 def test_search_multiple_sessions_match(tmp_db, tmp_path, monkeypatch):
@@ -637,7 +637,7 @@ def test_search_multiple_sessions_match(tmp_db, tmp_path, monkeypatch):
     tmp_db.commit()
 
     results = search_transcripts(tmp_db, "kubernetes")
-    assert results == {"k8s-001", "k8s-002"}
+    assert set(results) == {"k8s-001", "k8s-002"}
     assert "flask-001" not in results
 
 
@@ -651,6 +651,70 @@ def test_fts_tables_created(tmp_db):
     names = [t["name"] for t in tables]
     assert "transcript_fts" in names
     assert "transcript_index_meta" in names
+
+
+def test_bm25_relevance_ordering(tmp_db, tmp_path, monkeypatch):
+    t1 = tmp_path / "many.jsonl"
+    t2 = tmp_path / "few.jsonl"
+    _make_transcript(t1, [("user", " ".join(["kubernetes"] * 50))])
+    _make_transcript(t2, [("user", "kubernetes is one topic among many others here")])
+
+    lookup = {"many-001": t1, "few-001": t2}
+    monkeypatch.setattr(
+        "seshi.transcript_index.find_transcript_path",
+        lambda sid: lookup.get(sid),
+    )
+
+    for sid in lookup:
+        _insert_session(tmp_db, sid)
+        index_session(tmp_db, sid)
+    tmp_db.commit()
+
+    results = search_transcripts(tmp_db, "kubernetes")
+    assert "many-001" in results
+    assert "few-001" in results
+    assert results["many-001"] > results["few-001"]
+    assert 55.0 <= results["few-001"]
+    assert results["many-001"] <= 100.0
+
+
+def test_single_match_defaults_to_80(tmp_db, tmp_path, monkeypatch):
+    transcript = tmp_path / "solo.jsonl"
+    _make_transcript(transcript, [("user", "deploy the kubernetes cluster")])
+
+    monkeypatch.setattr(
+        "seshi.transcript_index.find_transcript_path",
+        lambda sid: transcript if sid == "solo-001" else None,
+    )
+
+    _insert_session(tmp_db, "solo-001")
+    index_session(tmp_db, "solo-001")
+    tmp_db.commit()
+
+    results = search_transcripts(tmp_db, "kubernetes")
+    assert results["solo-001"] == 80.0
+
+
+def test_equal_scores_default_to_80(tmp_db, tmp_path, monkeypatch):
+    t1 = tmp_path / "eq1.jsonl"
+    t2 = tmp_path / "eq2.jsonl"
+    _make_transcript(t1, [("user", "kubernetes deployment")])
+    _make_transcript(t2, [("user", "kubernetes deployment")])
+
+    lookup = {"eq-001": t1, "eq-002": t2}
+    monkeypatch.setattr(
+        "seshi.transcript_index.find_transcript_path",
+        lambda sid: lookup.get(sid),
+    )
+
+    for sid in lookup:
+        _insert_session(tmp_db, sid)
+        index_session(tmp_db, sid)
+    tmp_db.commit()
+
+    results = search_transcripts(tmp_db, "kubernetes")
+    assert results["eq-001"] == 80.0
+    assert results["eq-002"] == 80.0
 
 
 def test_schema_idempotent(tmp_path):

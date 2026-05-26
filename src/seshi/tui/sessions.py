@@ -64,8 +64,8 @@ class SessionsList(Widget):
         self._all_sessions = sessions
 
         if query:
-            fts_ids = search_transcripts(self.conn, query)
-            blended = score_sessions(sessions, query, fts_ids)
+            fts_scores = search_transcripts(self.conn, query)
+            blended = score_sessions(sessions, query, fts_scores)
             blended.sort(key=lambda x: (-x[0].is_favorite, -x[1]))
             sessions = [s for s, _ in blended]
 

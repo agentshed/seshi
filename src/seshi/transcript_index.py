@@ -89,9 +89,9 @@ def index_pending(conn: sqlite3.Connection) -> int:
     return count
 
 
-def search_transcripts(conn: sqlite3.Connection, query: str) -> set[str]:
+def search_transcripts(conn: sqlite3.Connection, query: str) -> dict[str, float]:
     if not query or len(query.strip()) < 2:
-        return set()
+        return {}
 
     import re
     terms = []
@@ -100,7 +100,7 @@ def search_transcripts(conn: sqlite3.Connection, query: str) -> set[str]:
         if cleaned:
             terms.append(cleaned)
     if not terms:
-        return set()
+        return {}
 
     quoted = [f'"{t}"' for t in terms[:-1]]
     quoted.append(f'"{terms[-1]}"*')
@@ -108,9 +108,20 @@ def search_transcripts(conn: sqlite3.Connection, query: str) -> set[str]:
 
     try:
         rows = conn.execute(
-            "SELECT session_id FROM transcript_fts WHERE transcript_fts MATCH ?",
+            "SELECT session_id, rank FROM transcript_fts WHERE transcript_fts MATCH ?",
             (fts_query,),
         ).fetchall()
-        return {r["session_id"] for r in rows}
+        if not rows:
+            return {}
+        scores = {r["session_id"]: r["rank"] for r in rows}
+        best = min(scores.values())
+        worst = max(scores.values())
+        if worst == best:
+            return {sid: 80.0 for sid in scores}
+        spread = worst - best
+        return {
+            sid: 55.0 + 45.0 * (worst - raw) / spread
+            for sid, raw in scores.items()
+        }
     except sqlite3.OperationalError:
-        return set()
+        return {}

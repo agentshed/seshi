@@ -784,11 +784,11 @@ score = max(
   fuzzyMatch(query, custom_name) × 4,
   fuzzyMatch(query, first_prompt) × 2,
   fuzzyMatch(query, cwd) × 1,
-  transcriptMatch(query) × 1        # 80 if FTS5 matches, else 0
+  transcriptMatch(query) × 1        # 55–100 via BM25 relevance, else 0
 )
 ```
 
-The transcript signal uses FTS5 full-text search with Porter stemming and prefix matching. Query terms are double-quoted to prevent FTS5 boolean operators (AND, OR, NOT, NEAR) from being interpreted as operators.
+The transcript signal uses FTS5 full-text search with Porter stemming and prefix matching. Query terms are double-quoted to prevent FTS5 boolean operators (AND, OR, NOT, NEAR) from being interpreted as operators. BM25 relevance scores from FTS5's `rank` column are normalized into the 55–100 range (linear map from worst to best match); single matches or equal-rank matches default to 80.
 
 Clear winner threshold: `top_score >= second_score × 1.4`
 
