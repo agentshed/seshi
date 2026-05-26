@@ -85,10 +85,10 @@ Pressing `s` cycles the actual sort mode and persists it to DB, and the session 
 **File:** `tui/app.py:80-81`, `tui/styles.py:79-85`
 **Status:** FAIL
 
-The Preview widget is mounted below the SessionsList inside the `#main-content` Vertical container. However, the SessionsList consumes all available vertical space, leaving no room for the Preview pane. The preview (transcript snippet, message count, token count) is never visible in any tested terminal size.
+The Preview widget is mounted beside the SessionsList inside a `Horizontal(id="sessions-pane")` container within `#main-content`. The SessionsList has a fixed `width: 45` and the Preview has `width: 1fr; height: 1fr;`, giving the preview the remaining horizontal space at full height. In narrow mode (width < 60), the session rows use a compact format that drops the cwd, language, and tags columns.
 
-**CSS:** Preview has `height: 8;` but SessionsList has no max-height constraint.
-**Impact:** A key feature (seeing transcript preview of highlighted session) is completely invisible.
+**CSS:** Preview has `width: 1fr; height: 1fr;` and SessionsList has `width: 45`.
+**Impact:** The preview panel now shows many more transcript messages, scaling dynamically with terminal height.
 
 ### H3. Fuzzy Search Too Lenient — Does Not Effectively Filter
 

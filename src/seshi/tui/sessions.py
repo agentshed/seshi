@@ -135,8 +135,8 @@ class SessionsList(Widget):
         max_rel_len = max((len(relative_time(s.last_activity_at)) for _, s in lines), default=8)
 
         if narrow:
-            # Compact: cursor(1)+sel(3)+fav(2)+gap(2)+rel = 8+max_rel_len
-            compact_overhead = 8 + max_rel_len
+            # Compact: cursor(1)+sel(3)+fav(2)+space(1)+gap(2)+rel = 9+max_rel_len
+            compact_overhead = 9 + max_rel_len
             title_w = max(10, w - compact_overhead)
         else:
             # prefix: cursor(1)+sel(3)+fav(3)+lang(3)+gap(2)=12; gaps: 2+2=4
