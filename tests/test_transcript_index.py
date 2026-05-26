@@ -264,6 +264,28 @@ def test_search_near_keyword_literal(tmp_db, tmp_path, monkeypatch):
     assert "sess-near" in results
 
 
+def test_search_hyphenated_terms(tmp_db, tmp_path, monkeypatch):
+    project_dir = tmp_path / "projects" / "test-project"
+    project_dir.mkdir(parents=True)
+    transcript = project_dir / "sess-hyph.jsonl"
+    _make_transcript(transcript, [("user", "fix the api-endpoint for user-auth")])
+
+    monkeypatch.setattr(
+        "seshi.transcript_index.find_transcript_path",
+        lambda sid: transcript if sid == "sess-hyph" else None,
+    )
+
+    _insert_session(tmp_db, "sess-hyph")
+    index_session(tmp_db, "sess-hyph")
+    tmp_db.commit()
+
+    results = search_transcripts(tmp_db, "api-endpoint")
+    assert "sess-hyph" in results
+
+    results = search_transcripts(tmp_db, "user-auth")
+    assert "sess-hyph" in results
+
+
 def test_search_multi_term(tmp_db, tmp_path, monkeypatch):
     project_dir = tmp_path / "projects" / "test-project"
     project_dir.mkdir(parents=True)

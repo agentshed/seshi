@@ -93,8 +93,9 @@ def search_transcripts(conn: sqlite3.Connection, query: str) -> set[str]:
     if not query or len(query.strip()) < 2:
         return set()
 
+    import re
     terms = []
-    for word in query.split():
+    for word in re.split(r'[\s\-]+', query):
         cleaned = "".join(c for c in word if c.isalnum() or c == "_")
         if cleaned:
             terms.append(cleaned)
