@@ -97,6 +97,7 @@ seshi/
 │       ├── paths.py                 # Constants, unsanitize_path(), resolve_best_cwd()
 │       ├── drain.py                 # drain_queue() — JSONL queue → DB upserts
 │       ├── search.py                # fuzzy_match(), session_resolve(), rank_sessions()
+│       ├── transcript_index.py      # FTS5 full-text indexing of session transcripts
 │       ├── resume.py                # build_resume_line(), shell_quote()
 │       ├── scan.py                  # scan_projects() — backfill from transcript files
 │       ├── transcript.py            # parse_transcript(), extract_messages()
@@ -241,7 +242,8 @@ def open_db(readonly=False):
         conn.close()
 
 def init_schema(conn):
-    """CREATE TABLE IF NOT EXISTS for sessions, tags, settings, project_favorites.
+    """CREATE TABLE IF NOT EXISTS for sessions, tags, settings, project_favorites,
+    transcript_fts (FTS5 virtual table), and transcript_index_meta.
     Seed default settings. Create indexes."""
 ```
 
@@ -323,7 +325,7 @@ def session_resolve(conn, identifier: str) -> Session:
     """Standard lookup: custom_name (case-insensitive) → session_id → NOT_FOUND."""
 
 def rank_sessions(conn, query: str, filter_cwd=None) -> list[Session]:
-    """Score = max(custom_name×4, first_prompt×2, cwd×1). For fuzzy resume."""
+    """Score = max(custom_name×4, first_prompt×2, cwd×1, transcript×1). For fuzzy resume."""
 
 def frecency_score(session, now) -> float:
     """frecency_rank × step_function_multiplier(age_hours). Multiplicative blend."""

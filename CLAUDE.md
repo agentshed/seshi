@@ -39,7 +39,7 @@ The shell wrapper `seshi()` captures stdout via `$(command seshi "$@")` and `eva
 
 ### Session resolution
 
-All commands that take a session identifier use `search.session_resolve()`: try `custom_name` (case-insensitive) first, then `session_id`. Fuzzy resume uses `rank_sessions()` with weighted field scores (name×4, prompt×2, cwd×1), boosted by frecency (1×–2× multiplier) so frequently-used sessions win ties.
+All commands that take a session identifier use `search.session_resolve()`: try `custom_name` (case-insensitive) first, then `session_id`. Fuzzy resume uses `rank_sessions()` with weighted field scores (name×4, prompt×2, cwd×1, transcript×1 via FTS5), boosted by frecency (1×–2× multiplier) so frequently-used sessions win ties. Transcript search uses FTS5 full-text indexing with Porter stemming and prefix matching.
 
 ### Path unsanitization
 
@@ -48,6 +48,10 @@ Claude Code encodes project dirs by replacing `/` with `-`. `paths.unsanitize_pa
 ### Settings patch
 
 `settings.py` patches `~/.claude/settings.json` to register the hook. `hook_manager.py` copies the bundled `hook.sh` to `~/.seshi/hook.sh`. Both operations are idempotent.
+
+### Transcript index
+
+`transcript_index.py` provides FTS5 full-text indexing of session transcripts. `extract_full_text()` reads JSONL transcript files and extracts text content. `index_session()` indexes a single session, `index_pending()` indexes all unindexed sessions. `search_transcripts()` runs FTS5 queries with Porter stemming and prefix matching. Indexing runs asynchronously on TUI mount (via Textual worker) and after `seshi scan`. Query terms are double-quoted to prevent FTS5 boolean operator interpretation.
 
 ### TUI
 

@@ -70,11 +70,32 @@ def blend_fuzzy_frecency(
     ]
 
 
+def score_sessions(
+    sessions: list[Session],
+    query: str,
+    fts_ids: set[str],
+) -> list[tuple[Session, int]]:
+    now = int(time.time())
+    scored = []
+    for session in sessions:
+        r1 = fuzzy_match(query, session.custom_name or "")
+        r2 = fuzzy_match(query, strip_markup_tags(session.first_prompt or ""))
+        r3 = fuzzy_match(query, session.cwd)
+        r4 = 80 if session.session_id in fts_ids else 0
+        if max(r1, r2, r3, r4) >= FUZZY_THRESHOLD:
+            fuzzy = max(r1 * 4, r2 * 2, r3, r4)
+            frec = frecency_score(session, now)
+            scored.append((session, fuzzy, frec))
+    return blend_fuzzy_frecency(scored)
+
+
 def rank_sessions(
     conn: sqlite3.Connection,
     query: str,
     filter_cwd: str | None = None,
 ) -> list[tuple[Session, int]]:
+    from seshi.transcript_index import search_transcripts
+
     sql = "SELECT * FROM sessions WHERE is_archived = 0"
     params: list = []
     if filter_cwd:
@@ -82,20 +103,10 @@ def rank_sessions(
         params.append(filter_cwd)
     sql += " ORDER BY is_favorite DESC, last_activity_at DESC"
     rows = conn.execute(sql, params).fetchall()
+    sessions = [Session.from_row(row) for row in rows]
 
-    now = int(time.time())
-    scored = []
-    for row in rows:
-        session = Session.from_row(row)
-        r1 = fuzzy_match(query, session.custom_name or "")
-        r2 = fuzzy_match(query, strip_markup_tags(session.first_prompt or ""))
-        r3 = fuzzy_match(query, session.cwd)
-        if max(r1, r2, r3) >= FUZZY_THRESHOLD:
-            fuzzy = max(r1 * 4, r2 * 2, r3)
-            frec = frecency_score(session, now)
-            scored.append((session, fuzzy, frec))
-
-    results = blend_fuzzy_frecency(scored)
+    fts_ids = search_transcripts(conn, query)
+    results = score_sessions(sessions, query, fts_ids)
     results.sort(key=lambda x: x[1], reverse=True)
     return results
 

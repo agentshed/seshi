@@ -3,6 +3,7 @@ import sys
 import sqlite3
 
 from textual.app import App, ComposeResult
+from textual import work
 from textual.binding import Binding
 from textual.containers import Vertical, Horizontal
 from textual.reactive import reactive
@@ -86,6 +87,25 @@ class SeshiApp(App):
         self._apply_palette()
         self._update_counts()
         self._update_tab_bar()
+
+        self._index_transcripts_async()
+
+    @work(thread=True)
+    def _index_transcripts_async(self) -> None:
+        import logging
+        from seshi.paths import DB_PATH
+        from seshi.transcript_index import index_pending
+        try:
+            conn = sqlite3.connect(str(DB_PATH))
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=3000")
+            try:
+                index_pending(conn)
+            finally:
+                conn.close()
+        except Exception:
+            logging.getLogger(__name__).debug("transcript indexing failed", exc_info=True)
 
     def _apply_palette(self):
         accent = self._palette.accent

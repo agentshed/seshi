@@ -42,7 +42,7 @@ Event-driven pipeline with command dispatch. The system has three layers:
 | **Hook** | Captures session metadata (cwd, argv, git state, env vars, transcript stats) on start/stop events. Writes to an append-only queue. Must be completely silent (no stdout/stderr). |
 | **Queue drainer** | Reads the JSONL queue, upserts into the database within a transaction, then truncates the queue file. Idempotent — `INSERT OR IGNORE` keyed on `session_id`. |
 | **Registry (database)** | Stores sessions, tags, settings, and project favorites. Provides indexed queries for listing, filtering, and searching. |
-| **Search engine** | Fuzzy matching with configurable field weights. Filters by cwd, tags (AND semantics), and text query. |
+| **Search engine** | Fuzzy matching with configurable field weights, plus FTS5 full-text transcript search with Porter stemming and prefix matching. Filters by cwd, tags (AND semantics), and text query. |
 | **TUI** | Four-view terminal interface (sessions, overview, projects, help) rendered to `/dev/tty` to avoid polluting captured stdout. |
 | **Resume builder** | Constructs a `cd <cwd> && exec claude <flags> --resume <id>` line, stripping prior `--resume` flags and shell-quoting all values. |
 | **Shell wrapper** | A shell function (`seshi()`) that captures the binary's stdout and `eval`s resume lines. Non-resume output is printed directly. |
@@ -105,6 +105,7 @@ Event-driven pipeline with command dispatch. The system has three layers:
 
 **Acceptance criteria**:
 - Scans Claude Code's projects directory for session transcripts
+- After scanning, triggers FTS transcript indexing via `index_pending()` to build the full-text search index
 - Two patterns recognized:
   - **Pattern A**: `<session-id>.jsonl` files at the project subdirectory level
   - **Pattern B**: `<session-id>/` directories (UUID format) with no matching top-level JSONL
@@ -604,6 +605,24 @@ Local embedded database at `~/.seshi/db.sqlite`. WAL journal mode. Foreign keys 
 
 Used by the Projects view (section 4.27) and `seshi project` CLI commands (section 4.26) to pin and label projects.
 
+#### transcript_fts (FTS5 virtual table)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `session_id` | TEXT | Session UUID (used as rowid alias for lookups) |
+| `content` | TEXT | Full extracted text content from the session's transcript JSONL |
+
+FTS5 virtual table with Porter stemmer tokenizer. Supports prefix queries and stemmed matching. Populated by `index_pending()` on TUI mount and after `seshi scan`.
+
+#### transcript_index_meta
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| `session_id` | TEXT | PRIMARY KEY | Session UUID |
+| `file_size` | INTEGER | NOT NULL | Size of the transcript JSONL file at last index time |
+
+Tracks which sessions have been indexed and at what file size, enabling incremental re-indexing when transcripts grow.
+
 ### Data Lifecycle
 
 - **Creation**: sessions inserted via queue drain (hook events) or backfill scan
@@ -758,15 +777,18 @@ Higher scores for characters that appear closer together. Returns 0 for no match
 
 ### Fuzzy Resume Ranking
 
-For `seshi <query>`, each session is scored across three fields with different weights:
+For `seshi <query>`, each session is scored across four fields with different weights:
 
 ```
 score = max(
   fuzzyMatch(query, custom_name) × 4,
   fuzzyMatch(query, first_prompt) × 2,
-  fuzzyMatch(query, cwd) × 1
+  fuzzyMatch(query, cwd) × 1,
+  transcriptMatch(query) × 1        # 80 if FTS5 matches, else 0
 )
 ```
+
+The transcript signal uses FTS5 full-text search with Porter stemming and prefix matching. Query terms are double-quoted to prevent FTS5 boolean operators (AND, OR, NOT, NEAR) from being interpreted as operators.
 
 Clear winner threshold: `top_score >= second_score × 1.4`
 
@@ -1011,6 +1033,7 @@ Used by `auto-name` to generate session names. Inherits the user's existing Clau
 | Pricing | 18 | Cost calculation, formatting, model detection, edge cases |
 | Grep | 6 | Case sensitivity, file exclusions, content extraction |
 | Scan | 6 | Both patterns, idempotency, skill-injections exclusion |
+| Transcript index | 41 | FTS5 indexing, search semantics (stemming, prefix, case, multi-term), operator quoting, schema, graceful degradation |
 | Sanity | 1 | Test harness smoke test |
 
 ### New Test Areas Required

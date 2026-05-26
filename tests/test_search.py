@@ -1,5 +1,7 @@
+import json
 import time
 from seshi.search import fuzzy_match, session_resolve, rank_sessions, frecency_score, list_sessions
+from seshi.transcript_index import index_session
 from seshi.models import Session
 
 
@@ -79,6 +81,56 @@ def test_rank_sessions_strips_markup_tags_from_prompt(tmp_db):
     ids = [session.session_id for session, _ in results]
     assert "id-2" in ids
     assert "id-1" not in ids
+
+
+def test_rank_sessions_includes_transcript_matches(tmp_db, tmp_path, monkeypatch):
+    _insert_session(tmp_db, "fts-1", first_prompt="setup project")
+    _insert_session(tmp_db, "fts-2", first_prompt="wrote a haiku poem")
+
+    transcript = tmp_path / "fts-1.jsonl"
+    with open(transcript, "w") as f:
+        f.write(json.dumps({"message": {"role": "user", "content": "deploy kubernetes cluster"}}) + "\n")
+
+    monkeypatch.setattr(
+        "seshi.transcript_index.find_transcript_path",
+        lambda sid: transcript if sid == "fts-1" else None,
+    )
+    index_session(tmp_db, "fts-1")
+    tmp_db.commit()
+
+    results = rank_sessions(tmp_db, "kubernetes")
+    ids = [s.session_id for s, _ in results]
+    assert "fts-1" in ids
+    assert "fts-2" not in ids
+
+
+def test_rank_sessions_name_outranks_transcript(tmp_db, tmp_path, monkeypatch):
+    _insert_session(tmp_db, "name-1", custom_name="kubernetes-deploy")
+    _insert_session(tmp_db, "fts-only", first_prompt="generic task")
+
+    transcript = tmp_path / "fts-only.jsonl"
+    with open(transcript, "w") as f:
+        f.write(json.dumps({"message": {"role": "user", "content": "kubernetes cluster setup"}}) + "\n")
+
+    monkeypatch.setattr(
+        "seshi.transcript_index.find_transcript_path",
+        lambda sid: transcript if sid == "fts-only" else None,
+    )
+    index_session(tmp_db, "fts-only")
+    tmp_db.commit()
+
+    results = rank_sessions(tmp_db, "kubernetes")
+    ids = [s.session_id for s, _ in results]
+    assert "name-1" in ids
+    assert "fts-only" in ids
+    assert ids.index("name-1") < ids.index("fts-only")
+
+
+def test_rank_sessions_no_fts_match_still_works(tmp_db):
+    _insert_session(tmp_db, "id-a", custom_name="auth-rewrite")
+    results = rank_sessions(tmp_db, "auth")
+    assert len(results) >= 1
+    assert results[0][0].session_id == "id-a"
 
 
 def test_frecency_recent_scores_higher():
