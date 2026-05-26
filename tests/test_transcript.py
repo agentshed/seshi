@@ -60,3 +60,38 @@ def test_nonexistent_file():
     s = parse_transcript(Path("/nonexistent/file.jsonl"))
     assert s.message_count == 0
     assert s.first_prompt is None
+
+
+def test_parse_skips_is_meta_user_message(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"isMeta": True, "timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "<local-command-caveat>Caveat: The messages below were generated</local-command-caveat>"}},
+        {"timestamp": "2025-01-01T00:00:01Z",
+         "message": {"role": "user", "content": "fix the auth bug"}},
+    ])
+    s = parse_transcript(f)
+    assert s.first_prompt == "fix the auth bug"
+
+
+def test_parse_only_meta_messages(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"isMeta": True, "timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "<local-command-caveat>Caveat</local-command-caveat>"}},
+    ])
+    s = parse_transcript(f)
+    assert s.first_prompt is None
+
+
+def test_extract_messages_skips_is_meta(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"isMeta": True, "timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "system caveat message"}},
+        {"timestamp": "2025-01-01T00:00:01Z",
+         "message": {"role": "user", "content": "real user message"}},
+    ])
+    msgs = extract_messages(f)
+    assert len(msgs) == 1
+    assert msgs[0].text == "real user message"

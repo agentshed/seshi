@@ -78,7 +78,7 @@ for line in open('$TRANSCRIPT_PATH'):
     try:
         obj = json.loads(line)
         msg = obj.get('message', {})
-        if msg.get('role') == 'user':
+        if msg.get('role') == 'user' and not obj.get('isMeta'):
             content = msg.get('content', '')
             if isinstance(content, list):
                 for block in content:

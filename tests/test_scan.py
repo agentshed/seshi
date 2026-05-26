@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from seshi.scan import scan_projects
+from seshi.scan import fix_prompts, scan_projects
 
 
 def _make_transcript(path: Path, messages=None):
@@ -60,6 +60,56 @@ def test_no_double_insert(tmp_db, tmp_path):
 def test_missing_root(tmp_db, tmp_path):
     count = scan_projects(tmp_db, projects_root=tmp_path / "nonexistent")
     assert count == 0
+
+
+def test_fix_prompts_corrects_meta_prompt(tmp_db, tmp_path, monkeypatch):
+    project = tmp_path / "-home"
+    project.mkdir()
+    sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    transcript = project / f"{sid}.jsonl"
+    transcript.write_text(
+        json.dumps({"isMeta": True, "timestamp": "2025-01-01T00:00:00Z",
+                     "message": {"role": "user", "content": "<local-command-caveat>Caveat: system text</local-command-caveat>"}}) + "\n"
+        + json.dumps({"timestamp": "2025-01-01T00:00:01Z",
+                       "message": {"role": "user", "content": "fix the real bug"}}) + "\n"
+    )
+    scan_projects(tmp_db, projects_root=tmp_path)
+    row = tmp_db.execute("SELECT first_prompt FROM sessions WHERE session_id = ?", (sid,)).fetchone()
+    assert row["first_prompt"] == "fix the real bug"
+
+    tmp_db.execute(
+        "UPDATE sessions SET first_prompt = ? WHERE session_id = ?",
+        ("Caveat: system text", sid),
+    )
+    tmp_db.commit()
+
+    monkeypatch.setattr(
+        "seshi.scan.find_transcript_path",
+        lambda s: transcript if s == sid else None,
+    )
+    fixed = fix_prompts(tmp_db)
+    assert fixed == 1
+    row = tmp_db.execute("SELECT first_prompt FROM sessions WHERE session_id = ?", (sid,)).fetchone()
+    assert row["first_prompt"] == "fix the real bug"
+
+
+def test_fix_prompts_no_change_when_correct(tmp_db, tmp_path, monkeypatch):
+    project = tmp_path / "-home"
+    project.mkdir()
+    sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    transcript = project / f"{sid}.jsonl"
+    transcript.write_text(
+        json.dumps({"timestamp": "2025-01-01T00:00:00Z",
+                     "message": {"role": "user", "content": "already correct"}}) + "\n"
+    )
+    scan_projects(tmp_db, projects_root=tmp_path)
+
+    monkeypatch.setattr(
+        "seshi.scan.find_transcript_path",
+        lambda s: transcript if s == sid else None,
+    )
+    fixed = fix_prompts(tmp_db)
+    assert fixed == 0
 
 
 def test_scan_uses_mtime_not_now(tmp_db, tmp_path):

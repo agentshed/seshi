@@ -58,7 +58,7 @@ def parse_transcript(path: Path) -> TranscriptSummary:
                 usage = msg.get("usage", {})
                 token_count += usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
 
-                if first_prompt is None and msg.get("role") == "user":
+                if first_prompt is None and msg.get("role") == "user" and not obj.get("isMeta"):
                     content = msg.get("content", "")
                     if isinstance(content, list):
                         for block in content:
@@ -97,6 +97,8 @@ def extract_messages(path: Path, limit: int | None = None) -> list[Message]:
                 msg = obj.get("message", {})
                 role = msg.get("role")
                 if not role:
+                    continue
+                if obj.get("isMeta"):
                     continue
 
                 content = msg.get("content", "")
