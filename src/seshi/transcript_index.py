@@ -17,6 +17,8 @@ def extract_full_text(path: Path) -> str:
                     obj = json.loads(line)
                 except json.JSONDecodeError:
                     continue
+                if obj.get("isMeta"):
+                    continue
                 msg = obj.get("message", {})
                 content = msg.get("content", "")
                 if isinstance(content, str) and content.strip():

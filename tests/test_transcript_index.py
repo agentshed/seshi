@@ -39,6 +39,16 @@ def test_extract_full_text_simple(tmp_path):
     assert "hi there" in text
 
 
+def test_extract_full_text_skips_is_meta(tmp_path):
+    p = tmp_path / "meta.jsonl"
+    with open(p, "w") as f:
+        f.write(json.dumps({"isMeta": True, "message": {"role": "user", "content": "caveat system boilerplate"}}) + "\n")
+        f.write(json.dumps({"message": {"role": "user", "content": "actual user question"}}) + "\n")
+    text = extract_full_text(p)
+    assert "caveat system boilerplate" not in text
+    assert "actual user question" in text
+
+
 def test_extract_full_text_blocks(tmp_path):
     p = tmp_path / "test.jsonl"
     _make_transcript_blocks(p, [

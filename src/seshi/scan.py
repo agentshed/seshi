@@ -2,7 +2,7 @@ import logging
 import sqlite3
 
 from seshi.paths import CLAUDE_PROJECTS, UUID_RE, resolve_best_cwd
-from seshi.transcript import parse_transcript
+from seshi.transcript import find_transcript_path, parse_transcript
 
 log = logging.getLogger(__name__)
 
@@ -91,4 +91,31 @@ def scan_projects(
     except Exception:
         log.debug("FTS indexing failed", exc_info=True)
 
+    return count
+
+
+def fix_prompts(
+    conn: sqlite3.Connection,
+    verbose: bool = False,
+) -> int:
+    rows = conn.execute("SELECT session_id, first_prompt FROM sessions").fetchall()
+    count = 0
+    for row in rows:
+        session_id = row["session_id"]
+        path = find_transcript_path(session_id)
+        if not path:
+            continue
+        summary = parse_transcript(path)
+        old_prompt = row["first_prompt"]
+        new_prompt = summary.first_prompt
+        if new_prompt != old_prompt:
+            conn.execute(
+                "UPDATE sessions SET first_prompt = ? WHERE session_id = ?",
+                (new_prompt, session_id),
+            )
+            count += 1
+            if verbose:
+                label = (new_prompt or "(untitled)")[:60]
+                print(f"  ~ {session_id[:8]}: {label}")
+    conn.commit()
     return count
