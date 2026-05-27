@@ -10,7 +10,7 @@ from rich.text import Text
 
 from seshi.models import Session, Prompt
 from seshi.prompt_text import strip_markup_tags
-from seshi.search import list_sessions, score_sessions
+from seshi.search import list_sessions, score_sessions, fuzzy_match, FUZZY_THRESHOLD
 from seshi.transcript_index import search_transcripts
 from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
@@ -90,17 +90,12 @@ class SessionsList(Widget):
 
         self._matching_prompts = set()
         if query:
-            q = f"%{query}%"
-            try:
-                rows = self.conn.execute(
-                    "SELECT session_id, prompt_index FROM prompts WHERE text LIKE ? COLLATE NOCASE",
-                    (q,),
-                ).fetchall()
-                self._matching_prompts = {(r["session_id"], r["prompt_index"]) for r in rows}
-                for sid, _ in self._matching_prompts:
-                    self._collapsed.discard(sid)
-            except Exception:
-                pass
+            for sid, plist in self._prompts.items():
+                for p in plist:
+                    if fuzzy_match(query, p.text) >= FUZZY_THRESHOLD:
+                        self._matching_prompts.add((sid, p.prompt_index))
+            for sid, _ in self._matching_prompts:
+                self._collapsed.discard(sid)
 
         self._build_display_rows()
         nav_rows = [r for r in self._display_rows if r.kind != "bucket"]

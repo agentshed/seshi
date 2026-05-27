@@ -98,9 +98,10 @@ seshi/
 │       ├── drain.py                 # drain_queue() — JSONL queue → DB upserts
 │       ├── search.py                # fuzzy_match(), session_resolve(), rank_sessions()
 │       ├── transcript_index.py      # FTS5 full-text indexing of session transcripts
+│       ├── prompt_index.py          # Extract and index individual user prompts
 │       ├── resume.py                # build_resume_line(), shell_quote()
 │       ├── scan.py                  # scan_projects(), fix_prompts(), auto_scan() — backfill + startup scan
-│       ├── transcript.py            # parse_transcript(), extract_messages()
+│       ├── transcript.py            # parse_transcript(), extract_messages(), extract_user_prompts()
 │       ├── hook.py                  # install_hook(), patch_settings(), unpatch_settings()
 │       ├── themes.py                # 5 palettes, get_theme(), THEMES dict
 │       ├── cost.py                  # Model rate table, estimate_cost(), format_usd()
@@ -243,8 +244,8 @@ def open_db(readonly=False):
 
 def init_schema(conn):
     """CREATE TABLE IF NOT EXISTS for sessions, tags, settings, project_favorites,
-    transcript_fts (FTS5 virtual table), and transcript_index_meta.
-    Seed default settings. Create indexes."""
+    prompts, prompt_index_meta, transcript_fts (FTS5 virtual table), and
+    transcript_index_meta. Seed default settings. Create indexes."""
 ```
 
 **`models.py`** — Dataclasses with `from_row()`:
@@ -257,6 +258,21 @@ class Session:
     # ... all fields from spec section 6
     @classmethod
     def from_row(cls, row) -> "Session": ...
+
+@dataclass
+class Prompt:
+    session_id: str
+    prompt_index: int
+    text: str
+    timestamp_epoch: int | None
+    @classmethod
+    def from_row(cls, row) -> "Prompt": ...
+```
+
+**`prompt_index.py`** — Extracts individual user prompts from transcripts:
+```python
+def index_session_prompts(conn, session_id) -> bool: ...
+def index_pending_prompts(conn) -> int: ...
 ```
 
 **`themes.py`** — 5 palettes (coral, catppuccin, gruvbox, nord, mono) with 12 color fields each.

@@ -41,7 +41,7 @@ Event-driven pipeline with command dispatch. The system has three layers:
 |-----------|---------------|
 | **Hook** | Captures session metadata (cwd, argv, git state, env vars, transcript stats) on start/stop events. Writes to an append-only queue. Must be completely silent (no stdout/stderr). |
 | **Queue drainer** | Reads the JSONL queue, upserts into the database within a transaction, then truncates the queue file. Idempotent — `INSERT OR IGNORE` keyed on `session_id`. |
-| **Registry (database)** | Stores sessions, tags, settings, and project favorites. Provides indexed queries for listing, filtering, and searching. |
+| **Registry (database)** | Stores sessions, tags, settings, project favorites, individual user prompts, and indexing metadata. Provides indexed queries for listing, filtering, and searching. |
 | **Search engine** | Fuzzy matching with configurable field weights, plus FTS5 full-text transcript search with Porter stemming and prefix matching. Filters by cwd, tags (AND semantics), and text query. |
 | **TUI** | Four-view terminal interface (sessions, overview, projects, help) rendered to `/dev/tty` to avoid polluting captured stdout. |
 | **Resume builder** | Constructs a `cd <cwd> && exec claude <flags> --resume <id>` line, stripping prior `--resume` flags and shell-quoting all values. |
