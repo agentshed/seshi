@@ -10,7 +10,7 @@ import time
 from unittest import mock
 
 from seshi.prompt_text import strip_markup_tags
-from seshi.search import rank_sessions, FUZZY_THRESHOLD
+from seshi.search import rank_sessions, fuzzy_threshold
 from seshi.tui.sessions import SessionsList
 
 
@@ -84,8 +84,24 @@ def test_fuzzy_threshold_filters_weak_matches(tmp_db):
     assert len(results) < 3
 
 
-def test_fuzzy_threshold_value():
-    assert FUZZY_THRESHOLD >= 50
+def test_fuzzy_threshold_scales_with_query_length():
+    assert fuzzy_threshold("ab") > fuzzy_threshold("abcdef")
+    assert fuzzy_threshold("abc") > fuzzy_threshold("abcdef")
+    assert fuzzy_threshold("abcdefghij") == 55
+    assert fuzzy_threshold("ab") >= 80
+
+
+def test_short_query_does_not_match_unrelated(tmp_db):
+    _insert_session(tmp_db, "id-noise1", first_prompt="often used tools")
+    _insert_session(tmp_db, "id-noise2", first_prompt="draft email template")
+    _insert_session(tmp_db, "id-noise3", custom_name="software testing")
+    _insert_session(tmp_db, "id-match", first_prompt="search fts index")
+    results = rank_sessions(tmp_db, "fts")
+    session_ids = [s.session_id for s, _ in results]
+    assert "id-match" in session_ids
+    assert "id-noise1" not in session_ids
+    assert "id-noise2" not in session_ids
+    assert "id-noise3" not in session_ids
 
 
 # === #30: Header count (total vs shown) ===

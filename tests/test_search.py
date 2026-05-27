@@ -1,6 +1,6 @@
 import json
 import time
-from seshi.search import fuzzy_match, session_resolve, rank_sessions, frecency_score, list_sessions
+from seshi.search import fuzzy_match, fuzzy_threshold, session_resolve, rank_sessions, frecency_score, list_sessions
 from seshi.transcript_index import index_session
 from seshi.models import Session
 
@@ -190,3 +190,20 @@ def test_prompt_match_and_session_name_combined(tmp_db):
     results = score_sessions(sessions, "kubernetes", {}, prompt_texts)
     scores = {s.session_id: score for s, score in results}
     assert scores.get("both-match", 0) >= scores.get("name-only", 0)
+
+
+def test_fuzzy_threshold_monotonically_decreasing():
+    prev = fuzzy_threshold("a")
+    for length in range(2, 20):
+        current = fuzzy_threshold("x" * length)
+        assert current <= prev
+        prev = current
+
+
+def test_fuzzy_threshold_floor_is_55():
+    assert fuzzy_threshold("a" * 100) == 55
+
+
+def test_fuzzy_threshold_short_query_blocks_noise():
+    threshold = fuzzy_threshold("fts")
+    assert threshold > 66
