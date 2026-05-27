@@ -10,7 +10,7 @@ from rich.text import Text
 
 from seshi.models import Session, Prompt
 from seshi.prompt_text import strip_markup_tags
-from seshi.search import list_sessions, score_sessions, fuzzy_match, FUZZY_THRESHOLD
+from seshi.search import list_sessions, score_sessions, fuzzy_match, fuzzy_threshold
 from seshi.transcript_index import search_transcripts
 from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
@@ -90,9 +90,10 @@ class SessionsList(Widget):
 
         self._matching_prompts = set()
         if query:
+            threshold = fuzzy_threshold(query)
             for sid, plist in self._prompts.items():
                 for p in plist:
-                    if fuzzy_match(query, p.text) >= FUZZY_THRESHOLD:
+                    if fuzzy_match(query, p.text) >= threshold:
                         self._matching_prompts.add((sid, p.prompt_index))
             for sid, _ in self._matching_prompts:
                 self._collapsed.discard(sid)

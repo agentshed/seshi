@@ -6,10 +6,20 @@ from rapidfuzz import fuzz
 from seshi.models import Session
 from seshi.prompt_text import strip_markup_tags
 
-FUZZY_THRESHOLD = 55
 AGING_THRESHOLD = 1000.0
 AGING_FACTOR = 0.9
 ARCHIVE_RANK_THRESHOLD = 1.0
+
+
+def fuzzy_threshold(query: str) -> int:
+    n = len(query.strip())
+    if n <= 2:
+        return 85
+    if n <= 3:
+        return 75
+    if n <= 5:
+        return 65
+    return 55
 
 
 def fuzzy_match(query: str, string: str) -> int:
@@ -77,6 +87,7 @@ def score_sessions(
     prompt_texts: dict[str, list[str]] | None = None,
 ) -> list[tuple[Session, int]]:
     now = int(time.time())
+    threshold = fuzzy_threshold(query)
     scored = []
     for session in sessions:
         r1 = fuzzy_match(query, session.custom_name or "")
@@ -87,8 +98,8 @@ def score_sessions(
         if prompt_texts and session.session_id in prompt_texts:
             for pt in prompt_texts[session.session_id]:
                 r5 = max(r5, fuzzy_match(query, pt))
-        best = max(r1, r2, r3, r4, r5)
-        if best >= FUZZY_THRESHOLD:
+        best_fuzzy = max(r1, r2, r3, r5)
+        if best_fuzzy >= threshold or r4 > 0:
             fuzzy = max(r1 * 4, r2 * 2, r3, r4, int(r5 * 1.5))
             frec = frecency_score(session, now)
             scored.append((session, fuzzy, frec))
