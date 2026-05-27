@@ -514,6 +514,9 @@ class SessionsList(Widget):
         else:
             self._collapsed.add(s.session_id)
         self._build_display_rows()
+        nav_count = self._nav_row_count()
+        if self.cursor >= nav_count:
+            self.cursor = max(0, nav_count - 1)
         self.refresh()
 
     def _toggle_expand_all(self):

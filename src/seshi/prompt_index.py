@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime
 
 from seshi.transcript import find_transcript_path, extract_user_prompts
 
@@ -26,7 +27,6 @@ def index_session_prompts(conn: sqlite3.Connection, session_id: str) -> bool:
     for i, msg in enumerate(prompts):
         ts_epoch = None
         if msg.timestamp:
-            from datetime import datetime
             try:
                 dt = datetime.fromisoformat(msg.timestamp.replace("Z", "+00:00"))
                 ts_epoch = int(dt.timestamp())
