@@ -34,7 +34,8 @@ class Footer(Widget):
 
         if self.view == "sessions":
             keys = [
-                ("↵", "resume"), ("/", "search"), ("r", "rename"), ("f", "fav"),
+                ("↵", "resume"), ("/", "search"), ("e", "expand"),
+                ("r", "rename"), ("f", "fav"),
                 ("t", "tag"), ("u", "archive"), ("d", "delete"),
                 ("s", "sort"), ("H", "hide"), ("p", "preview"),
                 ("Space", "select"), ("?", "help"),

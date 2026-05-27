@@ -230,6 +230,111 @@ def seed_unicode(conn: sqlite3.Connection) -> dict[str, str]:
     return sessions
 
 
+def insert_prompts(
+    conn: sqlite3.Connection,
+    session_id: str,
+    prompts: list[tuple[str, int | None]],
+) -> None:
+    for i, (text, ts) in enumerate(prompts):
+        conn.execute(
+            "INSERT INTO prompts (session_id, prompt_index, text, timestamp_epoch) VALUES (?, ?, ?, ?)",
+            (session_id, i, text, ts),
+        )
+    conn.commit()
+
+
+def seed_with_prompts(conn: sqlite3.Connection) -> dict[str, str]:
+    now = int(time.time())
+    sessions: dict[str, str] = {}
+
+    sessions["multi"] = insert_session(
+        conn,
+        custom_name="multi-prompt",
+        first_prompt="fix the auth bug",
+        cwd="/tmp/auth-project",
+        last_activity_at=now,
+    )
+    insert_prompts(conn, sessions["multi"], [
+        ("fix the auth bug", now - 3600),
+        ("also check the session middleware", now - 2400),
+        ("now add tests for the auth flow", now - 1200),
+        ("deploy to staging", now - 600),
+        ("looks good, ship it", now),
+    ])
+
+    sessions["single"] = insert_session(
+        conn,
+        custom_name="single-prompt",
+        first_prompt="update the readme",
+        cwd="/tmp/docs",
+        last_activity_at=now - 7200,
+    )
+    insert_prompts(conn, sessions["single"], [
+        ("update the readme", now - 7200),
+    ])
+
+    sessions["no_prompts"] = insert_session(
+        conn,
+        custom_name="no-prompts",
+        first_prompt="empty session",
+        cwd="/tmp/empty",
+        last_activity_at=now - 14400,
+    )
+
+    sessions["many"] = insert_session(
+        conn,
+        custom_name="many-prompts",
+        first_prompt="start the project",
+        cwd="/tmp/big-project",
+        last_activity_at=now - 3600,
+    )
+    insert_prompts(conn, sessions["many"], [
+        (f"prompt number {i}", now - 3600 + i * 60)
+        for i in range(20)
+    ])
+
+    return sessions
+
+
+def seed_with_transcript_files(
+    conn: sqlite3.Connection,
+    claude_projects_dir,
+) -> dict[str, str]:
+    import json
+
+    now = int(time.time())
+    sessions: dict[str, str] = {}
+    project_dir = claude_projects_dir / "-tmp-preview-project"
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    sid = make_session_id()
+    sessions["with_transcript"] = sid
+    insert_session(
+        conn,
+        session_id=sid,
+        custom_name="preview-test",
+        first_prompt="first question",
+        cwd="/tmp/preview-project",
+        last_activity_at=now,
+    )
+    messages = []
+    for i in range(10):
+        role = "user" if i % 2 == 0 else "assistant"
+        messages.append({
+            "timestamp": f"2025-01-01T00:{i:02d}:00Z",
+            "message": {"role": role, "content": f"message number {i}"},
+        })
+    transcript = project_dir / f"{sid}.jsonl"
+    transcript.write_text("\n".join(json.dumps(m) for m in messages) + "\n")
+
+    insert_prompts(conn, sid, [
+        (f"message number {i}", now - (10 - i) * 60)
+        for i in range(0, 10, 2)
+    ])
+
+    return sessions
+
+
 def seed_for_projects(conn: sqlite3.Connection) -> dict[str, list[str]]:
     now = int(time.time())
     projects: dict[str, list[str]] = {}

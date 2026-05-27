@@ -40,6 +40,21 @@ CREATE TABLE IF NOT EXISTS tags (
 
 CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags (tag);
 
+CREATE TABLE IF NOT EXISTS prompts (
+    session_id    TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+    prompt_index  INTEGER NOT NULL,
+    text          TEXT NOT NULL,
+    timestamp_epoch INTEGER,
+    PRIMARY KEY (session_id, prompt_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_prompts_session ON prompts (session_id);
+
+CREATE TABLE IF NOT EXISTS prompt_index_meta (
+    session_id TEXT PRIMARY KEY,
+    file_size  INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS settings (
     key    TEXT PRIMARY KEY,
     value  TEXT

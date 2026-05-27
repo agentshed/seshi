@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from seshi.transcript import parse_transcript, extract_messages
+from seshi.transcript import parse_transcript, extract_messages, extract_user_prompts
 
 
 def _write_jsonl(path: Path, messages):
@@ -95,3 +95,84 @@ def test_extract_messages_skips_is_meta(tmp_path):
     msgs = extract_messages(f)
     assert len(msgs) == 1
     assert msgs[0].text == "real user message"
+
+
+def test_extract_user_prompts_basic(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z", "message": {"role": "user", "content": "first question"}},
+        {"timestamp": "2025-01-01T00:01:00Z", "message": {"role": "assistant", "content": "first answer"}},
+        {"timestamp": "2025-01-01T00:02:00Z", "message": {"role": "user", "content": "second question"}},
+        {"timestamp": "2025-01-01T00:03:00Z", "message": {"role": "assistant", "content": "second answer"}},
+        {"timestamp": "2025-01-01T00:04:00Z", "message": {"role": "user", "content": "third question"}},
+    ])
+    result = extract_user_prompts(f)
+    assert len(result) == 3
+    assert all(m.role == "user" for m in result)
+    assert result[0].text == "first question"
+    assert result[1].text == "second question"
+    assert result[2].text == "third question"
+
+
+def test_extract_user_prompts_skips_meta(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"isMeta": True, "timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "<local-command-caveat>Caveat message</local-command-caveat>"}},
+        {"timestamp": "2025-01-01T00:00:01Z",
+         "message": {"role": "user", "content": "real prompt"}},
+        {"isMeta": True, "timestamp": "2025-01-01T00:00:02Z",
+         "message": {"role": "user", "content": "another meta message"}},
+    ])
+    result = extract_user_prompts(f)
+    assert len(result) == 1
+    assert result[0].text == "real prompt"
+
+
+def test_extract_user_prompts_empty_file(tmp_path):
+    f = tmp_path / "test.jsonl"
+    f.write_text("")
+    result = extract_user_prompts(f)
+    assert result == []
+
+
+def test_extract_user_prompts_nonexistent_file():
+    result = extract_user_prompts(Path("/nonexistent/path/file.jsonl"))
+    assert result == []
+
+
+def test_extract_user_prompts_array_content(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z", "message": {"role": "user", "content": [
+            {"type": "text", "text": "hello from"},
+            {"type": "text", "text": "array content"},
+        ]}},
+    ])
+    result = extract_user_prompts(f)
+    assert len(result) == 1
+    assert result[0].text == "hello from array content"
+
+
+def test_extract_user_prompts_preserves_order(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z", "message": {"role": "user", "content": "alpha"}},
+        {"timestamp": "2025-01-01T00:01:00Z", "message": {"role": "assistant", "content": "response"}},
+        {"timestamp": "2025-01-01T00:02:00Z", "message": {"role": "user", "content": "beta"}},
+        {"timestamp": "2025-01-01T00:03:00Z", "message": {"role": "user", "content": "gamma"}},
+    ])
+    result = extract_user_prompts(f)
+    assert [m.text for m in result] == ["alpha", "beta", "gamma"]
+
+
+def test_extract_user_prompts_with_timestamps(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z", "message": {"role": "user", "content": "first"}},
+        {"timestamp": "2025-01-01T00:05:00Z", "message": {"role": "user", "content": "second"}},
+    ])
+    result = extract_user_prompts(f)
+    assert len(result) == 2
+    assert result[0].timestamp == "2025-01-01T00:00:00Z"
+    assert result[1].timestamp == "2025-01-01T00:05:00Z"

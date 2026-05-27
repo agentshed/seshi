@@ -127,6 +127,47 @@ def extract_messages(path: Path, limit: int | None = None) -> list[Message]:
     return messages
 
 
+def extract_user_prompts(path: Path) -> list[Message]:
+    messages = []
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                msg = obj.get("message", {})
+                role = msg.get("role")
+                if role != "user":
+                    continue
+                if obj.get("isMeta"):
+                    continue
+
+                content = msg.get("content", "")
+                if isinstance(content, list):
+                    parts = []
+                    for block in content:
+                        if isinstance(block, dict) and block.get("type") == "text":
+                            parts.append(block.get("text", ""))
+                    content = "\n".join(parts)
+
+                if isinstance(content, str):
+                    text = " ".join(content.split())[:500]
+                    if text:
+                        messages.append(Message(
+                            role=role,
+                            text=text,
+                            timestamp=obj.get("timestamp"),
+                        ))
+    except OSError:
+        pass
+    return messages
+
+
 def find_transcript_path(session_id: str) -> Path | None:
     if not CLAUDE_PROJECTS.is_dir():
         return None

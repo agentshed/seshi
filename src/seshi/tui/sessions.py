@@ -1,13 +1,14 @@
 import os
 import re
 import sqlite3
+from dataclasses import dataclass
 
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual import events
 from rich.text import Text
 
-from seshi.models import Session
+from seshi.models import Session, Prompt
 from seshi.prompt_text import strip_markup_tags
 from seshi.search import list_sessions, score_sessions
 from seshi.transcript_index import search_transcripts
@@ -15,6 +16,14 @@ from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
 from seshi.tui.search_bar import SearchBar, SearchChanged
+
+
+@dataclass
+class DisplayRow:
+    kind: str  # "bucket", "session", "prompt"
+    session: Session | None = None
+    prompt: Prompt | None = None
+    label: str = ""
 
 
 class SessionsList(Widget):
@@ -41,6 +50,10 @@ class SessionsList(Widget):
         self._all_sessions: list[Session] = []
         self._current_query: str = ""
         self._current_tags: list[str] | None = None
+        self._prompts: dict[str, list[Prompt]] = {}
+        self._collapsed: set[str] = set()
+        self._display_rows: list[DisplayRow] = []
+        self._matching_prompts: set[tuple[str, int]] = set()
         self._load_sessions()
 
     def _load_sessions(self, query: str = "", tags: list[str] | None = None):
@@ -62,17 +75,82 @@ class SessionsList(Widget):
             sessions = [s for s in sessions if s.session_id in existing]
 
         self._all_sessions = sessions
+        self.sessions = sessions
+        self._load_prompts()
 
         if query:
+            prompt_texts: dict[str, list[str]] = {}
+            for sid, plist in self._prompts.items():
+                prompt_texts[sid] = [p.text for p in plist]
             fts_scores = search_transcripts(self.conn, query)
-            blended = score_sessions(sessions, query, fts_scores)
+            blended = score_sessions(sessions, query, fts_scores, prompt_texts)
             blended.sort(key=lambda x: (-x[0].is_favorite, -x[1]))
             sessions = [s for s, _ in blended]
+            self.sessions = sessions
 
-        self.sessions = sessions
-        if self.cursor >= len(self.sessions):
-            self.cursor = max(0, len(self.sessions) - 1)
+        self._matching_prompts = set()
+        if query:
+            q = f"%{query}%"
+            try:
+                rows = self.conn.execute(
+                    "SELECT session_id, prompt_index FROM prompts WHERE text LIKE ? COLLATE NOCASE",
+                    (q,),
+                ).fetchall()
+                self._matching_prompts = {(r["session_id"], r["prompt_index"]) for r in rows}
+                for sid, _ in self._matching_prompts:
+                    self._collapsed.discard(sid)
+            except Exception:
+                pass
+
+        self._build_display_rows()
+        nav_rows = [r for r in self._display_rows if r.kind != "bucket"]
+        if self.cursor >= len(nav_rows):
+            self.cursor = max(0, len(nav_rows) - 1)
         self.refresh()
+
+    def _load_prompts(self):
+        self._prompts = {}
+        if not self.sessions:
+            return
+        ids = [s.session_id for s in self.sessions]
+        placeholders = ",".join("?" * len(ids))
+        try:
+            rows = self.conn.execute(
+                f"SELECT * FROM prompts WHERE session_id IN ({placeholders}) ORDER BY session_id, prompt_index",
+                ids,
+            ).fetchall()
+            for row in rows:
+                sid = row["session_id"]
+                if sid not in self._prompts:
+                    self._prompts[sid] = []
+                self._prompts[sid].append(Prompt.from_row(row))
+        except Exception:
+            pass
+
+    def _build_display_rows(self):
+        rows: list[DisplayRow] = []
+        current_bucket = ""
+        for s in self.sessions:
+            bucket_header = None
+            if s.is_favorite and current_bucket != "favorites":
+                current_bucket = "favorites"
+                bucket_header = "  ── ★ favorites ──"
+            elif not s.is_favorite:
+                bucket = time_bucket(s.last_activity_at)
+                if bucket != current_bucket:
+                    current_bucket = bucket
+                    bucket_header = f"  ── {bucket} ──"
+
+            if bucket_header:
+                rows.append(DisplayRow(kind="bucket", label=bucket_header))
+
+            rows.append(DisplayRow(kind="session", session=s))
+
+            if s.session_id not in self._collapsed:
+                for p in self._prompts.get(s.session_id, []):
+                    rows.append(DisplayRow(kind="prompt", session=s, prompt=p))
+
+        self._display_rows = rows
 
     def filter(self, query: str):
         text, tags = _parse_search(query)
@@ -80,17 +158,42 @@ class SessionsList(Widget):
         self._current_tags = tags if tags else None
         self._load_sessions(query=text, tags=self._current_tags)
 
+    def _cursor_to_display_index(self, cursor: int) -> int:
+        nav_idx = 0
+        for i, row in enumerate(self._display_rows):
+            if row.kind == "bucket":
+                continue
+            if nav_idx == cursor:
+                return i
+            nav_idx += 1
+        return len(self._display_rows) - 1
+
+    def _nav_row_count(self) -> int:
+        return sum(1 for r in self._display_rows if r.kind != "bucket")
+
     def watch_cursor(self, cursor: int) -> None:
         try:
             if hasattr(self.app, '_preview'):
                 self.app._preview.session = self.current_session
+                di = self._cursor_to_display_index(cursor)
+                row = self._display_rows[di] if 0 <= di < len(self._display_rows) else None
+                if hasattr(self.app._preview, 'focus_prompt_index'):
+                    self.app._preview.focus_prompt_index = row.prompt.prompt_index if row and row.prompt else None
         except Exception:
             pass
 
     @property
     def current_session(self) -> Session | None:
-        if 0 <= self.cursor < len(self.sessions):
-            return self.sessions[self.cursor]
+        di = self._cursor_to_display_index(self.cursor)
+        if 0 <= di < len(self._display_rows):
+            return self._display_rows[di].session
+        return None
+
+    @property
+    def _current_display_row(self) -> DisplayRow | None:
+        di = self._cursor_to_display_index(self.cursor)
+        if 0 <= di < len(self._display_rows):
+            return self._display_rows[di]
         return None
 
     _scroll_offset: int = 0
@@ -121,99 +224,116 @@ class SessionsList(Widget):
 
         visible_height = max(self.size.height - 2, 5) if self.size.height > 0 else 20
 
-        if self.cursor < self._scroll_offset:
-            self._scroll_offset = self.cursor
-        elif self.cursor >= self._scroll_offset + visible_height:
-            self._scroll_offset = self.cursor - visible_height + 1
-
         home = os.path.expanduser("~")
-
-        lines: list[tuple[int, Session]] = list(enumerate(self.sessions))
-
         w = self.size.width if self.size.width > 0 else 120
         narrow = w < 60
-        max_rel_len = max((len(relative_time(s.last_activity_at)) for _, s in lines), default=8)
+
+        all_sessions_for_rel = [r.session for r in self._display_rows if r.session]
+        max_rel_len = max((len(relative_time(s.last_activity_at)) for s in all_sessions_for_rel), default=8)
 
         if narrow:
-            # Compact: cursor(1)+sel(3)+fav(2)+space(1)+gap(2)+rel = 9+max_rel_len
             compact_overhead = 9 + max_rel_len
             title_w = max(10, w - compact_overhead)
+            cwd_w = 0
         else:
-            # prefix: cursor(1)+sel(3)+fav(3)+lang(3)+gap(2)=12; gaps: 2+2=4
             overhead = 12 + 4 + max_rel_len
             avail = max(30, w - overhead)
             title_w = min(50, max(12, avail * 40 // 100))
             cwd_w = min(40, max(12, avail * 33 // 100))
 
-        current_bucket = ""
-        visible_rows: list[tuple[str, str, bool]] = []
+        cursor_display_idx = self._cursor_to_display_index(self.cursor)
 
-        for i, s in lines:
-            bucket_header = None
-            if s.is_favorite and current_bucket != "favorites":
-                current_bucket = "favorites"
-                bucket_header = "  ── ★ favorites ──"
-            elif not s.is_favorite:
-                bucket = time_bucket(s.last_activity_at)
-                if bucket != current_bucket:
-                    current_bucket = bucket
-                    bucket_header = f"  ── {bucket} ──"
+        visible_rows: list[tuple[str, str, int]] = []
+        # (line_text, style, display_index)
 
-            if bucket_header:
-                visible_rows.append((bucket_header, "dim", False))
+        for di, drow in enumerate(self._display_rows):
+            if drow.kind == "bucket":
+                visible_rows.append((drow.label, "dim", di))
+                continue
 
-            is_selected = s.session_id in self.selected
-            is_cursor = i == self.cursor
-            style = "reverse" if is_cursor else ""
+            if drow.kind == "session":
+                s = drow.session
+                assert s is not None
+                is_cursor = di == cursor_display_idx
+                is_selected = s.session_id in self.selected
+                style = "reverse" if is_cursor else ""
 
-            cursor_mark = "▸" if is_cursor else " "
-            sel_mark = "[x]" if is_selected else "   "
-            rel = relative_time(s.last_activity_at)
-            title = (s.custom_name or strip_markup_tags(s.first_prompt or "") or "(untitled)")[:title_w]
-
-            if narrow:
-                fav = " *" if s.is_favorite else "  "
-                base = f"{cursor_mark}{sel_mark}{fav} {title:<{title_w}}  {rel:>{max_rel_len}}"
-                line = base[:w]
-            else:
-                fav = " * " if s.is_favorite else "   "
-                lang = detect_language(s.cwd)
-                lang_str = f"{lang:>3}" if lang else "   "
-                cwd = s.cwd
-                if cwd.startswith(home):
-                    cwd = "~" + cwd[len(home):]
-                if len(cwd) > cwd_w:
-                    half = (cwd_w - 1) // 2
-                    cwd = cwd[:half] + "…" + cwd[-(cwd_w - 1 - half):]
-
-                tags_str = ""
-                tag_rows = self.conn.execute(
-                    "SELECT tag FROM tags WHERE session_id = ?", (s.session_id,)
-                ).fetchall()
-                if tag_rows:
-                    tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
-
-                base = f"{cursor_mark}{sel_mark}{fav}{lang_str}  {title:<{title_w}}  {cwd:<{cwd_w}}  {rel:>{max_rel_len}}"
-                tags_budget = w - len(base)
-                if tags_str and tags_budget > 3:
-                    tags_str = tags_str[:tags_budget]
+                expanded = s.session_id not in self._collapsed
+                has_prompts = bool(self._prompts.get(s.session_id))
+                if has_prompts:
+                    collapse_mark = "▾" if expanded else "▸"
                 else:
+                    collapse_mark = " "
+
+                sel_mark = "[x]" if is_selected else "   "
+                rel = relative_time(s.last_activity_at)
+                title = (s.custom_name or strip_markup_tags(s.first_prompt or "") or "(untitled)")[:title_w]
+
+                if narrow:
+                    fav = " *" if s.is_favorite else "  "
+                    base = f"{collapse_mark}{sel_mark}{fav} {title:<{title_w}}  {rel:>{max_rel_len}}"
+                    line = base[:w]
+                else:
+                    fav = " * " if s.is_favorite else "   "
+                    lang = detect_language(s.cwd)
+                    lang_str = f"{lang:>3}" if lang else "   "
+                    cwd = s.cwd
+                    if cwd.startswith(home):
+                        cwd = "~" + cwd[len(home):]
+                    if len(cwd) > cwd_w:
+                        half = (cwd_w - 1) // 2
+                        cwd = cwd[:half] + "…" + cwd[-(cwd_w - 1 - half):]
+
                     tags_str = ""
-                line = (base + tags_str)[:w]
-            visible_rows.append((line, style, is_cursor))
+                    tag_rows = self.conn.execute(
+                        "SELECT tag FROM tags WHERE session_id = ?", (s.session_id,)
+                    ).fetchall()
+                    if tag_rows:
+                        tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
+
+                    base = f"{collapse_mark}{sel_mark}{fav}{lang_str}  {title:<{title_w}}  {cwd:<{cwd_w}}  {rel:>{max_rel_len}}"
+                    tags_budget = w - len(base)
+                    if tags_str and tags_budget > 3:
+                        tags_str = tags_str[:tags_budget]
+                    else:
+                        tags_str = ""
+                    line = (base + tags_str)[:w]
+                visible_rows.append((line, style, di))
+
+            elif drow.kind == "prompt":
+                p = drow.prompt
+                assert p is not None
+                is_cursor = di == cursor_display_idx
+                style = "reverse" if is_cursor else ""
+
+                indent = "          "
+                connector = "│ "
+                if narrow:
+                    prompt_w = max(5, w - len(indent) - len(connector))
+                    prompt_text = p.text[:prompt_w]
+                    line = f"{indent}{connector}{prompt_text}"[:w]
+                else:
+                    prompt_rel = ""
+                    if p.timestamp_epoch:
+                        prompt_rel = relative_time(p.timestamp_epoch)
+                    prompt_w = max(5, w - len(indent) - len(connector) - 2 - max_rel_len)
+                    prompt_text = p.text[:prompt_w]
+                    line = f"{indent}{connector}{prompt_text:<{prompt_w}}  {prompt_rel:>{max_rel_len}}"[:w]
+                visible_rows.append((line, style, di))
 
         cursor_row_idx = 0
-        for idx, (_, _, is_cur) in enumerate(visible_rows):
-            if is_cur:
+        for idx, (_, _, di) in enumerate(visible_rows):
+            if di == cursor_display_idx:
                 cursor_row_idx = idx
                 break
 
         start = max(0, cursor_row_idx - visible_height // 2)
         if start + visible_height > len(visible_rows):
             start = max(0, len(visible_rows) - visible_height)
+        start = min(start, cursor_row_idx)
         end = min(start + visible_height, len(visible_rows))
 
-        for row_line, row_style, _ in visible_rows[start:end]:
+        for row_line, row_style, di in visible_rows[start:end]:
             if self._current_query and row_style != "dim":
                 line_text = Text(row_line + "\n", style=row_style)
                 line_text.highlight_words([self._current_query], style="bold underline", case_sensitive=False)
@@ -240,19 +360,24 @@ class SessionsList(Widget):
             self._handle_input_key(event)
             return
 
+        nav_count = self._nav_row_count()
         handled = True
         if event.key in ("up", "k"):
             self.cursor = max(0, self.cursor - 1)
         elif event.key in ("down", "j"):
-            self.cursor = min(len(self.sessions) - 1, self.cursor + 1)
+            self.cursor = min(nav_count - 1, self.cursor + 1)
         elif event.key == "g":
             self.cursor = 0
         elif event.key in ("G", "shift+g"):
-            self.cursor = max(0, len(self.sessions) - 1)
+            self.cursor = max(0, nav_count - 1)
         elif event.key == "ctrl+u":
             self.cursor = max(0, self.cursor - 10)
         elif event.key == "ctrl+d":
-            self.cursor = min(len(self.sessions) - 1, self.cursor + 10)
+            self.cursor = min(nav_count - 1, self.cursor + 10)
+        elif event.key == "e":
+            self._toggle_expand()
+        elif event.key == "E":
+            self._toggle_expand_all()
         elif event.key == "space":
             s = self.current_session
             if s:
@@ -378,6 +503,28 @@ class SessionsList(Widget):
         self._input_mode = "tag"
         self._input_buffer = ""
         self._update_footer("tag")
+        self.refresh()
+
+    def _toggle_expand(self):
+        s = self.current_session
+        if not s:
+            return
+        if s.session_id in self._collapsed:
+            self._collapsed.discard(s.session_id)
+        else:
+            self._collapsed.add(s.session_id)
+        self._build_display_rows()
+        self.refresh()
+
+    def _toggle_expand_all(self):
+        if self._collapsed:
+            self._collapsed.clear()
+        else:
+            self._collapsed = {s.session_id for s in self.sessions}
+        self._build_display_rows()
+        nav_count = self._nav_row_count()
+        if self.cursor >= nav_count:
+            self.cursor = max(0, nav_count - 1)
         self.refresh()
 
     def _reload_with_current_filter(self):
