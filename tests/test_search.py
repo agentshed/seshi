@@ -138,3 +138,55 @@ def test_frecency_recent_scores_higher():
     recent = Session("r", "/", "[]", None, None, None, None, None, 0, 0, 0, 0, 0, None, now, now - 3600, None, 1)
     old = Session("o", "/", "[]", None, None, None, None, None, 0, 0, 0, 0, 0, None, now, now - 86400 * 7, None, 1)
     assert frecency_score(recent, now) > frecency_score(old, now)
+
+
+def test_score_sessions_matches_prompt_text(tmp_db):
+    from seshi.search import score_sessions
+    _insert_session(tmp_db, "prompt-1", first_prompt="unrelated task")
+    prompt_texts = {"prompt-1": ["fix the kubernetes deployment issue"]}
+    results = score_sessions(
+        [Session.from_row(tmp_db.execute("SELECT * FROM sessions WHERE session_id = 'prompt-1'").fetchone())],
+        "kubernetes",
+        {},
+        prompt_texts,
+    )
+    assert len(results) == 1
+    assert results[0][0].session_id == "prompt-1"
+
+
+def test_prompt_match_boosts_session_ranking(tmp_db):
+    from seshi.search import score_sessions
+    _insert_session(tmp_db, "name-match", custom_name="kubernetes-deploy")
+    _insert_session(tmp_db, "prompt-match", first_prompt="unrelated")
+    sessions = [
+        Session.from_row(tmp_db.execute("SELECT * FROM sessions WHERE session_id = ?", (sid,)).fetchone())
+        for sid in ("name-match", "prompt-match")
+    ]
+    prompt_texts = {"prompt-match": ["deploy the kubernetes cluster"]}
+    results = score_sessions(sessions, "kubernetes", {}, prompt_texts)
+    ids = [s.session_id for s, _ in results]
+    assert "name-match" in ids
+    assert "prompt-match" in ids
+
+
+def test_no_prompt_match_for_gibberish(tmp_db):
+    from seshi.search import score_sessions
+    _insert_session(tmp_db, "normal", first_prompt="normal task")
+    sessions = [Session.from_row(tmp_db.execute("SELECT * FROM sessions WHERE session_id = 'normal'").fetchone())]
+    prompt_texts = {"normal": ["do something useful"]}
+    results = score_sessions(sessions, "xyzzy123qqq", {}, prompt_texts)
+    assert len(results) == 0
+
+
+def test_prompt_match_and_session_name_combined(tmp_db):
+    from seshi.search import score_sessions
+    _insert_session(tmp_db, "both-match", custom_name="kubernetes-setup", first_prompt="unrelated")
+    _insert_session(tmp_db, "name-only", custom_name="kubernetes-config")
+    sessions = [
+        Session.from_row(tmp_db.execute("SELECT * FROM sessions WHERE session_id = ?", (sid,)).fetchone())
+        for sid in ("both-match", "name-only")
+    ]
+    prompt_texts = {"both-match": ["configure the kubernetes ingress"]}
+    results = score_sessions(sessions, "kubernetes", {}, prompt_texts)
+    scores = {s.session_id: score for s, score in results}
+    assert scores.get("both-match", 0) >= scores.get("name-only", 0)

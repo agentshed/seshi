@@ -15,8 +15,16 @@ class Preview(Widget):
     """
 
     session: reactive[Session | None] = reactive(None)
+    focus_prompt_index: reactive[int | None] = reactive(None)
+    highlight_query: reactive[str] = reactive("")
 
     def watch_session(self, session: Session | None) -> None:
+        self.refresh()
+
+    def watch_focus_prompt_index(self, index: int | None) -> None:
+        self.refresh()
+
+    def watch_highlight_query(self, query: str) -> None:
         self.refresh()
 
     def render(self) -> Text:
@@ -37,12 +45,40 @@ class Preview(Widget):
         messages = extract_messages(path)
         available_lines = max(self.size.height - 2, 4) if self.size.height > 0 else 6
         max_text_width = max(self.size.width - 12, 40) if self.size.width > 0 else 120
-        display = messages[-available_lines:] if len(messages) > available_lines else messages
+
+        if self.focus_prompt_index is not None and messages:
+            user_count = 0
+            focus_pos = None
+            for i, msg in enumerate(messages):
+                if msg.role == "user":
+                    if user_count == self.focus_prompt_index:
+                        focus_pos = i
+                        break
+                    user_count += 1
+            if focus_pos is not None:
+                half = available_lines // 2
+                start = max(0, focus_pos - half)
+                end = min(len(messages), start + available_lines)
+                if end - start < available_lines:
+                    start = max(0, end - available_lines)
+                display = messages[start:end]
+            else:
+                display = messages[-available_lines:] if len(messages) > available_lines else messages
+        else:
+            display = messages[-available_lines:] if len(messages) > available_lines else messages
+
         for msg in display:
             role_map = {"user": "you", "assistant": "asst", "system": "sys", "tool": "tool"}
             role_label = role_map.get(msg.role, msg.role)
             role_style = "#E08A5E" if msg.role == "user" else "#6BAED6"
-            text.append(f"  ▎ {role_label:<5}", style=role_style)
-            text.append(f" {msg.text[:max_text_width]}\n", style="dim")
+
+            line = Text()
+            line.append(f"  ▎ {role_label:<5}", style=role_style)
+            line.append(f" {msg.text[:max_text_width]}\n", style="dim")
+
+            if self.highlight_query:
+                line.highlight_words([self.highlight_query], style="bold underline", case_sensitive=False)
+
+            text.append_text(line)
 
         return text

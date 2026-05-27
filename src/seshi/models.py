@@ -41,6 +41,23 @@ class Tag:
 
 
 @dataclass
+class Prompt:
+    session_id: str
+    prompt_index: int
+    text: str
+    timestamp_epoch: int | None
+
+    @classmethod
+    def from_row(cls, row: sqlite3.Row) -> "Prompt":
+        return cls(
+            session_id=row["session_id"],
+            prompt_index=row["prompt_index"],
+            text=row["text"],
+            timestamp_epoch=row["timestamp_epoch"],
+        )
+
+
+@dataclass
 class ProjectFavorite:
     cwd: str
     custom_name: str | None

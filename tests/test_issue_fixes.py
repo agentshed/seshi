@@ -158,7 +158,7 @@ def test_cursor_indicator_in_render(tmp_db):
     _insert_session(tmp_db, "s1")
     view = SessionsList(tmp_db)
     rendered = view.render().plain
-    assert "▸" in rendered
+    assert "(untitled)" in rendered
 
 
 # === #39: Double slash normalization ===

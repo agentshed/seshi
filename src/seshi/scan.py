@@ -92,6 +92,12 @@ def scan_projects(
     except Exception:
         log.debug("FTS indexing failed", exc_info=True)
 
+    from seshi.prompt_index import index_pending_prompts
+    try:
+        index_pending_prompts(conn)
+    except Exception:
+        log.debug("prompt indexing failed", exc_info=True)
+
     return count
 
 

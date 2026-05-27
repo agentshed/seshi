@@ -98,6 +98,7 @@ class SeshiApp(App):
         import logging
         from seshi.paths import DB_PATH
         from seshi.transcript_index import index_pending
+        from seshi.prompt_index import index_pending_prompts
         try:
             conn = sqlite3.connect(str(DB_PATH))
             conn.row_factory = sqlite3.Row
@@ -105,6 +106,7 @@ class SeshiApp(App):
             conn.execute("PRAGMA busy_timeout=3000")
             try:
                 index_pending(conn)
+                index_pending_prompts(conn)
             finally:
                 conn.close()
         except Exception:
@@ -156,6 +158,7 @@ class SeshiApp(App):
             s = self._sessions_list.current_session
             if hasattr(self, '_preview'):
                 self._preview.session = s
+                self._preview.highlight_query = message.query
 
     def watch_current_view(self, view: str) -> None:
         footer = self.query_one(Footer)

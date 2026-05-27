@@ -74,6 +74,7 @@ def score_sessions(
     sessions: list[Session],
     query: str,
     fts_scores: dict[str, float],
+    prompt_texts: dict[str, list[str]] | None = None,
 ) -> list[tuple[Session, int]]:
     now = int(time.time())
     scored = []
@@ -82,8 +83,13 @@ def score_sessions(
         r2 = fuzzy_match(query, strip_markup_tags(session.first_prompt or ""))
         r3 = fuzzy_match(query, session.cwd)
         r4 = int(fts_scores.get(session.session_id, 0))
-        if max(r1, r2, r3, r4) >= FUZZY_THRESHOLD:
-            fuzzy = max(r1 * 4, r2 * 2, r3, r4)
+        r5 = 0
+        if prompt_texts and session.session_id in prompt_texts:
+            for pt in prompt_texts[session.session_id]:
+                r5 = max(r5, fuzzy_match(query, pt))
+        best = max(r1, r2, r3, r4, r5)
+        if best >= FUZZY_THRESHOLD:
+            fuzzy = max(r1 * 4, r2 * 2, r3, r4, int(r5 * 1.5))
             frec = frecency_score(session, now)
             scored.append((session, fuzzy, frec))
     return blend_fuzzy_frecency(scored)
