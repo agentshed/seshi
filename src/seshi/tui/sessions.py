@@ -230,12 +230,12 @@ class SessionsList(Widget):
         sel_w = 3 if in_selection else 0
 
         if narrow:
-            prefix_w = 1 + sel_w + 2 + 1
+            prefix_w = 1 + sel_w + 2 + 1  # collapse + sel + fav + space
             compact_overhead = prefix_w + 2 + max_rel_len
             title_w = max(10, w - compact_overhead)
             cwd_w = 0
         else:
-            prefix_w = 1 + sel_w + 2 + 3 + 1
+            prefix_w = 1 + sel_w + 2 + 3 + 1  # collapse + sel + fav + lang + space
             overhead = prefix_w + 4 + max_rel_len
             avail = max(30, w - overhead)
             title_w = min(50, max(12, avail * 40 // 100))
