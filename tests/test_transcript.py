@@ -97,6 +97,23 @@ def test_extract_messages_skips_is_meta(tmp_path):
     assert msgs[0].text == "real user message"
 
 
+def test_extract_messages_skips_user_with_only_system_blocks(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "<local-command-caveat>Caveat: system only</local-command-caveat>"}},
+        {"timestamp": "2025-01-01T00:00:01Z",
+         "message": {"role": "assistant", "content": "Here is my response"}},
+        {"timestamp": "2025-01-01T00:00:02Z",
+         "message": {"role": "user", "content": "real question"}},
+    ])
+    msgs = extract_messages(f)
+    assert len(msgs) == 2
+    assert msgs[0].role == "assistant"
+    assert msgs[1].role == "user"
+    assert msgs[1].text == "real question"
+
+
 def test_parse_strips_embedded_caveat_from_first_prompt(tmp_path):
     f = tmp_path / "test.jsonl"
     _write_jsonl(f, [
