@@ -116,7 +116,8 @@ def extract_messages(path: Path, limit: int | None = None) -> list[Message]:
                     content = "\n".join(parts)
 
                 if isinstance(content, str):
-                    content = strip_system_blocks(content)
+                    if role == "user":
+                        content = strip_system_blocks(content)
                     text = " ".join(content.split())[:200]
                     if not text:
                         continue
