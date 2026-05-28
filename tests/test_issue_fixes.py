@@ -236,6 +236,7 @@ def test_search_bar_no_dim_cursor_when_inactive():
     bar.search_text = ""
     rendered = bar.render().plain
     assert "▮" not in rendered
+    assert "_" not in rendered
 
 
 # === #34: Long CWD paths truncated in projects ===

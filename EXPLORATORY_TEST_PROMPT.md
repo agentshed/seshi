@@ -226,7 +226,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 
 #### 4.3 Rename (r) — Positive
 - Press `r` on a session
-- **Verify:** Inline input appears with label "rename: " and a blinking cursor (block char)
+- **Verify:** Inline input appears with label "rename: " and a blinking underscore cursor
 - **Verify:** If session already has a custom_name, it pre-fills the buffer
 - **Verify:** Footer changes to "Enter save  Esc cancel"
 - Type a new name, press Enter
@@ -763,9 +763,9 @@ Rate each of these on a 1-5 scale and document observations:
 
 #### 19.3 Cursor Blink
 - Activate search bar
-- **Verify:** Cursor (block character `▮`) blinks on/off at ~500ms
+- **Verify:** Cursor (underscore `_`) blinks on/off at ~500ms
 - Deactivate search bar
-- **Verify:** Cursor shows as dim (non-blinking) block
+- **Verify:** Cursor is hidden when inactive
 
 ---
 

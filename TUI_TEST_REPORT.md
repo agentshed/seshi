@@ -196,7 +196,7 @@ A project path `~/fullsend/experiments/gopls/lsp/validation//fullsend/target/rep
 **File:** `tui/search_bar.py:29-38`
 **Status:** PARTIAL
 
-When search bar is deactivated (active=False), the cursor shows as a dim block `▮`. This provides a visual hint but may confuse users — it looks like a cursor in a disabled state. A completely hidden cursor when inactive would be cleaner.
+When search bar is deactivated (active=False), the cursor is hidden. The blinking underscore `_` cursor only appears when the search bar is active.
 
 ### L5. `Ctrl+C` Then `Escape` Quits App
 

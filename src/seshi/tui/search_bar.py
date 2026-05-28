@@ -2,11 +2,12 @@ from textual.widget import Widget
 from textual.message import Message
 from textual.reactive import reactive
 from textual import events
-from textual.timer import Timer
 from rich.text import Text
 
+from seshi.tui.blink import BlinkCursorMixin
 
-class SearchBar(Widget):
+
+class SearchBar(BlinkCursorMixin, Widget):
     DEFAULT_CSS = """
     SearchBar {
         height: 1;
@@ -23,22 +24,12 @@ class SearchBar(Widget):
     accent: reactive[str] = reactive("#E08A5E")
     can_focus = True
 
-    _cursor_visible: bool = True
-    _blink_timer: Timer | None = None
-
     def watch_active(self, active: bool) -> None:
         if active:
-            self._cursor_visible = True
-            self._blink_timer = self.set_interval(0.5, self._toggle_cursor)
+            self._start_blink()
         else:
-            if self._blink_timer:
-                self._blink_timer.stop()
-                self._blink_timer = None
+            self._stop_blink()
             self._cursor_visible = False
-        self.refresh()
-
-    def _toggle_cursor(self) -> None:
-        self._cursor_visible = not self._cursor_visible
         self.refresh()
 
     def render(self) -> Text:

@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual import events
-from textual.timer import Timer
 from rich.text import Text
 
 from seshi.models import Session, Prompt
+from seshi.tui.blink import BlinkCursorMixin
 from seshi.prompt_text import strip_markup_tags, strip_system_blocks
 from seshi.search import list_sessions, rank_sessions, query_matches_text
 from seshi.time_utils import relative_time, time_bucket
@@ -26,7 +26,7 @@ class DisplayRow:
     label: str = ""
 
 
-class SessionsList(Widget):
+class SessionsList(BlinkCursorMixin, Widget):
     DEFAULT_CSS = """
     SessionsList {
         height: 1fr;
@@ -348,22 +348,6 @@ class SessionsList(Widget):
 
     _input_mode: str = ""
     _input_buffer: str = ""
-    _cursor_visible: bool = True
-    _blink_timer: Timer | None = None
-
-    def _start_blink(self) -> None:
-        self._cursor_visible = True
-        self._blink_timer = self.set_interval(0.5, self._toggle_cursor)
-
-    def _stop_blink(self) -> None:
-        if self._blink_timer:
-            self._blink_timer.stop()
-            self._blink_timer = None
-        self._cursor_visible = True
-
-    def _toggle_cursor(self) -> None:
-        self._cursor_visible = not self._cursor_visible
-        self.refresh()
 
     def on_key(self, event: events.Key) -> None:
         if getattr(self.app, "_quit_toast_active", False):
