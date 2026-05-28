@@ -201,7 +201,7 @@ def launch_tui(ctx_obj):
         sys.__stdout__.flush()
 ```
 
-The confirmation prompt (`tui/confirm.py`) for fuzzy resume uses raw terminal I/O directly on `/dev/tty` — it does NOT use Textual.
+The confirmation prompt (`tui/confirm.py`) for `seshi resume` uses raw terminal I/O directly on `/dev/tty` — it does NOT use Textual.
 
 ---
 
@@ -380,10 +380,10 @@ def detect_shell() -> str:
 ```python
 class SeshiGroup(click.Group):
     def resolve_command(self, ctx, args):
-        """Route unknown subcommands to fuzzy resume."""
+        """Route unknown subcommands to TUI with pre-populated search."""
         cmd_name = args[0] if args else None
         if cmd_name and cmd_name not in self.commands and not cmd_name.startswith("-"):
-            return "resume", self.commands["resume"], args
+            return "_tui_search", self.commands["_tui_search"], args
         return super().resolve_command(ctx, args)
 
 @click.group(cls=SeshiGroup, invoke_without_command=True)
@@ -514,7 +514,7 @@ def theme_css(palette: Palette) -> str:
     """
 ```
 
-**`tui/confirm.py`** — Standalone raw-terminal confirmation for fuzzy resume (NOT Textual):
+**`tui/confirm.py`** — Standalone raw-terminal confirmation for `seshi resume` (NOT Textual):
 ```python
 def confirm_resume(session, query) -> str:
     """Render to /dev/tty. Read single keypress. Return 'yes'/'no'/'tui'."""
@@ -704,7 +704,7 @@ async def test_session_list_renders():
 | Path unsanitization correctness | Sessions mapped to wrong directories | Port test cases exactly from spec. Test with real `~/.claude/projects/` directory names |
 | Hook reliability | Hook failure blocks Claude Code | Copy battle-tested bash script. Every operation wrapped in `|| exit 0`. Never write to stdout/stderr |
 | Large transcript performance | Slow grep/scan on hundreds of JSONL files | Line-by-line buffered reading. Limit scan to top-level files. Short-circuit grep on match limit |
-| Click + unknown subcommands | `seshi <query>` misrouted | Custom `SeshiGroup.resolve_command()` that falls through to fuzzy resume for unrecognized commands |
+| Click + unknown subcommands | `seshi <query>` misrouted | Custom `SeshiGroup.resolve_command()` that routes to TUI with pre-populated search for unrecognized commands |
 
 ---
 

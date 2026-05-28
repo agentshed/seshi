@@ -36,7 +36,7 @@ The shell wrapper `seshi()` captures stdout via `$(command seshi "$@")` and `eva
 
 ### CLI structure
 
-`cli.py` defines a `SeshiGroup` (Click group) that routes unknown subcommands to fuzzy resume. Each command in `commands/` registers itself on the `main` group via import at the bottom of `cli.py`.
+`cli.py` defines a `SeshiGroup` (Click group) that routes unknown subcommands to the TUI with the search bar pre-populated. Each command in `commands/` registers itself on the `main` group via import at the bottom of `cli.py`.
 
 ### Session resolution
 
