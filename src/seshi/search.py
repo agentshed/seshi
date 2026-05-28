@@ -6,7 +6,7 @@ from rapidfuzz import fuzz
 from seshi.models import Session
 from seshi.prompt_text import strip_markup_tags
 
-FUZZY_THRESHOLD = 55
+FUZZY_THRESHOLD = 75
 AGING_THRESHOLD = 1000.0
 AGING_FACTOR = 0.9
 ARCHIVE_RANK_THRESHOLD = 1.0

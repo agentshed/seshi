@@ -1,6 +1,6 @@
 import json
 import time
-from seshi.search import fuzzy_match, session_resolve, rank_sessions, frecency_score, list_sessions
+from seshi.search import fuzzy_match, session_resolve, rank_sessions, frecency_score, list_sessions, FUZZY_THRESHOLD, score_sessions
 from seshi.transcript_index import index_session
 from seshi.models import Session
 
@@ -190,3 +190,122 @@ def test_prompt_match_and_session_name_combined(tmp_db):
     results = score_sessions(sessions, "kubernetes", {}, prompt_texts)
     scores = {s.session_id: score for s, score in results}
     assert scores.get("both-match", 0) >= scores.get("name-only", 0)
+
+
+# --- Fuzzy threshold: false positives ---
+
+
+def test_sqlite_does_not_match_quite(tmp_db):
+    _insert_session(tmp_db, "fp-1", first_prompt="I quite like this approach")
+    results = rank_sessions(tmp_db, "sqlite")
+    ids = [s.session_id for s, _ in results]
+    assert "fp-1" not in ids
+
+
+def test_sqlite_does_not_match_suite(tmp_db):
+    _insert_session(tmp_db, "fp-2", first_prompt="suite of helpers")
+    results = rank_sessions(tmp_db, "sqlite")
+    ids = [s.session_id for s, _ in results]
+    assert "fp-2" not in ids
+
+
+def test_sqlite_does_not_match_site(tmp_db):
+    _insert_session(tmp_db, "fp-3", first_prompt="update the site config")
+    results = rank_sessions(tmp_db, "sqlite")
+    ids = [s.session_id for s, _ in results]
+    assert "fp-3" not in ids
+
+
+def test_sqlite_does_not_match_write(tmp_db):
+    _insert_session(tmp_db, "fp-4", first_prompt="write tests for the API")
+    results = rank_sessions(tmp_db, "sqlite")
+    ids = [s.session_id for s, _ in results]
+    assert "fp-4" not in ids
+
+
+def test_sqlite_does_not_match_compile(tmp_db):
+    _insert_session(tmp_db, "fp-5", first_prompt="compile the code")
+    results = rank_sessions(tmp_db, "sqlite")
+    ids = [s.session_id for s, _ in results]
+    assert "fp-5" not in ids
+
+
+def test_sqlite_does_not_match_via_prompt_texts(tmp_db):
+    _insert_session(tmp_db, "fp-6", first_prompt="unrelated work")
+    sessions = [Session.from_row(tmp_db.execute("SELECT * FROM sessions WHERE session_id = 'fp-6'").fetchone())]
+    prompt_texts = {"fp-6": [
+        "I quite like this approach",
+        "update the site config",
+        "write a suite of tests",
+    ]}
+    results = score_sessions(sessions, "sqlite", {}, prompt_texts)
+    assert len(results) == 0
+
+
+# --- Fuzzy threshold: true positives ---
+
+
+def test_sqlite_matches_exact(tmp_db):
+    _insert_session(tmp_db, "tp-1", first_prompt="working with sqlite")
+    results = rank_sessions(tmp_db, "sqlite")
+    ids = [s.session_id for s, _ in results]
+    assert "tp-1" in ids
+
+
+def test_sqlite_matches_case_insensitive(tmp_db):
+    _insert_session(tmp_db, "tp-2", first_prompt="SQLite migration")
+    results = rank_sessions(tmp_db, "sqlite")
+    ids = [s.session_id for s, _ in results]
+    assert "tp-2" in ids
+
+
+def test_sqlite_matches_embedded_in_word(tmp_db):
+    _insert_session(tmp_db, "tp-3", first_prompt="use pysqlite3 here")
+    results = rank_sessions(tmp_db, "sqlite")
+    ids = [s.session_id for s, _ in results]
+    assert "tp-3" in ids
+
+
+def test_sqlite_matches_typo_sqlit(tmp_db):
+    _insert_session(tmp_db, "tp-4", first_prompt="fix the sqlit query")
+    results = rank_sessions(tmp_db, "sqlite")
+    ids = [s.session_id for s, _ in results]
+    assert "tp-4" in ids
+
+
+def test_sqlite_matches_in_session_name(tmp_db):
+    _insert_session(tmp_db, "tp-5", custom_name="sqlite-migration")
+    results = rank_sessions(tmp_db, "sqlite")
+    ids = [s.session_id for s, _ in results]
+    assert "tp-5" in ids
+
+
+def test_sqlite_matches_in_transcript(tmp_db, tmp_path, monkeypatch):
+    _insert_session(tmp_db, "tp-6", first_prompt="database work")
+    transcript = tmp_path / "tp-6.jsonl"
+    with open(transcript, "w") as f:
+        f.write(json.dumps({"message": {"role": "user", "content": "migrate the sqlite database"}}) + "\n")
+    monkeypatch.setattr(
+        "seshi.transcript_index.find_transcript_path",
+        lambda sid: transcript if sid == "tp-6" else None,
+    )
+    index_session(tmp_db, "tp-6")
+    tmp_db.commit()
+    results = rank_sessions(tmp_db, "sqlite")
+    ids = [s.session_id for s, _ in results]
+    assert "tp-6" in ids
+
+
+# --- Threshold value ---
+
+
+def test_threshold_rejects_partial_ratio_below():
+    assert fuzzy_match("sqlite", "I quite like this approach") < FUZZY_THRESHOLD
+    assert fuzzy_match("sqlite", "suite of helpers") < FUZZY_THRESHOLD
+    assert fuzzy_match("sqlite", "update the site config") < FUZZY_THRESHOLD
+
+
+def test_threshold_accepts_exact_and_typos():
+    assert fuzzy_match("sqlite", "working with sqlite") >= FUZZY_THRESHOLD
+    assert fuzzy_match("sqlite", "fix the sqlit query") >= FUZZY_THRESHOLD
+    assert fuzzy_match("sqlite", "SQLite migration") >= FUZZY_THRESHOLD
