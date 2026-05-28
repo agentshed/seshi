@@ -13,7 +13,7 @@ class SeshiGroup(click.Group):
     def resolve_command(self, ctx, args):
         cmd_name = args[0] if args else None
         if cmd_name and cmd_name not in self.commands and not cmd_name.startswith("-"):
-            return "resume", self.commands.get("resume"), args
+            return "_tui_search", self.commands.get("_tui_search"), args
         return super().resolve_command(ctx, args)
 
 
@@ -27,7 +27,6 @@ def main(ctx, no_color, here):
     ctx.ensure_object(dict)
     ctx.obj["no_color"] = no_color
     ctx.obj["here_cwd"] = os.getcwd() if here else None
-
 
     if no_color:
         os.environ["NO_COLOR"] = "1"
@@ -46,6 +45,15 @@ def main(ctx, no_color, here):
     if ctx.invoked_subcommand is None:
         from seshi.tui.app import launch_tui
         launch_tui(ctx.obj)
+
+
+@main.command(hidden=True, name="_tui_search")
+@click.argument("query", nargs=-1, required=True)
+@click.pass_context
+def tui_search(ctx, query):
+    ctx.obj["search_query"] = " ".join(query)
+    from seshi.tui.app import launch_tui
+    launch_tui(ctx.obj)
 
 
 def _merge_here(ctx, here):

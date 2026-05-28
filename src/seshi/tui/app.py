@@ -93,6 +93,14 @@ class SeshiApp(App):
 
         self._index_transcripts_async()
 
+        initial_query = self.ctx_obj.get("search_query")
+        if initial_query:
+            search = self.query_one(SearchBar)
+            search.active = True
+            search.search_text = initial_query
+            search.post_message(SearchChanged(initial_query))
+            search.focus()
+
     @work(thread=True)
     def _index_transcripts_async(self) -> None:
         import logging
