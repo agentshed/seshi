@@ -56,10 +56,10 @@ class TestLaunch:
         named = screen.count_lines_containing("session-")
         assert named > 0, f"Expected named sessions in list.\nScreen:\n{screen.raw}"
 
-    def test_time_bucket_headers(self, tui):
+    def test_project_path_headers(self, tui):
         ctrl, _ = tui
         screen = ctrl.capture()
-        assert_screen_contains(screen, "── today ──")
+        assert_screen_contains(screen, "── /tmp/project-")
 
 
 @pytest.mark.smoke

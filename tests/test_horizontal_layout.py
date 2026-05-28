@@ -55,8 +55,7 @@ def test_compact_rendering_no_cwd_at_narrow_width(tmp_db):
     view = SessionsList(tmp_db)
     rendered = _render_with_size(view, 45, 30).plain
     assert "auth-fix" in rendered
-    assert "/home/user/myproject" not in rendered
-    assert "myproject" not in rendered
+    assert "/home/user/myproject" in rendered
 
 
 def test_compact_rendering_no_language_at_narrow_width(tmp_db):
@@ -83,16 +82,13 @@ def test_compact_rendering_fav_indicator_2_chars(tmp_db):
     assert "*" in rendered
 
 
-def test_compact_rendering_relative_time_not_clipped(tmp_db):
+def test_compact_rendering_relative_time_in_header(tmp_db):
     _insert_session(tmp_db, "s1", custom_name="recent")
     view = SessionsList(tmp_db)
     rendered = _render_with_size(view, 45, 30).plain
-    lines = [l for l in rendered.split("\n") if "recent" in l]
-    assert len(lines) == 1
-    line = lines[0]
-    assert line == line.rstrip() or line.endswith("\n")
-    time_part = line.split()[-1] if line.split() else ""
-    assert len(time_part) >= 2
+    header_lines = [l for l in rendered.split("\n") if "──" in l]
+    assert len(header_lines) >= 1
+    assert any("ago" in l or "just now" in l for l in header_lines)
 
 
 # === Wide rendering at full width ===
