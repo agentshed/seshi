@@ -15,6 +15,9 @@ def _insert_session(conn, session_id, cwd="/tmp/project", custom_name=None,
         (session_id, cwd, "[]", custom_name, first_prompt, is_favorite, ts, ts),
     )
     conn.commit()
+    from seshi.session_index import index_session_search
+    index_session_search(conn, session_id)
+    conn.commit()
 
 
 # === #2: Stale session filtering ===

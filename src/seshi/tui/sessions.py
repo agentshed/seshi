@@ -10,8 +10,7 @@ from rich.text import Text
 
 from seshi.models import Session, Prompt
 from seshi.prompt_text import strip_markup_tags, strip_system_blocks
-from seshi.search import list_sessions, score_sessions, fuzzy_match, FUZZY_THRESHOLD
-from seshi.transcript_index import search_transcripts
+from seshi.search import list_sessions, rank_sessions, query_matches_text
 from seshi.time_utils import relative_time, time_bucket
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
@@ -79,11 +78,9 @@ class SessionsList(Widget):
         self._load_prompts()
 
         if query:
-            prompt_texts: dict[str, list[str]] = {}
-            for sid, plist in self._prompts.items():
-                prompt_texts[sid] = [p.text for p in plist]
-            fts_scores = search_transcripts(self.conn, query)
-            blended = score_sessions(sessions, query, fts_scores, prompt_texts)
+            allowed_ids = {s.session_id for s in sessions}
+            ranked = rank_sessions(self.conn, query, filter_cwd=self.filter_cwd)
+            blended = [(s, score) for s, score in ranked if s.session_id in allowed_ids]
             blended.sort(key=lambda x: (-x[0].is_favorite, -x[1]))
             sessions = [s for s, _ in blended]
             self.sessions = sessions
@@ -92,7 +89,7 @@ class SessionsList(Widget):
         if query:
             for sid, plist in self._prompts.items():
                 for p in plist:
-                    if fuzzy_match(query, p.text) >= FUZZY_THRESHOLD:
+                    if query_matches_text(query, p.text):
                         self._matching_prompts.add((sid, p.prompt_index))
             for sid, _ in self._matching_prompts:
                 self._collapsed.discard(sid)
@@ -544,6 +541,8 @@ class SessionsList(Widget):
         name = self._input_buffer.strip() or None
         self.conn.execute("UPDATE sessions SET custom_name = ? WHERE session_id = ?", (name, s.session_id))
         self.conn.commit()
+        from seshi.session_index import reindex_session
+        reindex_session(self.conn, s.session_id)
         self._reload_with_current_filter()
 
     def _apply_tag(self):

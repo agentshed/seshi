@@ -8,7 +8,6 @@ dependencies = [
     "click>=8.1",
     "textual>=1.0",
     "rich>=13.0",
-    "rapidfuzz>=3.0",
 ]
 
 [project.scripts]

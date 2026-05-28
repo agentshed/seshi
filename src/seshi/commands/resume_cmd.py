@@ -12,7 +12,7 @@ from seshi.search import session_resolve, rank_sessions
 @click.argument("query", nargs=-1, required=True)
 @click.pass_context
 def resume(ctx, query):
-    """Resume a session by ID, name, or fuzzy query."""
+    """Resume a session by ID, name, or search query."""
     query_str = " ".join(query)
     with open_db() as conn:
         session = session_resolve(conn, query_str)

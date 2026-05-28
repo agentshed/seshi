@@ -10,7 +10,8 @@ import time
 from unittest import mock
 
 from seshi.prompt_text import strip_markup_tags
-from seshi.search import rank_sessions, FUZZY_THRESHOLD
+from seshi.search import rank_sessions
+from seshi.session_index import index_session_search
 from seshi.tui.sessions import SessionsList
 
 
@@ -24,6 +25,8 @@ def _insert_session(conn, session_id, cwd="/tmp/project", custom_name=None,
         VALUES (?,?,?,?,?,?,?,?)""",
         (session_id, cwd, "[]", custom_name, first_prompt, is_favorite, ts, ts),
     )
+    conn.commit()
+    index_session_search(conn, session_id)
     conn.commit()
 
 
@@ -72,9 +75,9 @@ def test_quit_toast_flag_blocks_key(tmp_db):
     assert len(sl.selected) == 0
 
 
-# === #28: Fuzzy search threshold ===
+# === #28: Search filters weak matches ===
 
-def test_fuzzy_threshold_filters_weak_matches(tmp_db):
+def test_search_filters_weak_matches(tmp_db):
     _insert_session(tmp_db, "id-1", first_prompt="fix auth middleware bug")
     _insert_session(tmp_db, "id-2", first_prompt="unrelated task about logs")
     _insert_session(tmp_db, "id-3", first_prompt="completely different topic xyz")
@@ -82,10 +85,6 @@ def test_fuzzy_threshold_filters_weak_matches(tmp_db):
     session_ids = [s.session_id for s, _ in results]
     assert "id-1" in session_ids
     assert len(results) < 3
-
-
-def test_fuzzy_threshold_value():
-    assert FUZZY_THRESHOLD >= 50
 
 
 # === #30: Header count (total vs shown) ===
