@@ -226,12 +226,17 @@ class SessionsList(Widget):
         all_sessions_for_rel = [r.session for r in self._display_rows if r.session]
         max_rel_len = max((len(relative_time(s.last_activity_at)) for s in all_sessions_for_rel), default=8)
 
+        in_selection = bool(self.selected)
+        sel_w = 3 if in_selection else 0
+
         if narrow:
-            compact_overhead = 9 + max_rel_len
+            prefix_w = 1 + sel_w + 2 + 1
+            compact_overhead = prefix_w + 2 + max_rel_len
             title_w = max(10, w - compact_overhead)
             cwd_w = 0
         else:
-            overhead = 12 + 4 + max_rel_len
+            prefix_w = 1 + sel_w + 2 + 3 + 1
+            overhead = prefix_w + 4 + max_rel_len
             avail = max(30, w - overhead)
             title_w = min(50, max(12, avail * 40 // 100))
             cwd_w = min(40, max(12, avail * 33 // 100))
@@ -260,7 +265,7 @@ class SessionsList(Widget):
                 else:
                     collapse_mark = " "
 
-                sel_mark = "[x]" if is_selected else "   "
+                sel_mark = ("[x]" if is_selected else "   ") if in_selection else ""
                 rel = relative_time(s.last_activity_at)
                 title = (s.custom_name or strip_markup_tags(s.first_prompt or "") or "(untitled)")[:title_w]
 
@@ -269,7 +274,7 @@ class SessionsList(Widget):
                     base = f"{collapse_mark}{sel_mark}{fav} {title:<{title_w}}  {rel:>{max_rel_len}}"
                     line = base[:w]
                 else:
-                    fav = " * " if s.is_favorite else "   "
+                    fav = " *" if s.is_favorite else "  "
                     lang = detect_language(s.cwd)
                     lang_str = f"{lang:>3}" if lang else "   "
                     cwd = s.cwd
@@ -286,7 +291,7 @@ class SessionsList(Widget):
                     if tag_rows:
                         tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
 
-                    base = f"{collapse_mark}{sel_mark}{fav}{lang_str}  {title:<{title_w}}  {cwd:<{cwd_w}}  {rel:>{max_rel_len}}"
+                    base = f"{collapse_mark}{sel_mark}{fav}{lang_str} {title:<{title_w}}  {cwd:<{cwd_w}}  {rel:>{max_rel_len}}"
                     tags_budget = w - len(base)
                     if tags_str and tags_budget > 3:
                         tags_str = tags_str[:tags_budget]
@@ -301,7 +306,7 @@ class SessionsList(Widget):
                 is_cursor = di == cursor_display_idx
                 style = "reverse" if is_cursor else ""
 
-                indent = "          "
+                indent = " " * prefix_w
                 connector = "│ "
                 if narrow:
                     prompt_w = max(5, w - len(indent) - len(connector))
