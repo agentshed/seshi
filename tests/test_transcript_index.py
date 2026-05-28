@@ -684,7 +684,7 @@ def test_bm25_relevance_ordering(tmp_db, tmp_path, monkeypatch):
     assert "many-001" in results
     assert "few-001" in results
     assert results["many-001"] > results["few-001"]
-    assert 55.0 <= results["few-001"]
+    assert 75.0 <= results["few-001"]
     assert results["many-001"] <= 100.0
 
 

@@ -129,7 +129,7 @@ def search_transcripts(conn: sqlite3.Connection, query: str) -> dict[str, float]
             return {sid: 80.0 for sid in scores}
         spread = worst - best
         return {
-            sid: 55.0 + 45.0 * (worst - raw) / spread
+            sid: 75.0 + 25.0 * (worst - raw) / spread
             for sid, raw in scores.items()
         }
     except sqlite3.OperationalError:
