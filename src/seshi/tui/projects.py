@@ -4,6 +4,7 @@ import sqlite3
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual import events
+from textual.timer import Timer
 from rich.text import Text
 
 from seshi.lang_detect import detect_language
@@ -21,6 +22,22 @@ class ProjectsView(Widget):
     cursor: reactive[int] = reactive(0)
     _input_mode: str = ""
     _input_buffer: str = ""
+    _cursor_visible: bool = True
+    _blink_timer: Timer | None = None
+
+    def _start_blink(self) -> None:
+        self._cursor_visible = True
+        self._blink_timer = self.set_interval(0.5, self._toggle_cursor)
+
+    def _stop_blink(self) -> None:
+        if self._blink_timer:
+            self._blink_timer.stop()
+            self._blink_timer = None
+        self._cursor_visible = True
+
+    def _toggle_cursor(self) -> None:
+        self._cursor_visible = not self._cursor_visible
+        self.refresh()
 
     def __init__(self, conn: sqlite3.Connection, **kwargs):
         super().__init__(**kwargs)
@@ -58,7 +75,8 @@ class ProjectsView(Widget):
         text = Text()
 
         if self._input_mode == "rename":
-            text.append(f"  rename: {self._input_buffer}▮\n\n", style="bold")
+            cursor = "_" if self._cursor_visible else " "
+            text.append(f"  rename: {self._input_buffer}{cursor}\n\n", style="bold")
 
         if not self._projects:
             text.append("  No projects found.\n", style="dim")
@@ -139,6 +157,7 @@ class ProjectsView(Widget):
             if 0 <= self.cursor < len(self._projects):
                 self._input_mode = "rename"
                 self._input_buffer = self._projects[self.cursor].get("custom_name") or ""
+                self._start_blink()
                 self.refresh()
                 event.stop()
         elif event.key == "enter":
@@ -157,6 +176,7 @@ class ProjectsView(Widget):
         if event.key == "escape":
             self._input_mode = ""
             self._input_buffer = ""
+            self._stop_blink()
             self.refresh()
             event.stop()
         elif event.key == "enter":
@@ -164,6 +184,7 @@ class ProjectsView(Widget):
                 self._apply_rename()
             self._input_mode = ""
             self._input_buffer = ""
+            self._stop_blink()
             self.refresh()
             event.stop()
         elif event.key == "backspace":

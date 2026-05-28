@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual import events
+from textual.timer import Timer
 from rich.text import Text
 
 from seshi.models import Session, Prompt
@@ -195,7 +196,8 @@ class SessionsList(Widget):
 
         if self._input_mode:
             label = "rename" if self._input_mode == "rename" else "tag"
-            text.append(f"  {label}: {self._input_buffer}▮\n\n", style="bold")
+            cursor = "_" if self._cursor_visible else " "
+            text.append(f"  {label}: {self._input_buffer}{cursor}\n\n", style="bold")
 
         if not self.sessions:
             if self._current_query or self._current_tags:
@@ -346,6 +348,22 @@ class SessionsList(Widget):
 
     _input_mode: str = ""
     _input_buffer: str = ""
+    _cursor_visible: bool = True
+    _blink_timer: Timer | None = None
+
+    def _start_blink(self) -> None:
+        self._cursor_visible = True
+        self._blink_timer = self.set_interval(0.5, self._toggle_cursor)
+
+    def _stop_blink(self) -> None:
+        if self._blink_timer:
+            self._blink_timer.stop()
+            self._blink_timer = None
+        self._cursor_visible = True
+
+    def _toggle_cursor(self) -> None:
+        self._cursor_visible = not self._cursor_visible
+        self.refresh()
 
     def on_key(self, event: events.Key) -> None:
         if getattr(self.app, "_quit_toast_active", False):
@@ -452,6 +470,7 @@ class SessionsList(Widget):
         if event.key == "escape":
             self._input_mode = ""
             self._input_buffer = ""
+            self._stop_blink()
             self._update_footer("normal")
             self.refresh()
             event.stop()
@@ -463,6 +482,7 @@ class SessionsList(Widget):
                 self._apply_tag()
             self._input_mode = ""
             self._input_buffer = ""
+            self._stop_blink()
             self._update_footer("normal")
             self.refresh()
             event.stop()
@@ -490,6 +510,7 @@ class SessionsList(Widget):
             return
         self._input_mode = "rename"
         self._input_buffer = s.custom_name or ""
+        self._start_blink()
         self._update_footer("rename")
         self.refresh()
 
@@ -499,6 +520,7 @@ class SessionsList(Widget):
             return
         self._input_mode = "tag"
         self._input_buffer = ""
+        self._start_blink()
         self._update_footer("tag")
         self.refresh()
 
