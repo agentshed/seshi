@@ -328,7 +328,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - Press Space on a session
 - **Verify:** `[x]` marker appears in the selection column
 - Press Space again on the same session
-- **Verify:** `[x]` clears back to `   `
+- **Verify:** `[x]` is removed (selection column disappears when no sessions are selected)
 
 #### 5.2 Select All (a)
 - Press `a`
