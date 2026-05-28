@@ -9,7 +9,7 @@ from textual import events
 from rich.text import Text
 
 from seshi.models import Session, Prompt
-from seshi.prompt_text import strip_markup_tags
+from seshi.prompt_text import strip_markup_tags, strip_system_blocks
 from seshi.search import list_sessions, score_sessions, fuzzy_match, FUZZY_THRESHOLD
 from seshi.transcript_index import search_transcripts
 from seshi.time_utils import relative_time, time_bucket
@@ -267,7 +267,7 @@ class SessionsList(Widget):
 
                 sel_mark = ("[x]" if is_selected else "   ") if in_selection else ""
                 rel = relative_time(s.last_activity_at)
-                title = (s.custom_name or strip_markup_tags(s.first_prompt or "") or "(untitled)")[:title_w]
+                title = (s.custom_name or strip_markup_tags(strip_system_blocks(s.first_prompt or "")) or "(untitled)")[:title_w]
 
                 if narrow:
                     fav = " *" if s.is_favorite else "  "
@@ -310,14 +310,14 @@ class SessionsList(Widget):
                 connector = "│ "
                 if narrow:
                     prompt_w = max(5, w - len(indent) - len(connector))
-                    prompt_text = p.text[:prompt_w]
+                    prompt_text = strip_system_blocks(p.text)[:prompt_w]
                     line = f"{indent}{connector}{prompt_text}"[:w]
                 else:
                     prompt_rel = ""
                     if p.timestamp_epoch:
                         prompt_rel = relative_time(p.timestamp_epoch)
                     prompt_w = max(5, w - len(indent) - len(connector) - 2 - max_rel_len)
-                    prompt_text = p.text[:prompt_w]
+                    prompt_text = strip_system_blocks(p.text)[:prompt_w]
                     line = f"{indent}{connector}{prompt_text:<{prompt_w}}  {prompt_rel:>{max_rel_len}}"[:w]
                 visible_rows.append((line, style, di))
 

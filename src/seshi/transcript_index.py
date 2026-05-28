@@ -2,6 +2,7 @@ import json
 import sqlite3
 from pathlib import Path
 
+from seshi.prompt_text import strip_system_blocks
 from seshi.transcript import find_transcript_path
 
 
@@ -21,13 +22,15 @@ def extract_full_text(path: Path) -> str:
                     continue
                 msg = obj.get("message", {})
                 content = msg.get("content", "")
-                if isinstance(content, str) and content.strip():
-                    parts.append(content)
+                if isinstance(content, str):
+                    content = strip_system_blocks(content)
+                    if content:
+                        parts.append(content)
                 elif isinstance(content, list):
                     for block in content:
                         if isinstance(block, dict) and block.get("type") == "text":
-                            text = block.get("text", "")
-                            if text.strip():
+                            text = strip_system_blocks(block.get("text", ""))
+                            if text:
                                 parts.append(text)
     except OSError:
         pass

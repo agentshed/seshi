@@ -73,7 +73,8 @@ print(total)
 " 2>/dev/null) || TOKEN_COUNT=0
 
         FIRST_PROMPT=$(python3 -c "
-import json, sys
+import json, re, sys
+_SYS_RE = re.compile(r'<(local-command-caveat|system-reminder|command-name|command-message|command-args|local-command-stdout|task-notification)(?:\s[^>]*)?>.*?</\1>', re.DOTALL)
 for line in open('$TRANSCRIPT_PATH'):
     try:
         obj = json.loads(line)
@@ -87,8 +88,10 @@ for line in open('$TRANSCRIPT_PATH'):
                         break
                 else:
                     content = ''
-            print(str(content)[:200])
-            break
+            content = _SYS_RE.sub('', str(content)).strip()
+            if content:
+                print(content[:200])
+                break
     except: pass
 " 2>/dev/null) || FIRST_PROMPT=""
         FIRST_PROMPT_JSON=$(echo "$FIRST_PROMPT" | json_escape) || FIRST_PROMPT_JSON='""'
