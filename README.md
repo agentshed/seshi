@@ -101,7 +101,7 @@ Navigate with `j`/`k` or arrow keys. Press `Enter` to resume. Press `?` for the 
 
 ```sh
 seshi last          # Resume the most recent session
-seshi <query>       # Fuzzy search and resume (e.g. seshi auth)
+seshi <query>       # Open TUI with search pre-filled (e.g. seshi auth)
 seshi resume <name> # Resume by exact name or ID
 ```
 

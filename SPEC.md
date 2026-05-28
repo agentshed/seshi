@@ -195,7 +195,7 @@ Favorites always sort to the top regardless of sort mode. Sort mode is persisted
 
 **Explicit resume** (`seshi resume <id|name>`): looks up the session by exact `session_id` or case-insensitive `custom_name` match. If not found, exits with error. Intended for scripting and tab-completed invocations.
 
-**Fuzzy resume** (`seshi <query>`): shortcut for `seshi resume <query>`. When the argument doesn't match a subcommand, the CLI treats it as a fuzzy query.
+**TUI search** (`seshi <query>`): opens the TUI with the search bar pre-populated with `<query>` and results filtered. When the argument doesn't match a subcommand, the CLI routes to the TUI. For non-interactive fuzzy resume, use `seshi resume <query>`.
 
 **Business rules**:
 1. **Exact match**: case-insensitive `custom_name` or `session_id` match → resume immediately (no prompt)
@@ -658,7 +658,7 @@ These flags are available on all commands:
 | `seshi --here` | — | TUI pre-filtered to current directory | `seshi --here` |
 | `seshi last` | — | Resume most recent session (no TUI) | `seshi last` |
 | `seshi last --here` | — | Resume most recent session in current directory | `seshi last --here` |
-| `seshi <query>` | — | Shortcut for `seshi resume <query>` | `seshi auth` |
+| `seshi <query>` | — | Open TUI with search pre-filled | `seshi auth` |
 | `seshi resume` | `<id\|name>` | Explicitly resume a session by ID or custom name | `seshi resume auth-rewrite` |
 | `seshi list` | `[--json\|--tsv]`, `--limit <n>`, `--tag <tag>`, `--sort <mode>`, `--archived` | List sessions non-interactively (for scripting) | `seshi list --json --here` |
 | `seshi rename` | `<id\|name> <new-name>`, `--clear` | Rename a session (--clear removes the name) | `seshi rename abc123 auth-rewrite` |
@@ -776,9 +776,9 @@ fuzzyMatch(query, string):
 
 Higher scores for characters that appear closer together. Returns 0 for no match.
 
-### Fuzzy Resume Ranking
+### Search Ranking
 
-For `seshi <query>`, each session is scored across four fields with different weights:
+For `seshi <query>` and `seshi resume <query>`, each session is scored across four fields with different weights:
 
 ```
 score = max(
