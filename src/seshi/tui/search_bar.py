@@ -46,7 +46,7 @@ class SearchBar(Widget):
         text.append("  > ", style=f"bold {self.accent}")
         text.append(self.search_text, style="bold")
         if self.active and self._cursor_visible:
-            text.append("▮", style=f"bold {self.accent}")
+            text.append("_", style=f"bold {self.accent}")
         elif self.active:
             text.append(" ")
         text.append(f"  {self.sort_mode}", style="dim italic")
