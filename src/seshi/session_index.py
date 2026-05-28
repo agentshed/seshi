@@ -93,9 +93,28 @@ def index_pending_search(conn: sqlite3.Connection) -> int:
     ).fetchall()
     already_set = {r["session_id"] for r in already}
 
+    prompt_counts: dict[str, int] = {}
+    for row in conn.execute(
+        f"SELECT session_id, COUNT(*) as cnt FROM prompts "
+        f"WHERE session_id IN ({placeholders}) GROUP BY session_id",
+        all_ids,
+    ).fetchall():
+        prompt_counts[row["session_id"]] = row["cnt"]
+
+    indexed_prompt_lengths: dict[str, int] = {}
+    for sid in already_set:
+        row = conn.execute(
+            "SELECT length(prompt_text) as len FROM session_search WHERE session_id = ?",
+            (sid,),
+        ).fetchone()
+        indexed_prompt_lengths[sid] = row["len"] if row and row["len"] else 0
+
     count = 0
     for session_id in all_ids:
         if session_id not in already_set:
+            if index_session_search(conn, session_id):
+                count += 1
+        elif prompt_counts.get(session_id, 0) > 0 and indexed_prompt_lengths.get(session_id, 0) == 0:
             if index_session_search(conn, session_id):
                 count += 1
     if count:

@@ -179,10 +179,11 @@ def test_levenshtein_sqlit_sqlite():
 def test_max_edit_distance_short():
     assert max_edit_distance(3) == 1
     assert max_edit_distance(4) == 1
+    assert max_edit_distance(8) == 1
 
 
 def test_max_edit_distance_medium():
-    assert max_edit_distance(5) == 2
+    assert max_edit_distance(9) == 2
     assert max_edit_distance(12) == 2
 
 

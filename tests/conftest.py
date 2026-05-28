@@ -13,5 +13,7 @@ def tmp_db(tmp_path):
     conn.execute("PRAGMA foreign_keys=ON")
     init_schema(conn)
     set_setting(conn, "hide_stale_sessions", "0")
+    from seshi.search import _FUZZY_CACHE
+    _FUZZY_CACHE.clear()
     yield conn
     conn.close()

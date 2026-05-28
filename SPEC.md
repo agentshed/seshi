@@ -2,9 +2,9 @@
 
 ## 1. Executive Summary
 
-**Seshi** (invoked as `seshi`) is a global session manager and resumer for Claude Code. It solves a specific problem: Claude Code sessions are ephemeral and hard to find after closing. Users who work across many projects accumulate hundreds of chat sessions with no way to search, organize, or quickly resume them. Seshi captures metadata from every Claude Code session via a transparent hook, indexes it into a local registry, and provides a terminal UI (TUI) and CLI for fuzzy-searching, tagging, renaming, filtering, and resuming any session from any directory.
+**Seshi** (invoked as `seshi`) is a global session manager and resumer for Claude Code. It solves a specific problem: Claude Code sessions are ephemeral and hard to find after closing. Users who work across many projects accumulate hundreds of chat sessions with no way to search, organize, or quickly resume them. Seshi captures metadata from every Claude Code session via a transparent hook, indexes it into a local registry, and provides a terminal UI (TUI) and CLI for searching, tagging, renaming, filtering, and resuming any session from any directory.
 
-The tool intercepts session lifecycle events (start/stop) from Claude Code through its hook system, stores structured metadata in a local database, and renders a multi-view TUI with live fuzzy search. When the user selects a session, the tool emits a shell command that `cd`s into the original project directory and resumes the Claude Code process with its original flags. The shell wrapper `eval`s this output so the parent shell actually changes directory — a critical design constraint that shapes the entire stdout protocol.
+The tool intercepts session lifecycle events (start/stop) from Claude Code through its hook system, stores structured metadata in a local database, and renders a multi-view TUI with live search. When the user selects a session, the tool emits a shell command that `cd`s into the original project directory and resumes the Claude Code process with its original flags. The shell wrapper `eval`s this output so the parent shell actually changes directory — a critical design constraint that shapes the entire stdout protocol.
 
 - **Project type**: CLI tool with interactive TUI
 - **Complexity assessment**: moderate
@@ -124,12 +124,12 @@ Event-driven pipeline with command dispatch. The system has three layers:
 
 ### 5.4 TUI — Sessions View
 
-**Description**: Interactive session picker with fuzzy search, time-bucketed grouping, sort modes, and inline actions.
+**Description**: Interactive session picker with BM25-ranked search, time-bucketed grouping, sort modes, and inline actions.
 
 **Acceptance criteria**:
 - Sessions displayed in groups: `★ favorites` → `today` → `yesterday` → `this week` → `this month` → `older`
 - Each row shows: favorite mark, language tag, title (custom_name or first_prompt), cwd, relative time, tag chips
-- Live fuzzy search: any typed character filters the list in real time
+- Live search: any typed character filters the list in real time
 - `#tag` tokens in search filter by tag (AND semantics for multiple tags)
 - Selected row highlighted with accent-colored background
 
@@ -189,13 +189,13 @@ Favorites always sort to the top regardless of sort mode. Sort mode is persisted
 
 **Description**: Full keymap reference, grouped by category (navigation, actions, bulk select, search & filter, shell-only commands).
 
-### 5.8 Resume and Fuzzy Resume
+### 5.8 Resume and Search Resume
 
-**Description**: Resume a session by ID, name, or fuzzy query.
+**Description**: Resume a session by ID, name, or search query.
 
 **Explicit resume** (`seshi resume <id|name>`): looks up the session by exact `session_id` or case-insensitive `custom_name` match. If not found, exits with error. Intended for scripting and tab-completed invocations.
 
-**TUI search** (`seshi <query>`): opens the TUI with the search bar pre-populated with `<query>` and results filtered. When the argument doesn't match a subcommand, the CLI routes to the TUI. For non-interactive fuzzy resume, use `seshi resume <query>`.
+**TUI search** (`seshi <query>`): opens the TUI with the search bar pre-populated with `<query>` and results filtered. When the argument doesn't match a subcommand, the CLI routes to the TUI. For non-interactive search resume, use `seshi resume <query>`.
 
 **Business rules**:
 1. **Exact match**: case-insensitive `custom_name` or `session_id` match → resume immediately (no prompt)
@@ -758,42 +758,19 @@ sessionResolve(identifier):
 
 When multiple sessions share the same `custom_name`, the most recently active one (highest `last_activity_at`) is returned. `seshi rename` warns if the chosen name is already in use but allows it.
 
-### Fuzzy Match Algorithm
-
-Case-insensitive sequential character matching with proximity scoring:
-
-```
-fuzzyMatch(query, string):
-  qi = 0, lastHit = -1, score = 0
-  for each char si in string:
-    if string[si] == query[qi]:
-      if lastHit == -1: score += 10
-      else: score += max(1, 10 - (si - lastHit - 1))
-      lastHit = si
-      qi++
-  return qi == len(query) ? score : 0
-```
-
-Higher scores for characters that appear closer together. Returns 0 for no match.
-
 ### Search Ranking
 
-For `seshi <query>` and `seshi resume <query>`, each session is scored across four fields with different weights:
+For `seshi <query>` and `seshi resume <query>`, sessions are ranked via a BM25+RRF pipeline:
 
-```
-score = max(
-  fuzzyMatch(query, custom_name) × 4,
-  fuzzyMatch(query, first_prompt) × 2,
-  fuzzyMatch(query, cwd) × 1,
-  transcriptMatch(query) × 1        # 55–100 via BM25 relevance, else 0
-)
-```
-
-The transcript signal uses FTS5 full-text search with Porter stemming and prefix matching. Query terms are double-quoted to prevent FTS5 boolean operators (AND, OR, NOT, NEAR) from being interpreted as operators. BM25 relevance scores from FTS5's `rank` column are normalized into the 55–100 range (linear map from worst to best match); single matches or equal-rank matches default to 80.
+1. **Dual FTS5 search**: Session metadata (name, first_prompt, cwd, prompt_text) is indexed into two FTS5 tables — one with Porter stemming (for word-level matching) and one with trigram tokenization (for substring/camelCase matching). Both are queried with per-field BM25 weights: `name=5×, first_prompt=2×, cwd=1×, prompt_text=1.5×`.
+2. **Transcript FTS5**: The existing transcript FTS5 table (Porter stemming) is also queried.
+3. **RRF merge**: Results from all three sources are combined via Reciprocal Rank Fusion (K=60): `score = Σ 1/(K + rank + 1)` per session across all result lists.
+4. **Fallback**: If RRF returns nothing, query terms are corrected via Levenshtein edit distance against a vocabulary table, then RRF is re-run on the corrected query.
+5. **Proximity reranking**: Multi-term queries get boosted by title match (terms in session name), minimum span (tightest window containing all terms), and adjacent phrase pairs.
 
 Clear winner threshold: `top_score >= second_score × 1.4`
 
-When searching, fuzzy scores are boosted by frecency: `blended = fuzzy × (1 + frecency / max_frecency)`. This gives a 1×–2× boost based on relative frecency across the result set, so frequently-used sessions win ties without overriding strong text matches.
+Search scores are boosted by frecency: `blended = score × (1 + frecency / max_frecency)`. This gives a 1×–2× boost based on relative frecency across the result set, so frequently-used sessions win ties without overriding strong text matches.
 
 ### Cost Estimation
 
@@ -868,7 +845,7 @@ frecencyScore(session, now):
 
 `frecency_rank` starts at 1.0 for new sessions and increments by 1.0 on each resume. The step-function decay gives a strong boost to sessions accessed in the last few hours while penalizing stale ones. The multiplicative blend means frequently-resumed sessions always score proportionally higher than rarely-used ones at the same age.
 
-Then filtered client-side by: cwd match → tag AND filter → fuzzy text match (if query present).
+Then filtered client-side by: cwd match → tag AND filter → BM25+RRF text search (if query present).
 
 ---
 
@@ -1030,7 +1007,7 @@ Used by `auto-name` to generate session names. Inherits the user's existing Clau
 | Path resolution | 7 | Dash ambiguity, dotfiles, existing-path preference |
 | Settings patch | 6 | Patch/unpatch, idempotency, missing file handling |
 | Hook script | 3 | Start/stop events, missing session_id |
-| Registry/search | 8 | DB creation, default settings, fuzzy match, favorites sort |
+| Registry/search | 8 | DB creation, default settings, BM25+RRF search, favorites sort |
 | Pricing | 18 | Cost calculation, formatting, model detection, edge cases |
 | Grep | 6 | Case sensitivity, file exclusions, content extraction |
 | Scan | 6 | Both patterns, idempotency, skill-injections exclusion |
@@ -1101,7 +1078,7 @@ Used by `auto-name` to generate session names. Inherits the user's existing Clau
 | 2. Hook | Hook script, settings patch/unpatch | 4.1, 12 | Phase 1 | S |
 | 3. Registry | Queue drain, backfill scan, search/filter engine | 4.2, 4.3, 9 | Phase 1 | M |
 | 4. Shell integration | Init wrapper, completions, resume line builder | 4.10, 4.9, 9 | Phase 3 | S |
-| 5. CLI — Core commands | Doctor, prune, export, grep, auto-name, theme, fuzzy, confirm | 4.8, 4.11–4.17 | Phase 3 | M |
+| 5. CLI — Core commands | Doctor, prune, export, grep, auto-name, theme, search, confirm | 4.8, 4.11–4.17 | Phase 3 | M |
 | 6. CLI — CRUD & scripting | List, resume, rename, tag, favorite, delete, archive, stats, config | 4.18–4.27 | Phase 3 | M |
 | 7. TUI — Core | App shell, session list, search bar, preview pane, key bindings | 4.4, 8 | Phase 3 | L |
 | 8. TUI — Views | Overview (stats/sparkline/cost), Projects, Help | 4.5–4.7, 9 | Phase 7 | M |

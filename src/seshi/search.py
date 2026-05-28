@@ -76,7 +76,7 @@ def levenshtein(a: str, b: str) -> int:
 
 
 def max_edit_distance(word_length: int) -> int:
-    if word_length <= 4:
+    if word_length <= 8:
         return 1
     if word_length <= 12:
         return 2
