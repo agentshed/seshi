@@ -13,6 +13,9 @@ def _insert_session(conn, session_id, first_prompt):
         (session_id, "/home/user/project", "[]", first_prompt, ts, ts),
     )
     conn.commit()
+    from seshi.session_index import index_session_search
+    index_session_search(conn, session_id)
+    conn.commit()
 
 
 def test_strip_markup_tags_removes_xml_style_tags():

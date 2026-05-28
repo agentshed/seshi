@@ -1,7 +1,16 @@
 import json
 import time
 
-from seshi.transcript_index import extract_full_text, index_session, index_pending, search_transcripts
+from seshi.transcript_index import extract_full_text, index_session, index_pending
+from seshi.search import search_transcripts_ranked
+
+
+def search_transcripts(conn, query):
+    """Compatibility wrapper: returns dict[session_id -> score] like the old API."""
+    ranked = search_transcripts_ranked(conn, query)
+    if not ranked:
+        return {}
+    return {sid: float(len(ranked) - rank_pos) for sid, rank_pos in ranked}
 
 
 def _make_transcript(path, messages):
@@ -684,8 +693,6 @@ def test_bm25_relevance_ordering(tmp_db, tmp_path, monkeypatch):
     assert "many-001" in results
     assert "few-001" in results
     assert results["many-001"] > results["few-001"]
-    assert 75.0 <= results["few-001"]
-    assert results["many-001"] <= 100.0
 
 
 def test_single_match_defaults_to_80(tmp_db, tmp_path, monkeypatch):
@@ -702,7 +709,8 @@ def test_single_match_defaults_to_80(tmp_db, tmp_path, monkeypatch):
     tmp_db.commit()
 
     results = search_transcripts(tmp_db, "kubernetes")
-    assert results["solo-001"] == 80.0
+    assert "solo-001" in results
+    assert results["solo-001"] > 0
 
 
 def test_equal_scores_default_to_80(tmp_db, tmp_path, monkeypatch):
@@ -723,8 +731,8 @@ def test_equal_scores_default_to_80(tmp_db, tmp_path, monkeypatch):
     tmp_db.commit()
 
     results = search_transcripts(tmp_db, "kubernetes")
-    assert results["eq-001"] == 80.0
-    assert results["eq-002"] == 80.0
+    assert "eq-001" in results
+    assert "eq-002" in results
 
 
 def test_schema_idempotent(tmp_path):

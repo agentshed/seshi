@@ -63,6 +63,10 @@ def _insert_session(conn, session_id, cwd="/home", custom_name=None,
          is_favorite, is_archived, ts, ts, frecency_rank, resume_count),
     )
     conn.commit()
+    if not is_archived:
+        from seshi.session_index import index_session_search
+        index_session_search(conn, session_id)
+        conn.commit()
 
 
 # --- Step-function bucket tests ---

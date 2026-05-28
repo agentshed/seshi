@@ -107,6 +107,7 @@ class SeshiApp(App):
         from seshi.paths import DB_PATH
         from seshi.transcript_index import index_pending
         from seshi.prompt_index import index_pending_prompts
+        from seshi.session_index import index_pending_search
         try:
             conn = sqlite3.connect(str(DB_PATH))
             conn.row_factory = sqlite3.Row
@@ -115,6 +116,7 @@ class SeshiApp(App):
             try:
                 index_pending(conn)
                 index_pending_prompts(conn)
+                index_pending_search(conn)
             finally:
                 conn.close()
         except Exception:

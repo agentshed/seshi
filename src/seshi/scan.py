@@ -98,6 +98,12 @@ def scan_projects(
     except Exception:
         log.debug("prompt indexing failed", exc_info=True)
 
+    from seshi.session_index import index_pending_search
+    try:
+        index_pending_search(conn)
+    except Exception:
+        log.debug("session search indexing failed", exc_info=True)
+
     return count
 
 

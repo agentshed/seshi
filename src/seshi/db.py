@@ -104,6 +104,23 @@ def init_schema(conn: sqlite3.Connection) -> None:
         )
     except sqlite3.OperationalError:
         pass
+    try:
+        conn.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS session_search USING fts5("
+            "session_id UNINDEXED, name, first_prompt, cwd, prompt_text,"
+            " tokenize='porter unicode61')"
+        )
+        conn.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS session_search_trigram USING fts5("
+            "session_id UNINDEXED, name, first_prompt, cwd, prompt_text,"
+            " tokenize='trigram')"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS vocabulary ("
+            "word TEXT PRIMARY KEY)"
+        )
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
 
 

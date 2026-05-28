@@ -15,7 +15,7 @@
 Seshi hooks into Claude Code's session lifecycle, indexes every session into a local registry, and gives you a TUI and CLI to find and resume them instantly.
 
 - Automatic session capture via Claude Code hooks
-- Fuzzy search across session names, prompts, directories, and full transcript content (FTS5)
+- BM25-ranked search across session names, prompts, directories, and full transcript content (dual FTS5 with trigram substring matching and typo correction)
 - Tag, rename, favorite, and archive sessions
 - Resume any session from any directory with a single command
 - Interactive TUI with multiple views (sessions, overview, projects, help)

@@ -98,39 +98,3 @@ def index_pending(conn: sqlite3.Connection) -> int:
     return count
 
 
-def search_transcripts(conn: sqlite3.Connection, query: str) -> dict[str, float]:
-    if not query or len(query.strip()) < 2:
-        return {}
-
-    import re
-    terms = []
-    for word in re.split(r'[\s\-]+', query):
-        cleaned = "".join(c for c in word if c.isalnum() or c == "_")
-        if cleaned:
-            terms.append(cleaned)
-    if not terms:
-        return {}
-
-    quoted = [f'"{t}"' for t in terms[:-1]]
-    quoted.append(f'"{terms[-1]}"*')
-    fts_query = " ".join(quoted)
-
-    try:
-        rows = conn.execute(
-            "SELECT session_id, rank FROM transcript_fts WHERE transcript_fts MATCH ?",
-            (fts_query,),
-        ).fetchall()
-        if not rows:
-            return {}
-        scores = {r["session_id"]: r["rank"] for r in rows}
-        best = min(scores.values())
-        worst = max(scores.values())
-        if worst == best:
-            return {sid: 80.0 for sid in scores}
-        spread = worst - best
-        return {
-            sid: 75.0 + 25.0 * (worst - raw) / spread
-            for sid, raw in scores.items()
-        }
-    except sqlite3.OperationalError:
-        return {}

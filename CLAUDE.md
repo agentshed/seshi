@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```sh
 uv run python -m pytest                          # run all tests
 uv run python -m pytest tests/test_drain.py      # run one test file
-uv run python -m pytest -k "test_fuzzy"          # run tests matching name
+uv run python -m pytest -k "test_rank"            # run tests matching name
 uv run seshi                           # launch the TUI
 uv run seshi doctor --fix              # health check + auto-repair
 ```
@@ -40,7 +40,7 @@ The shell wrapper `seshi()` captures stdout via `$(command seshi "$@")` and `eva
 
 ### Session resolution
 
-All commands that take a session identifier use `search.session_resolve()`: try `custom_name` (case-insensitive) first, then `session_id`. Fuzzy resume uses `rank_sessions()` with weighted field scores (name×4, prompt×2, cwd×1, transcript×1 via FTS5, individual prompts×1.5), boosted by frecency (1×–2× multiplier) so frequently-used sessions win ties. Transcript search uses FTS5 full-text indexing with Porter stemming and prefix matching.
+All commands that take a session identifier use `search.session_resolve()`: try `custom_name` (case-insensitive) first, then `session_id`. Search uses `rank_sessions()` with a BM25+RRF pipeline: dual FTS5 tables (porter stemming + trigram substring) for session metadata are merged with transcript FTS5 results via Reciprocal Rank Fusion (K=60). Per-field BM25 weights (name=5×, prompt=2×, cwd=1×, prompt_text=1.5×) ensure name matches outrank transcript hits. Multi-term queries are boosted by proximity reranking (title match, minimum span, adjacent phrase pairs). When FTS returns nothing, Levenshtein edit-distance correction is applied as a fallback. Results are blended with frecency (1×–2× multiplier) so frequently-used sessions win ties.
 
 ### Path unsanitization
 
@@ -52,7 +52,7 @@ Claude Code encodes project dirs by replacing `/` with `-`. `paths.unsanitize_pa
 
 ### Transcript index
 
-`transcript_index.py` provides FTS5 full-text indexing of session transcripts. `extract_full_text()` reads JSONL transcript files and extracts text content. `index_session()` indexes a single session, `index_pending()` indexes all unindexed sessions. `search_transcripts()` runs FTS5 queries with Porter stemming and prefix matching. Indexing runs asynchronously on TUI mount (via Textual worker) and after `seshi scan`. Query terms are double-quoted to prevent FTS5 boolean operator interpretation.
+`transcript_index.py` provides FTS5 full-text indexing of session transcripts. `extract_full_text()` reads JSONL transcript files and extracts text content. `index_session()` indexes a single session, `index_pending()` indexes all unindexed sessions. Indexing runs asynchronously on TUI mount (via Textual worker) and after `seshi scan`. `session_index.py` indexes session metadata (name, first prompt, cwd, prompt texts) into dual FTS5 tables (porter + trigram) and a vocabulary table for Levenshtein correction. Both indexers run in the same lifecycle points.
 
 ### Prompt index
 
