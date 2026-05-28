@@ -97,6 +97,57 @@ def test_extract_messages_skips_is_meta(tmp_path):
     assert msgs[0].text == "real user message"
 
 
+def test_extract_messages_skips_user_with_only_system_blocks(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "<local-command-caveat>Caveat: system only</local-command-caveat>"}},
+        {"timestamp": "2025-01-01T00:00:01Z",
+         "message": {"role": "assistant", "content": "Here is my response"}},
+        {"timestamp": "2025-01-01T00:00:02Z",
+         "message": {"role": "user", "content": "real question"}},
+    ])
+    msgs = extract_messages(f)
+    assert len(msgs) == 2
+    assert msgs[0].role == "assistant"
+    assert msgs[1].role == "user"
+    assert msgs[1].text == "real question"
+
+
+def test_parse_strips_embedded_caveat_from_first_prompt(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "<local-command-caveat>Caveat: The messages below were generated</local-command-caveat> fix the auth bug"}},
+    ])
+    s = parse_transcript(f)
+    assert s.first_prompt == "fix the auth bug"
+
+
+def test_extract_user_prompts_strips_embedded_system_blocks(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "<local-command-caveat>Caveat</local-command-caveat><command-name>/clear</command-name> actual question"}},
+    ])
+    result = extract_user_prompts(f)
+    assert len(result) == 1
+    assert result[0].text == "actual question"
+
+
+def test_extract_user_prompts_skips_only_system_blocks(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "<local-command-caveat>Caveat: system message only</local-command-caveat>"}},
+        {"timestamp": "2025-01-01T00:00:01Z",
+         "message": {"role": "user", "content": "real prompt"}},
+    ])
+    result = extract_user_prompts(f)
+    assert len(result) == 1
+    assert result[0].text == "real prompt"
+
+
 def test_extract_user_prompts_basic(tmp_path):
     f = tmp_path / "test.jsonl"
     _write_jsonl(f, [

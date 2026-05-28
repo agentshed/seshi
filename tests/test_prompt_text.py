@@ -1,6 +1,6 @@
 import time
 
-from seshi.prompt_text import strip_markup_tags
+from seshi.prompt_text import strip_markup_tags, strip_system_blocks
 from seshi.tui.sessions import SessionsList
 
 
@@ -29,7 +29,22 @@ def test_strip_markup_tags_keeps_non_tag_angle_brackets():
     assert strip_markup_tags("compare 2 < 3 > 1") == "compare 2 < 3 > 1"
 
 
-def test_sessions_list_render_strips_tags_from_prompt(tmp_db):
+def test_strip_system_blocks_removes_caveat_content():
+    text = "<local-command-caveat>Caveat: system message</local-command-caveat> Open the repo"
+    assert strip_system_blocks(text) == "Open the repo"
+
+
+def test_strip_system_blocks_removes_multiple_blocks():
+    text = "<command-name>/clear</command-name><command-message>clear</command-message> actual prompt"
+    assert strip_system_blocks(text) == "actual prompt"
+
+
+def test_strip_system_blocks_preserves_non_system_tags():
+    text = "<custom-tag>keep this</custom-tag> and this"
+    assert strip_system_blocks(text) == "<custom-tag>keep this</custom-tag> and this"
+
+
+def test_sessions_list_render_strips_system_blocks_from_prompt(tmp_db):
     _insert_session(
         tmp_db,
         "tagged-prompt",
@@ -38,11 +53,11 @@ def test_sessions_list_render_strips_tags_from_prompt(tmp_db):
 
     rendered = SessionsList(tmp_db).render().plain
 
-    assert "<local-command-caveat>" not in rendered
-    assert "Caveat Open the repo" in rendered
+    assert "Caveat" not in rendered
+    assert "Open the repo" in rendered
 
 
-def test_sessions_list_search_uses_visible_prompt_text(tmp_db):
+def test_sessions_list_search_finds_visible_prompt_text(tmp_db):
     _insert_session(
         tmp_db,
         "tagged-prompt",
@@ -50,6 +65,6 @@ def test_sessions_list_search_uses_visible_prompt_text(tmp_db):
     )
 
     view = SessionsList(tmp_db)
-    view.filter("Caveat")
+    view.filter("Open")
 
     assert [s.session_id for s in view.sessions] == ["tagged-prompt"]

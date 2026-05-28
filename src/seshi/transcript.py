@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from seshi.paths import CLAUDE_PROJECTS
+from seshi.prompt_text import strip_system_blocks
 
 
 @dataclass
@@ -67,8 +68,10 @@ def parse_transcript(path: Path) -> TranscriptSummary:
                                 break
                         else:
                             content = ""
-                    if isinstance(content, str) and content.strip():
-                        first_prompt = content.strip()[:200]
+                    if isinstance(content, str):
+                        content = strip_system_blocks(content)
+                        if content:
+                            first_prompt = content[:200]
     except OSError:
         pass
 
@@ -113,7 +116,11 @@ def extract_messages(path: Path, limit: int | None = None) -> list[Message]:
                     content = "\n".join(parts)
 
                 if isinstance(content, str):
+                    if role == "user":
+                        content = strip_system_blocks(content)
                     text = " ".join(content.split())[:200]
+                    if not text:
+                        continue
                     messages.append(Message(
                         role=role,
                         text=text,
@@ -156,6 +163,7 @@ def extract_user_prompts(path: Path) -> list[Message]:
                     content = "\n".join(parts)
 
                 if isinstance(content, str):
+                    content = strip_system_blocks(content)
                     text = " ".join(content.split())[:500]
                     if text:
                         messages.append(Message(
