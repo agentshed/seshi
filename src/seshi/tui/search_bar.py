@@ -73,7 +73,7 @@ class SearchBar(Widget):
                     sl.cursor = max(0, sl.cursor - 1)
                     sl.refresh()
                 elif event.key == "down":
-                    sl.cursor = min(len(sl.sessions) - 1, sl.cursor + 1)
+                    sl.cursor = min(sl._nav_row_count() - 1, sl.cursor + 1)
                     sl.refresh()
                 elif event.key == "enter":
                     s = sl.current_session
