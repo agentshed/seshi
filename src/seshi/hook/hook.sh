@@ -74,6 +74,7 @@ print(total)
 
         FIRST_PROMPT=$(python3 -c "
 import json, re, sys
+# Keep in sync with prompt_text._SYSTEM_BLOCK_RE
 _SYS_RE = re.compile(r'<(local-command-caveat|system-reminder|command-name|command-message|command-args|local-command-stdout|task-notification)(?:\s[^>]*)?>.*?</\1>', re.DOTALL)
 for line in open('$TRANSCRIPT_PATH'):
     try:

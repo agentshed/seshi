@@ -1,6 +1,7 @@
 import re
 
 
+# Keep in sync with the inline copy in hook/hook.sh
 _SYSTEM_BLOCK_RE = re.compile(
     r"<(local-command-caveat|system-reminder|command-name|command-message"
     r"|command-args|local-command-stdout|task-notification)"
