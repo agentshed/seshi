@@ -107,7 +107,7 @@ seshi/
 │       ├── hook.py                  # install_hook(), patch_settings(), unpatch_settings()
 │       ├── themes.py                # 5 palettes, get_theme(), THEMES dict
 │       ├── cost.py                  # Model rate table, estimate_cost(), format_usd()
-│       ├── time_utils.py            # relative_time(), time_bucket()
+│       ├── time_utils.py            # relative_time()
 │       ├── lang_detect.py           # detect_language() from manifest files
 │       ├── shell_init.py            # Shell wrapper + completion generators
 │       ├── hook/
@@ -661,7 +661,7 @@ def mock_projects(tmp_path):
 | `grep.py` | 6 | Case-insensitive match, --limit, --role filter, no matches, skip excluded dirs |
 | `cost.py` | 8 | Rate lookup per model, fallback rate, cost estimation, format_usd thresholds |
 | `themes.py` | 5 | All palettes have 12 keys, load from DB, fallback to coral, valid hex colors |
-| `time_utils.py` | 6 | relative_time thresholds, time_bucket categorization |
+| `time_utils.py` | 5 | relative_time thresholds |
 | `shell_init.py` | 8 | Bash wrapper contains eval, zsh has compdef, fish has complete, auto-detect from $SHELL |
 | `hook.py` | 5 | Install creates executable file, patch adds entries, patch is idempotent, unpatch removes entries |
 | `lang_detect.py` | 5 | Python/Go/Rust/JS/TS detection from manifests |
