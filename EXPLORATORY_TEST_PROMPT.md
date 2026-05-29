@@ -28,7 +28,7 @@ tmux new-session -d -s seshi-test -x 120 -y 40
 #   - Sessions with very long custom_name (>38 chars — tests truncation)
 #   - Sessions with very long cwd paths (>30 chars — tests truncation with ellipsis)
 #   - Sessions with Unicode characters in custom_name and first_prompt
-#   - Sessions spanning different time_bucket ranges (today, yesterday, this week, this month, older)
+#   - Sessions spanning different project paths (to test project-path grouping headers)
 #   - At least 50+ sessions to test scrolling behavior
 
 # 4. Launch the TUI inside tmux
