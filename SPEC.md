@@ -124,11 +124,11 @@ Event-driven pipeline with command dispatch. The system has three layers:
 
 ### 5.4 TUI — Sessions View
 
-**Description**: Interactive session picker with BM25-ranked search, time-bucketed grouping, sort modes, and inline actions.
+**Description**: Interactive session picker with BM25-ranked search, project-path grouping, sort modes, and inline actions.
 
 **Acceptance criteria**:
-- Sessions displayed in groups: `★ favorites` → `today` → `yesterday` → `this week` → `this month` → `older`
-- Each row shows: favorite mark, language tag, title (custom_name or first_prompt), cwd, relative time, tag chips
+- Sessions displayed in groups: `★ favorites` first, then grouped by project path with headers showing `── ~/path (lang) Xh ago ──`
+- Each row shows: favorite mark, title (custom_name or first_prompt), tag chips (at ≥60 char width)
 - Live search: any typed character filters the list in real time
 - `#tag` tokens in search filter by tag (AND semantics for multiple tags)
 - Selected row highlighted with accent-colored background

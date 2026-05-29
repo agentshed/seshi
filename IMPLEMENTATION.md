@@ -281,7 +281,7 @@ def index_pending_prompts(conn) -> int: ...
 
 **`cost.py`** — Model rate table, `estimate_cost(token_count, model)`, `format_usd(amount)`.
 
-**`time_utils.py`** — `relative_time(ts)` → "17m ago", `time_bucket(ts)` → "today"/"this week"/etc.
+**`time_utils.py`** — `relative_time(ts)` → "17m ago".
 
 **`lang_detect.py`** — Check manifest files in cwd, return 2-3 char tag. Memoized per cwd.
 

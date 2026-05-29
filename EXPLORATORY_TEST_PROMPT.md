@@ -83,7 +83,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - **Verify:** Preview pane shows transcript of the cursor-highlighted session
 - **Verify:** Footer shows contextual keys: `Enter resume  r rename  f favorite  t tag  u archive  d delete  s sort  Space select  Tab view`
 - **Verify:** Cursor (reverse-video highlight) is on the first session
-- **Verify:** Time bucket headers appear (e.g., "-- * favorites --", "-- today --", "-- yesterday --", "-- this week --")
+- **Verify:** Project path headers appear (e.g., "── ★ favorites ──", "── ~/seshi (py) 1h ago ──")
 
 #### 1.2 Cold Start with --here Flag
 - `uv run seshi --here` from a directory that has sessions
