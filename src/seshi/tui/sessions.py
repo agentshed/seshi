@@ -12,7 +12,7 @@ from rich.text import Text
 from seshi.models import Session, Prompt
 from seshi.prompt_text import strip_markup_tags, strip_system_blocks
 from seshi.search import list_sessions, rank_sessions, query_matches_text
-from seshi.time_utils import relative_time, time_bucket
+from seshi.time_utils import relative_time
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
 from seshi.tui.search_bar import SearchBar, SearchChanged
@@ -122,26 +122,44 @@ class SessionsList(Widget):
 
     def _build_display_rows(self):
         rows: list[DisplayRow] = []
-        current_bucket = ""
-        for s in self.sessions:
-            bucket_header = None
-            if s.is_favorite and current_bucket != "favorites":
-                current_bucket = "favorites"
-                bucket_header = "  ── ★ favorites ──"
-            elif not s.is_favorite:
-                bucket = time_bucket(s.last_activity_at)
-                if bucket != current_bucket:
-                    current_bucket = bucket
-                    bucket_header = f"  ── {bucket} ──"
+        home = os.path.expanduser("~")
 
-            if bucket_header:
-                rows.append(DisplayRow(kind="bucket", label=bucket_header))
+        favorites = [s for s in self.sessions if s.is_favorite]
+        non_favorites = [s for s in self.sessions if not s.is_favorite]
 
-            rows.append(DisplayRow(kind="session", session=s))
+        if favorites:
+            rows.append(DisplayRow(kind="bucket", label="  ── ★ favorites ──"))
+            for s in favorites:
+                rows.append(DisplayRow(kind="session", session=s))
+                if s.session_id not in self._collapsed:
+                    for p in self._prompts.get(s.session_id, []):
+                        rows.append(DisplayRow(kind="prompt", session=s, prompt=p))
 
-            if s.session_id not in self._collapsed:
-                for p in self._prompts.get(s.session_id, []):
-                    rows.append(DisplayRow(kind="prompt", session=s, prompt=p))
+        groups: dict[str, list[Session]] = {}
+        seen_cwds: list[str] = []
+        for s in non_favorites:
+            if s.cwd not in groups:
+                seen_cwds.append(s.cwd)
+                groups[s.cwd] = []
+            groups[s.cwd].append(s)
+
+        for cwd in seen_cwds:
+            display_cwd = cwd
+            if display_cwd.startswith(home):
+                display_cwd = "~" + display_cwd[len(home):]
+            lang = detect_language(cwd)
+            lang_str = f" ({lang})" if lang else ""
+            rel = relative_time(groups[cwd][0].last_activity_at)
+            max_path = 40
+            if len(display_cwd) > max_path:
+                half = (max_path - 1) // 2
+                display_cwd = display_cwd[:half] + "…" + display_cwd[-(max_path - 1 - half):]
+            rows.append(DisplayRow(kind="bucket", label=f"  ── {display_cwd}{lang_str} {rel} ──"))
+            for s in groups[cwd]:
+                rows.append(DisplayRow(kind="session", session=s))
+                if s.session_id not in self._collapsed:
+                    for p in self._prompts.get(s.session_id, []):
+                        rows.append(DisplayRow(kind="prompt", session=s, prompt=p))
 
         self._display_rows = rows
 
@@ -218,27 +236,13 @@ class SessionsList(Widget):
 
         visible_height = max(self.size.height - 2, 5) if self.size.height > 0 else 20
 
-        home = os.path.expanduser("~")
         w = self.size.width if self.size.width > 0 else 120
-        narrow = w < 60
-
-        all_sessions_for_rel = [r.session for r in self._display_rows if r.session]
-        max_rel_len = max((len(relative_time(s.last_activity_at)) for s in all_sessions_for_rel), default=8)
 
         in_selection = bool(self.selected)
         sel_w = 3 if in_selection else 0
 
-        if narrow:
-            prefix_w = 1 + sel_w + 2 + 1  # collapse + sel + fav + space
-            compact_overhead = prefix_w + 2 + max_rel_len
-            title_w = max(10, w - compact_overhead)
-            cwd_w = 0
-        else:
-            prefix_w = 1 + sel_w + 2 + 3 + 1  # collapse + sel + fav + lang + space
-            overhead = prefix_w + 4 + max_rel_len
-            avail = max(30, w - overhead)
-            title_w = min(50, max(12, avail * 40 // 100))
-            cwd_w = min(40, max(12, avail * 33 // 100))
+        prefix_w = 1 + sel_w + 2 + 1  # collapse + sel + fav + space
+        title_w = max(10, w - prefix_w)
 
         cursor_display_idx = self._cursor_to_display_index(self.cursor)
 
@@ -247,7 +251,7 @@ class SessionsList(Widget):
 
         for di, drow in enumerate(self._display_rows):
             if drow.kind == "bucket":
-                visible_rows.append((drow.label, "dim", di))
+                visible_rows.append((drow.label[:w], "dim", di))
                 continue
 
             if drow.kind == "session":
@@ -265,38 +269,26 @@ class SessionsList(Widget):
                     collapse_mark = " "
 
                 sel_mark = ("[x]" if is_selected else "   ") if in_selection else ""
-                rel = relative_time(s.last_activity_at)
                 title = (s.custom_name or strip_markup_tags(strip_system_blocks(s.first_prompt or "")) or "(untitled)")[:title_w]
 
-                if narrow:
-                    fav = " *" if s.is_favorite else "  "
-                    base = f"{collapse_mark}{sel_mark}{fav} {title:<{title_w}}  {rel:>{max_rel_len}}"
-                    line = base[:w]
-                else:
-                    fav = " *" if s.is_favorite else "  "
-                    lang = detect_language(s.cwd)
-                    lang_str = f"{lang:>3}" if lang else "   "
-                    cwd = s.cwd
-                    if cwd.startswith(home):
-                        cwd = "~" + cwd[len(home):]
-                    if len(cwd) > cwd_w:
-                        half = (cwd_w - 1) // 2
-                        cwd = cwd[:half] + "…" + cwd[-(cwd_w - 1 - half):]
+                fav = " *" if s.is_favorite else "  "
 
-                    tags_str = ""
+                tags_str = ""
+                if w >= 60:
                     tag_rows = self.conn.execute(
                         "SELECT tag FROM tags WHERE session_id = ?", (s.session_id,)
                     ).fetchall()
                     if tag_rows:
                         tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
 
-                    base = f"{collapse_mark}{sel_mark}{fav}{lang_str} {title:<{title_w}}  {cwd:<{cwd_w}}  {rel:>{max_rel_len}}"
-                    tags_budget = w - len(base)
-                    if tags_str and tags_budget > 3:
+                prefix = f"{collapse_mark}{sel_mark}{fav} {title}"
+                if tags_str:
+                    tags_budget = w - len(prefix)
+                    if tags_budget > 3:
                         tags_str = tags_str[:tags_budget]
                     else:
                         tags_str = ""
-                    line = (base + tags_str)[:w]
+                line = (prefix + tags_str).ljust(w)[:w]
                 visible_rows.append((line, style, di))
 
             elif drow.kind == "prompt":
@@ -307,17 +299,9 @@ class SessionsList(Widget):
 
                 indent = " " * prefix_w
                 connector = "│ "
-                if narrow:
-                    prompt_w = max(5, w - len(indent) - len(connector))
-                    prompt_text = strip_system_blocks(p.text)[:prompt_w]
-                    line = f"{indent}{connector}{prompt_text}"[:w]
-                else:
-                    prompt_rel = ""
-                    if p.timestamp_epoch:
-                        prompt_rel = relative_time(p.timestamp_epoch)
-                    prompt_w = max(5, w - len(indent) - len(connector) - 2 - max_rel_len)
-                    prompt_text = strip_system_blocks(p.text)[:prompt_w]
-                    line = f"{indent}{connector}{prompt_text:<{prompt_w}}  {prompt_rel:>{max_rel_len}}"[:w]
+                prompt_w = max(5, w - len(indent) - len(connector))
+                prompt_text = strip_system_blocks(p.text)[:prompt_w]
+                line = f"{indent}{connector}{prompt_text}"[:w]
                 visible_rows.append((line, style, di))
 
         cursor_row_idx = 0
@@ -353,7 +337,10 @@ class SessionsList(Widget):
 
     def _start_blink(self) -> None:
         self._cursor_visible = True
-        self._blink_timer = self.set_interval(0.5, self._toggle_cursor)
+        try:
+            self._blink_timer = self.set_interval(0.5, self._toggle_cursor)
+        except RuntimeError:
+            pass
 
     def _stop_blink(self) -> None:
         if self._blink_timer:

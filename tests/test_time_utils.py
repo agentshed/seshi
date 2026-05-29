@@ -1,5 +1,5 @@
 import time
-from seshi.time_utils import relative_time, time_bucket
+from seshi.time_utils import relative_time
 
 
 def test_just_now():
@@ -25,18 +25,3 @@ def test_yesterday():
 def test_days_ago():
     ts = int(time.time()) - 5 * 86400
     assert "5d ago" == relative_time(ts)
-
-
-def test_bucket_today():
-    ts = int(time.time()) - 3600
-    assert time_bucket(ts) == "today"
-
-
-def test_bucket_this_week():
-    ts = int(time.time()) - 3 * 86400
-    assert time_bucket(ts) == "this week"
-
-
-def test_bucket_older():
-    ts = int(time.time()) - 60 * 86400
-    assert time_bucket(ts) == "older"

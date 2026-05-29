@@ -124,11 +124,11 @@ Event-driven pipeline with command dispatch. The system has three layers:
 
 ### 5.4 TUI — Sessions View
 
-**Description**: Interactive session picker with BM25-ranked search, time-bucketed grouping, sort modes, and inline actions.
+**Description**: Interactive session picker with BM25-ranked search, project-path grouping, sort modes, and inline actions.
 
 **Acceptance criteria**:
-- Sessions displayed in groups: `★ favorites` → `today` → `yesterday` → `this week` → `this month` → `older`
-- Each row shows: favorite mark, language tag, title (custom_name or first_prompt), cwd, relative time, tag chips
+- Sessions displayed in groups: `★ favorites` first, then grouped by project path with headers showing `── ~/path (lang) Xh ago ──`
+- Each row shows: favorite mark, title (custom_name or first_prompt), tag chips (at ≥60 char width)
 - Live search: any typed character filters the list in real time
 - `#tag` tokens in search filter by tag (AND semantics for multiple tags)
 - Selected row highlighted with accent-colored background
@@ -709,18 +709,16 @@ Detected from manifest files in the session's `cwd`:
 | `jv` | `pom.xml` or `build.gradle` |
 | `git` | `.git` directory (fallback when no language manifest found) |
 
-### Time Bucketing
+### Project-Path Grouping
 
-| Bucket | Condition |
-|--------|-----------|
-| `favorites` | `is_favorite = 1` (always first, regardless of age) |
-| `today` | `delta < 86400` |
-| `yesterday` | `delta < 2 * 86400` |
-| `this week` | `delta < 7 * 86400` |
-| `this month` | `delta < 30 * 86400` |
-| `older` | everything else |
+Sessions are grouped by working directory with section headers showing path, language, and last active time:
 
-Buckets use rolling time windows relative to the current moment, not calendar day boundaries.
+| Group | Format |
+|-------|--------|
+| Favorites | `── ★ favorites ──` (always first) |
+| Project | `── ~/path (lang) Xh ago ──` |
+
+Groups are ordered by the first session's position in the active sort mode. Within each group, sessions maintain their sort order. Long paths are truncated with ellipsis at 40 characters.
 
 ### Preview Pane
 

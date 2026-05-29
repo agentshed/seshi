@@ -233,7 +233,7 @@ Delete (`d`) is immediately destructive with no undo. Archive (`u`) exists as a 
 ### U4. Search UX Improvements
 
 - The fuzzy threshold should be raised (minimum score >30-40 to appear)
-- When search is active, time-bucket group headers become misleading because results are sorted by relevance, not time
+- When search is active, project-path group headers become misleading because results are sorted by relevance, not project
 - Consider highlighting the matched portion of text in search results
 
 ### U5. Preview Pane Value
@@ -248,7 +248,7 @@ If the preview pane were visible (fixing H2), it would significantly improve the
 
 ### U7. Color-Only Differentiation
 
-The TUI uses `*` for favorites and `[x]` for selection, providing non-color indicators. Time bucket headers use text labels. Tags use `#` prefix. This is good for accessibility. However, the cursor highlight relies solely on reverse video, which may not be visible in all terminal emulators/themes.
+The TUI uses `*` for favorites and `[x]` for selection, providing non-color indicators. Project-path headers use text labels. Tags use `#` prefix. This is good for accessibility. However, the cursor highlight relies solely on reverse video, which may not be visible in all terminal emulators/themes.
 
 ---
 
@@ -540,7 +540,7 @@ Escape →                                (quit)
 The seeding script must:
 1. Use the correct DB path (`~/.seshi/db.sqlite`)
 2. Back up the existing DB before seeding
-3. Create sessions spanning all time buckets (today, yesterday, this week, this month, older)
+3. Create sessions spanning different project paths (to test project-path grouping headers)
 4. Include sessions with every combination of nullable fields:
 
 | Scenario | custom_name | first_prompt | env_json | git_branch | tags |
@@ -628,7 +628,7 @@ For each theme, capture a screenshot and verify:
 - **mono**: All grays — verify cursor row is distinguishable from non-cursor
 - **solarized**: Notoriously tricky contrast — verify dim text is readable against `#002b36` bg
 - **nord**: Cool tones only — verify accent stands out against blue-gray background
-- **ayu**: Yellow accent — verify it doesn't clash with time-bucket headers
+- **ayu**: Yellow accent — verify it doesn't clash with project-path headers
 
 #### 25.3 NO_COLOR Environment Variable
 
@@ -1040,7 +1040,7 @@ Goal: Recover from accidental actions.
 - "frecency" — technical term, not self-explanatory. Consider "smart sort", "most used", "recent + frequent"
 - "archive" vs "delete" — clear distinction but not explained at decision point
 - "(untitled)" — matches common pattern from text editors ✓
-- Time buckets ("today", "yesterday", "this week") — natural language ✓
+- Project-path headers ("── ~/path (lang) Xh ago ──") — at-a-glance project context ✓
 - `*` for favorite, `[x]` for selected — standard patterns ✓
 
 #### 34.3 User Control and Freedom
@@ -1102,7 +1102,7 @@ Goal: Recover from accidental actions.
 #### 34.8 Aesthetic and Minimalist Design
 
 - Session row has 7 fields (selection, favorite, lang, title, cwd, time, tags) — dense but scannable
-- Time bucket headers provide visual grouping — good ✓
+- Project-path headers provide visual grouping — good ✓
 - Preview pane (when visible) adds context without clutter
 - Footer is minimal — maybe too minimal (missing keys)
 

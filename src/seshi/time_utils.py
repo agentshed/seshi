@@ -22,17 +22,3 @@ def relative_time(ts: int) -> str:
     from datetime import datetime, timezone
     dt = datetime.fromtimestamp(ts, tz=timezone.utc)
     return dt.strftime("%Y-%m-%d")
-
-
-def time_bucket(ts: int) -> str:
-    now = int(time.time())
-    delta = now - ts
-    if delta < 86400:
-        return "today"
-    if delta < 2 * 86400:
-        return "yesterday"
-    if delta < 7 * 86400:
-        return "this week"
-    if delta < 30 * 86400:
-        return "this month"
-    return "older"

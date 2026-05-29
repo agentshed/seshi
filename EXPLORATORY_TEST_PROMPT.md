@@ -28,7 +28,7 @@ tmux new-session -d -s seshi-test -x 120 -y 40
 #   - Sessions with very long custom_name (>38 chars — tests truncation)
 #   - Sessions with very long cwd paths (>30 chars — tests truncation with ellipsis)
 #   - Sessions with Unicode characters in custom_name and first_prompt
-#   - Sessions spanning different time_bucket ranges (today, yesterday, this week, this month, older)
+#   - Sessions spanning different project paths (to test project-path grouping headers)
 #   - At least 50+ sessions to test scrolling behavior
 
 # 4. Launch the TUI inside tmux
@@ -83,7 +83,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - **Verify:** Preview pane shows transcript of the cursor-highlighted session
 - **Verify:** Footer shows contextual keys: `Enter resume  r rename  f favorite  t tag  u archive  d delete  s sort  Space select  Tab view`
 - **Verify:** Cursor (reverse-video highlight) is on the first session
-- **Verify:** Time bucket headers appear (e.g., "-- * favorites --", "-- today --", "-- yesterday --", "-- this week --")
+- **Verify:** Project path headers appear (e.g., "── ★ favorites ──", "── ~/seshi (py) 1h ago ──")
 
 #### 1.2 Cold Start with --here Flag
 - `uv run seshi --here` from a directory that has sessions
@@ -135,7 +135,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 #### 2.3 Scrolling (Large List)
 - With 50+ sessions, navigate past the visible viewport
 - **Verify:** Scrolling is smooth, cursor stays visible
-- **Verify:** Time bucket headers scroll correctly and don't create visual artifacts
+- **Verify:** Project-path headers scroll correctly and don't create visual artifacts
 - **Verify:** The viewport centers around the cursor (uses `visible_height // 2` centering logic)
 - Jump `g` then `G` rapidly — no flicker or rendering glitch
 - Use `Ctrl+d` repeatedly to page through — no gaps or duplicate rows
@@ -272,7 +272,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - **Verify:** Session moves to the "favorites" section at the top
 - **Verify:** Star marker `*` appears
 - Press `f` again
-- **Verify:** Session unfavorited, moves back to time-bucketed position
+- **Verify:** Session unfavorited, moves back to project-grouped position
 
 #### 4.9 Favorite — Bulk
 - Select 3 sessions with Space, then press `f`
@@ -615,7 +615,7 @@ The Escape key has a complex, layered behavior defined in `action_back_or_quit`.
   - Cursor row (reverse video) is clearly distinguishable from non-cursor rows
   - Favorite star is visible
   - Tags are readable
-  - Time bucket headers are visible but not dominant
+  - Project-path headers are visible but not dominant
   - Footer keys are distinguishable from labels
   - Preview role labels (user vs assistant) use different colors
 
