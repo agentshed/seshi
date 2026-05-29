@@ -283,7 +283,7 @@ def index_pending_prompts(conn) -> int: ...
 
 **`time_utils.py`** — `relative_time(ts)` → "17m ago".
 
-**`lang_detect.py`** — Check manifest files in cwd, return 2-3 char tag. Memoized per cwd.
+**`lang_detect.py`** — Check manifest files in cwd, return 2-3 char tag for 16 ecosystems. Memoized per cwd.
 
 ### Phase 2: Hook (Week 1)
 
@@ -664,7 +664,7 @@ def mock_projects(tmp_path):
 | `time_utils.py` | 5 | relative_time thresholds |
 | `shell_init.py` | 8 | Bash wrapper contains eval, zsh has compdef, fish has complete, auto-detect from $SHELL |
 | `hook.py` | 5 | Install creates executable file, patch adds entries, patch is idempotent, unpatch removes entries |
-| `lang_detect.py` | 5 | Python/Go/Rust/JS/TS detection from manifests |
+| `lang_detect.py` | 28 | Detection from manifests for 16 ecosystems (py/go/rs/rb/dn/jv/kt/sw/ex/drt/zig/hs/php/cpp/ts/js), priority order, fallbacks |
 | `commands` | 20+ | CLI integration tests via Click's `CliRunner` for list/rename/tag/favorite/delete/archive/stats/config/doctor |
 
 ### CLI Integration Tests

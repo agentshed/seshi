@@ -114,13 +114,18 @@ class TmuxController:
         self.send_keys("Enter")
 
     def capture(self) -> CapturedScreen:
-        result = subprocess.run(
-            ["tmux", "capture-pane", "-t", self.session_name, "-p"],
-            capture_output=True,
-            text=True,
-            check=True,
+        for attempt in range(3):
+            result = subprocess.run(
+                ["tmux", "capture-pane", "-t", self.session_name, "-p"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                return CapturedScreen(raw=result.stdout)
+            time.sleep(0.1)
+        raise RuntimeError(
+            f"tmux capture-pane failed for '{self.session_name}': {result.stderr}"
         )
-        return CapturedScreen(raw=result.stdout)
 
     def wait_for(
         self,
