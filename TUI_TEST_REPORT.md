@@ -248,7 +248,7 @@ If the preview pane were visible (fixing H2), it would significantly improve the
 
 ### U7. Color-Only Differentiation
 
-The TUI uses `*` for favorites and `[x]` for selection, providing non-color indicators. Time bucket headers use text labels. Tags use `#` prefix. This is good for accessibility. However, the cursor highlight relies solely on reverse video, which may not be visible in all terminal emulators/themes.
+The TUI uses `*` for favorites and `[x]` for selection, providing non-color indicators. Project-path headers use text labels. Tags use `#` prefix. This is good for accessibility. However, the cursor highlight relies solely on reverse video, which may not be visible in all terminal emulators/themes.
 
 ---
 
@@ -1102,7 +1102,7 @@ Goal: Recover from accidental actions.
 #### 34.8 Aesthetic and Minimalist Design
 
 - Session row has 7 fields (selection, favorite, lang, title, cwd, time, tags) — dense but scannable
-- Time bucket headers provide visual grouping — good ✓
+- Project-path headers provide visual grouping — good ✓
 - Preview pane (when visible) adds context without clutter
 - Footer is minimal — maybe too minimal (missing keys)
 
