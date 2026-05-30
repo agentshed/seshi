@@ -649,10 +649,11 @@ class SessionsList(Widget):
             )
             undo_stmts.append(("UPDATE sessions SET is_favorite = ? WHERE session_id = ?", (old_val, sid)))
         self.conn.commit()
-        new_state = 0 if s.is_favorite else 1
-        label = "Favorited" if new_state else "Unfavorited"
-        if len(targets) > 1:
-            label += f" {len(targets)} sessions"
+        if len(targets) == 1:
+            new_state = 0 if s.is_favorite else 1
+            label = "Favorited" if new_state else "Unfavorited"
+        else:
+            label = f"Toggled favorite on {len(targets)} sessions"
         self._notify(label, severity="information", timeout=2)
         self._undo.push(UndoEntry(
             action="favorite",
@@ -755,10 +756,15 @@ class SessionsList(Widget):
         for sql, params in entry.sql_statements:
             self.conn.execute(sql, params)
         self.conn.commit()
-        if entry.action == "rename":
-            sid = entry.sql_statements[0][1][1] if entry.sql_statements else None
-            if sid:
-                from seshi.session_index import reindex_session
+        if entry.action in ("rename", "delete"):
+            from seshi.session_index import reindex_session
+            restored_sids = set()
+            for sql, params in entry.sql_statements:
+                if "INTO sessions" in sql and params:
+                    restored_sids.add(params[0])
+                elif "SET custom_name" in sql and params:
+                    restored_sids.add(params[1])
+            for sid in restored_sids:
                 reindex_session(self.conn, sid)
         self._notify(f"Undo: {entry.description}")
         self._reload_with_current_filter()
