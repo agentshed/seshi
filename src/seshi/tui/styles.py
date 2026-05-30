@@ -25,6 +25,14 @@ Screen {{
     text-style: bold;
 }}
 
+#breadcrumb {{
+    height: auto;
+    max-height: 1;
+    padding: 0 1;
+    color: {palette.fg_muted};
+    background: #000000;
+}}
+
 #search-bar {{
     color: {palette.fg};
     background: {palette.bg};

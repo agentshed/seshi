@@ -1085,7 +1085,7 @@ Goal: Recover from accidental actions.
 - Count shows total — good ✓
 
 **Gaps:**
-- No breadcrumb for "filtered to ~/seshi" after project drill-down
+- ~~No breadcrumb for "filtered to ~/seshi" after project drill-down~~ Fixed: breadcrumb context line now shows project path, session count, and "Esc to clear" when filter is active
 - No indicator of "hiding N sessions with missing dirs" when H is active
 - No selection count displayed
 
