@@ -45,6 +45,7 @@ HELP_TEXT = """
   /                  Focus search bar (type any character freely)
   Type to search     Fuzzy match against name, prompt, and cwd
   #tag               Filter by tag (AND semantics for multiple)
+  Ctrl-o             Cycle search scope (all → favorites → recent → project)
   Backspace          Delete last character
   Esc                Clear search and deactivate
 
