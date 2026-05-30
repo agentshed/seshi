@@ -419,53 +419,45 @@ class SeshiApp(App):
                 self.chosen_session = s
                 self.exit()
 
-    def action_rename(self) -> None:
+    def _sessions_action(self, method: str) -> None:
         if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._start_rename()
+            getattr(self._sessions_list, method)()
+
+    def action_rename(self) -> None:
+        self._sessions_action("_start_rename")
 
     def action_favorite(self) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._toggle_favorite()
+        self._sessions_action("_toggle_favorite")
 
     def action_tag(self) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._start_tag()
+        self._sessions_action("_start_tag")
 
     def action_archive(self) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._toggle_archive()
+        self._sessions_action("_toggle_archive")
 
     def action_delete(self) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._delete_selected()
+        self._sessions_action("_delete_selected")
 
     def action_cycle_sort(self) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._cycle_sort()
+        self._sessions_action("_cycle_sort")
 
     def action_toggle_preview(self) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._toggle_preview()
+        self._sessions_action("_toggle_preview")
 
     def action_toggle_expand(self) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._toggle_expand()
+        self._sessions_action("_toggle_expand")
 
     def action_toggle_expand_all(self) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._toggle_expand_all()
+        self._sessions_action("_toggle_expand_all")
 
     def action_undo(self) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._undo_last()
+        self._sessions_action("_undo_last")
 
     def action_toggle_hide_missing(self) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._toggle_hide_missing()
+        self._sessions_action("_toggle_hide_missing")
 
     def action_toggle_hide_stale(self) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            self._sessions_list._toggle_hide_stale()
+        self._sessions_action("_toggle_hide_stale")
 
     def on_unmount(self) -> None:
         if self._owns_conn and self._conn:
