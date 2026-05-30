@@ -16,7 +16,7 @@ from seshi.search import list_sessions, rank_sessions, query_matches_text
 from seshi.time_utils import relative_time
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
-from seshi.tui.search_bar import SearchBar, SearchChanged
+from seshi.tui.search_bar import SearchBar, SearchChanged, SCOPES
 
 
 @dataclass
@@ -80,7 +80,9 @@ class SessionsList(Widget):
         self._all_sessions = sessions
         self.sessions = sessions
 
-        scope = getattr(self, '_current_scope', 'all')
+        scope = self._current_scope
+        if scope not in SCOPES:
+            scope = "all"
         if scope == "favorites":
             sessions = [s for s in sessions if s.is_favorite]
             self.sessions = sessions
