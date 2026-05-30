@@ -8,9 +8,8 @@ Screen {{
 }}
 
 #header {{
-    height: 5;
-    border: solid {palette.border};
-    padding: 0 2;
+    height: 1;
+    padding: 0 1;
     color: {palette.fg};
     background: #000000;
 }}

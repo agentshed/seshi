@@ -47,7 +47,7 @@ class CapturedScreen:
 
 
 class TmuxController:
-    HEADER_PATTERN = "█▀▀ █▀▀ █▀▀"
+    HEADER_PATTERN = "SESHI"
 
     def __init__(
         self,

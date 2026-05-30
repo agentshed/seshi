@@ -76,12 +76,14 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 
 #### 1.1 Cold Start (Positive)
 - Launch `uv run seshi` in a standard 120x40 terminal
-- **Verify:** Header renders with ASCII art logo, accent color, version number
+- **Verify:** Header renders with compact `SESHI` text, sort mode, session count (e.g., `SESHI  12 of 45 sessions  frecency  v0.1.0`), and optional `indexing…` indicator during background transcript indexing
+- **Verify:** ASCII art logo appears in the Help view (`?`) with theme-aware accent color
 - **Verify:** Tab bar shows `1 sessions  2 overview  3 projects  ? help`
 - **Verify:** Search bar shows `>` prompt with cursor, sort mode label (default: "frecency"), and count `N / N`
 - **Verify:** Session list populates with sessions sorted by frecency (favorites first, then by score)
 - **Verify:** Preview pane shows transcript of the cursor-highlighted session
-- **Verify:** Footer shows contextual keys: `Enter resume  r rename  f favorite  t tag  u archive  d delete  s sort  Space select  Tab view`
+- **Verify:** Footer shows contextual keys ordered by priority: `Enter resume  / search  f favorite  d delete  s sort  r rename  t tag  u archive  Space select  Tab view`
+- **Verify:** On narrow terminals, footer truncates with `? more` instead of silently clipping keys
 - **Verify:** Cursor (reverse-video highlight) is on the first session
 - **Verify:** Project path headers appear (e.g., "── ★ favorites ──", "── ~/seshi (py) 1h ago ──")
 
@@ -231,6 +233,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - **Verify:** Footer changes to "Enter save  Esc cancel"
 - Type a new name, press Enter
 - **Verify:** Name updates in the list immediately
+- **Verify:** Toast notification confirms the rename (e.g., "Renamed to <name>")
 - **Verify:** Footer reverts to normal mode
 
 #### 4.4 Rename — Edge Cases
@@ -256,8 +259,10 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - **Verify:** Footer changes to "Enter apply  Esc cancel"
 - Type a tag name (alphanumeric + hyphens + underscores), press Enter
 - **Verify:** Tag appears next to the session as `#tagname`
+- **Verify:** Toast notification confirms the tag action
 - Press `t` again, type the same tag
 - **Verify:** Tag is toggled OFF (removed) — tag disappears
+- **Verify:** Toast notification confirms tag removal
 
 #### 4.7 Tag — Edge Cases
 - Type a tag with invalid characters (spaces, `@`, `!`, `.`)
@@ -271,8 +276,10 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - Press `f` on a non-favorite session
 - **Verify:** Session moves to the "favorites" section at the top
 - **Verify:** Star marker `*` appears
+- **Verify:** Toast notification confirms favorite action
 - Press `f` again
 - **Verify:** Session unfavorited, moves back to project-grouped position
+- **Verify:** Toast notification confirms unfavorite action
 
 #### 4.9 Favorite — Bulk
 - Select 3 sessions with Space, then press `f`
@@ -282,6 +289,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 #### 4.10 Archive (u) — Positive
 - Press `u` on a session
 - **Verify:** Session disappears from the list (archived sessions are hidden by default)
+- **Verify:** Toast notification confirms archive action
 - **Verify:** Selection is cleared after archive
 - **Verify:** Counts update in header and search bar
 
@@ -294,6 +302,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 #### 4.12 Delete (d) — DANGER: No Confirmation
 - Press `d` on a session
 - **Verify:** Session is PERMANENTLY deleted (no undo, no confirmation dialog)
+- **Verify:** Toast notification with warning severity confirms deletion
 - **Verify:** This is a UX concern — document whether a confirmation should exist
 - **Verify:** Cursor adjusts to valid position after deletion
 
@@ -346,6 +355,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - Select 4 sessions, press `u` — all 4 archived
 - Select 2 sessions, press `d` — all 2 deleted
 - **Verify:** Each bulk operation works correctly on every selected session
+- **Verify:** Toast notifications show count for bulk actions (e.g., "Deleted 3 sessions")
 
 #### 5.5 Selection Persistence During Navigation
 - Select sessions scattered throughout the list

@@ -208,3 +208,8 @@ class ProjectsView(Widget):
             self.conn.execute("INSERT INTO project_favorites (cwd, custom_name) VALUES (?, ?)", (cwd, name))
         self.conn.commit()
         self._load_projects()
+        display = name or cwd.rsplit("/", 1)[-1]
+        try:
+            self.app.notify(f"Project renamed to '{display}'", severity="information", timeout=2)
+        except Exception:
+            pass

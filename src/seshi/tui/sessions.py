@@ -54,6 +54,7 @@ class SessionsList(Widget):
         self._collapsed: set[str] = set()
         self._display_rows: list[DisplayRow] = []
         self._matching_prompts: set[tuple[str, int]] = set()
+        self._tags: dict[str, list[str]] = {}
         self._load_sessions()
 
     def _load_sessions(self, query: str = "", tags: list[str] | None = None):
@@ -77,6 +78,7 @@ class SessionsList(Widget):
         self._all_sessions = sessions
         self.sessions = sessions
         self._load_prompts()
+        self._load_tags()
 
         if query:
             allowed_ids = {s.session_id for s in sessions}
@@ -117,6 +119,25 @@ class SessionsList(Widget):
                 if sid not in self._prompts:
                     self._prompts[sid] = []
                 self._prompts[sid].append(Prompt.from_row(row))
+        except Exception:
+            pass
+
+    def _load_tags(self):
+        self._tags = {}
+        if not self._all_sessions:
+            return
+        ids = [s.session_id for s in self._all_sessions]
+        placeholders = ",".join("?" * len(ids))
+        try:
+            rows = self.conn.execute(
+                f"SELECT session_id, tag FROM tags WHERE session_id IN ({placeholders})",
+                ids,
+            ).fetchall()
+            for row in rows:
+                sid = row["session_id"]
+                if sid not in self._tags:
+                    self._tags[sid] = []
+                self._tags[sid].append(row["tag"])
         except Exception:
             pass
 
@@ -275,11 +296,9 @@ class SessionsList(Widget):
 
                 tags_str = ""
                 if w >= 60:
-                    tag_rows = self.conn.execute(
-                        "SELECT tag FROM tags WHERE session_id = ?", (s.session_id,)
-                    ).fetchall()
-                    if tag_rows:
-                        tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
+                    session_tags = self._tags.get(s.session_id, [])
+                    if session_tags:
+                        tags_str = " " + " ".join(f"#{t}" for t in session_tags)
 
                 prefix = f"{collapse_mark}{sel_mark}{fav} {title}"
                 if tags_str:
@@ -535,6 +554,12 @@ class SessionsList(Widget):
             self.cursor = max(0, nav_count - 1)
         self.refresh()
 
+    def _notify(self, message: str, **kwargs) -> None:
+        try:
+            self.app.notify(message, **kwargs)
+        except Exception:
+            pass
+
     def _reload_with_current_filter(self):
         self._load_sessions(query=self._current_query, tags=self._current_tags)
         try:
@@ -552,6 +577,8 @@ class SessionsList(Widget):
         from seshi.session_index import reindex_session
         reindex_session(self.conn, s.session_id)
         self._reload_with_current_filter()
+        display = name or s.session_id[:8]
+        self._notify(f"Renamed to '{display}'", severity="information", timeout=2)
 
     def _apply_tag(self):
         tag = self._input_buffer.strip()
@@ -566,6 +593,8 @@ class SessionsList(Widget):
                 self.conn.execute("INSERT INTO tags (session_id, tag) VALUES (?, ?)", (sid, tag))
         self.conn.commit()
         self._reload_with_current_filter()
+        n = len(targets)
+        self._notify(f"Tag #{tag} toggled on {n} session{'s' if n != 1 else ''}", severity="information", timeout=2)
 
     def _toggle_favorite(self):
         s = self.current_session
@@ -579,6 +608,9 @@ class SessionsList(Widget):
             )
         self.conn.commit()
         self._reload_with_current_filter()
+        n = len(targets)
+        label = "Toggled favorite" if n == 1 else f"Toggled favorite on {n} sessions"
+        self._notify(label, severity="information", timeout=2)
 
     def _toggle_archive(self):
         s = self.current_session
@@ -603,6 +635,8 @@ class SessionsList(Widget):
         self.conn.commit()
         self.selected.clear()
         self._reload_with_current_filter()
+        n = len(targets)
+        self._notify(f"Archived {n} session{'s' if n != 1 else ''}", severity="information", timeout=2)
 
     def _delete_selected(self):
         s = self.current_session
@@ -616,11 +650,13 @@ class SessionsList(Widget):
         )
 
     def _execute_delete(self, targets: list[str]) -> None:
+        n = len(targets)
         for sid in targets:
             self.conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
         self.conn.commit()
         self.selected.clear()
         self._reload_with_current_filter()
+        self._notify(f"Deleted {n} session{'s' if n != 1 else ''}", severity="warning", timeout=2)
 
 
 def _parse_search(query: str) -> tuple[str, list[str]]:
