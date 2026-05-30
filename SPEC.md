@@ -699,14 +699,22 @@ Detected from manifest files in the session's `cwd`:
 
 | Tag | Detection |
 |-----|-----------|
-| `rs` | `Cargo.toml` exists |
-| `go` | `go.mod` exists |
-| `py` | `pyproject.toml` or `requirements.txt` or `setup.py` |
-| `ts` | `package.json` + `tsconfig.json` |
-| `js` | `package.json` without `tsconfig.json` |
-| `rb` | `Gemfile` |
+| `rs` | `Cargo.toml` or `Cargo.lock` |
+| `go` | `go.mod` or `go.sum` |
+| `py` | `pyproject.toml` or `requirements.txt` or `setup.py` or `setup.cfg` |
+| `rb` | `Gemfile` or `Gemfile.lock` |
 | `dn` | `deno.json` or `deno.jsonc` |
 | `jv` | `pom.xml` or `build.gradle` |
+| `kt` | `build.gradle.kts` |
+| `sw` | `Package.swift` |
+| `ex` | `mix.exs` |
+| `drt` | `pubspec.yaml` |
+| `zig` | `build.zig` |
+| `hs` | `stack.yaml` |
+| `php` | `composer.json` |
+| `cpp` | `CMakeLists.txt` |
+| `ts` | `package.json` + `tsconfig.json` |
+| `js` | `package.json` without `tsconfig.json` |
 | `git` | `.git` directory (fallback when no language manifest found) |
 
 ### Project-Path Grouping
