@@ -299,11 +299,11 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - Archive with bulk selection
 - **Verify:** All selected sessions archived, selection cleared
 
-#### 4.12 Delete (d) — DANGER: No Confirmation
+#### 4.12 Delete (d) — With Confirmation + Undo
 - Press `d` on a session
-- **Verify:** Session is PERMANENTLY deleted (no undo, no confirmation dialog)
-- **Verify:** Toast notification with warning severity confirms deletion
-- **Verify:** This is a UX concern — document whether a confirmation should exist
+- **Verify:** Confirmation dialog appears before deletion
+- **Verify:** After confirming, session is deleted and toast notification shown
+- **Verify:** Pressing `z` immediately after restores the session (undo)
 - **Verify:** Cursor adjusts to valid position after deletion
 
 #### 4.13 Delete — Edge Cases
@@ -650,8 +650,8 @@ Rate each of these on a 1-5 scale and document observations:
 - Does the cursor blink at a comfortable rate?
 
 #### 16.3 Error Prevention
-- `d` (delete) has NO confirmation dialog — this is destructive and irreversible
-- **Evaluate:** Should there be a confirmation step? At minimum for bulk deletion?
+- `d` (delete) has a confirmation dialog and supports undo via `z` (10-deep stack)
+- All mutations (rename, tag, favorite, archive, delete) can be undone with `z`
 - Are there any actions that could lose data without warning?
 
 #### 16.4 Consistency
@@ -670,9 +670,9 @@ Rate each of these on a 1-5 scale and document observations:
 - The `*` for favorites and `[x]` for selection provide non-color indicators — good
 
 #### 16.7 Forgiveness / Undo
-- Which actions are reversible? (favorite toggle, archive toggle, rename)
-- Which are NOT reversible? (delete — no undo, no trash)
-- Is this clear to the user before they act?
+- All mutation actions are reversible via `z` (undo): rename, tag, favorite, archive, delete
+- Undo stack is 10-deep LIFO; delete undo restores session, tags, and prompts
+- Is the `z` undo key discoverable? (shown in footer, help view, command palette)
 
 #### 16.8 Navigation Depth
 - Maximum depth: Sessions -> Search -> Input Mode (3 levels)

@@ -4,14 +4,12 @@ from seshi.themes import Palette
 def theme_css(palette: Palette) -> str:
     return f"""
 Screen {{
-    background: #000000;
+    background: {palette.bg};
 }}
 
 #header {{
-    height: 1;
-    padding: 0 1;
     color: {palette.fg};
-    background: #000000;
+    background: {palette.bg};
 }}
 
 #header .logo {{
@@ -19,8 +17,6 @@ Screen {{
 }}
 
 #tab-bar {{
-    height: 1;
-    padding: 0 1;
     color: {palette.fg_muted};
 }}
 
@@ -30,27 +26,17 @@ Screen {{
 }}
 
 #search-bar {{
-    height: 1;
-    padding: 0 1;
     color: {palette.fg};
-    background: #000000;
-}}
-
-#sessions-pane {{
-    height: 1fr;
+    background: {palette.bg};
 }}
 
 #session-list {{
-    width: 45;
-    height: 1fr;
-    min-height: 10;
     border: solid {palette.border_dim};
     color: {palette.fg};
-    background: #000000;
+    background: {palette.bg};
 }}
 
 .session-row {{
-    height: 1;
     color: {palette.fg};
 }}
 
@@ -76,18 +62,13 @@ Screen {{
 }}
 
 .group-header {{
-    height: 1;
     color: {palette.fg_dim};
-    padding: 0 1;
 }}
 
 #preview {{
-    width: 1fr;
-    height: 1fr;
     border: solid {palette.border_dim};
-    padding: 0 1;
     color: {palette.fg_muted};
-    background: #000000;
+    background: {palette.bg};
 }}
 
 #preview .role-user {{
@@ -99,11 +80,8 @@ Screen {{
 }}
 
 #footer {{
-    height: 1;
-    dock: bottom;
     color: {palette.fg_dim};
-    padding: 0 1;
-    background: #000000;
+    background: {palette.bg};
 }}
 
 #footer .key {{
@@ -112,9 +90,8 @@ Screen {{
 }}
 
 #overview, #projects-view, #help-view {{
-    padding: 1 2;
     color: {palette.fg};
-    background: #000000;
+    background: {palette.bg};
 }}
 
 .sparkline {{

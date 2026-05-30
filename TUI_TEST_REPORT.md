@@ -43,7 +43,7 @@ App-level bindings with `priority=True` (keys `1`, `2`, `3`, `?`, `Tab`, `Shift+
 **File:** `tui/sessions.py:356-365`
 **Status:** FAIL (by design, but dangerous)
 
-Pressing `d` permanently deletes sessions from the database with no confirmation dialog, no undo, and no trash. This applies to both single and bulk deletion.
+Pressing `d` deletes sessions from the database (with confirmation dialog). Deletions can be undone with `z` (undo stack, 10-deep LIFO) which restores the session, its tags, and prompt rows.
 
 **Tested:** Selected a session, pressed `d` — instantly removed from DB.
 **Impact:** Accidental keypress causes permanent data loss. Especially dangerous with bulk selection (`a` + `d` = delete all sessions).
@@ -220,10 +220,7 @@ The footer shows the most common keys (`Enter`, `r`, `f`, `t`, `u`, `d`, `s`, `S
 
 ### U2. Destructive Action Safety
 
-Delete (`d`) is immediately destructive with no undo. Archive (`u`) exists as a safer alternative. Consider:
-- Adding a confirmation prompt for `d` (especially bulk delete)
-- Showing the confirm.py dialog (which exists but is only used for CLI fuzzy resume)
-- Or moving deleted sessions to an "archived" state first
+Delete (`d`) now shows a confirmation prompt and supports undo (`z` key, 10-deep stack). Archive (`u`) remains a safer non-destructive alternative. The undo stack also covers rename, tag, favorite, and archive operations.
 
 ### U3. Empty State Messages Could Be More Helpful
 
@@ -1013,8 +1010,8 @@ Goal: Recover from accidental actions.
 
 **Verify:** 
 - How does a user unarchive? (Must set `include_archived` somehow — not exposed in TUI)
-- How does a user recover from accidental delete? (They can't — data loss)
-- Document the gap between archive (reversible but no UI to undo) and delete (irreversible)
+- Accidental deletes can be recovered with `z` (undo), which restores the session, tags, and prompts
+- Archive (`u`) remains a non-destructive alternative; delete (`d`) has both confirmation and undo
 
 ---
 
@@ -1045,12 +1042,12 @@ Goal: Recover from accidental actions.
 
 #### 34.3 User Control and Freedom
 
-- **Undo:** No undo for any action. Rename and tag are "re-doable", favorite and archive are toggleable, but delete is permanent.
+- **Undo:** `z` key provides 10-deep undo for rename, tag, favorite, archive, and delete. Delete undo restores full session data including tags and prompts.
 - **Cancel:** Escape cancels rename/tag — good ✓
 - **Back:** Escape returns from views — good ✓
 - **Emergency exit:** Escape from sessions view quits — direct ✓
 
-**New test:** Verify that after EVERY action, the user can return to the previous state (except delete).
+**New test:** Verify that after EVERY action, the user can return to the previous state via `z`.
 
 #### 34.4 Consistency and Standards
 
@@ -1066,12 +1063,12 @@ Goal: Recover from accidental actions.
 - `s` for sort — non-standard (usually a command key)
 - `H` for hide — non-standard, hard to discover
 - `a` for select all — matches vim visual mode ✓
-- `u` for archive — could be confused with vim undo
-- `d` for delete — matches vim delete ✓ but vim has undo, seshi doesn't
+- `u` for archive — could be confused with vim undo (seshi undo is `z`)
+- `d` for delete — matches vim delete ✓, seshi has undo via `z`
 
 #### 34.5 Error Prevention
 
-- **Delete without confirmation** — critical gap (C2)
+- **Delete** — now has confirmation dialog and undo (`z`)
 - **Bulk operations on unintended selection** — user may not realize items are selected
 - **Rename can silently clear name** — empty rename sets NULL, shows "(untitled)"
 - **Tag with invalid chars silently rejected** — good that it doesn't crash, but no feedback that the tag was rejected

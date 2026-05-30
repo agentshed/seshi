@@ -27,10 +27,12 @@ HELP_TEXT = """
   f                  Toggle favorite
   u                  Toggle archive (reversible hide)
   d                  Delete from registry (with confirmation)
+  z                  Undo last action (up to 10 deep)
   s                  Cycle sort mode (frecency → recency → frequency)
   p                  Toggle preview pane
   H                  Toggle hide sessions with missing directories
   S                  Toggle hide stale sessions (no longer in Claude Code)
+  Ctrl-p             Open command palette
 
   Bulk Selection
   ──────────────

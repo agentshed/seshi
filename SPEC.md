@@ -318,7 +318,7 @@ When `--here` is active, only sessions matching the current `cwd` are considered
 | `nord` | Nord — frost cyan on slate |
 | `mono` | Pure monochrome — works on any terminal |
 
-**Palette fields**: `accent`, `accentSoft`, `accentDeep`, `fg`, `fgMuted`, `fgDim`, `bgSelected`, `fgSelected`, `border`, `borderDim`, `user`, `assistant`
+**Palette fields**: `accent`, `accentSoft`, `accentDeep`, `fg`, `fgMuted`, `fgDim`, `bg`, `bgSelected`, `fgSelected`, `border`, `borderDim`, `user`, `assistant`
 
 **Commands**: `theme list`, `theme <name>`, `theme reset`
 

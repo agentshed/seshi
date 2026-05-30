@@ -146,7 +146,10 @@ seshi/
 │           ├── header.py            # Compact status line: counts, sort mode, indexing
 │           ├── footer.py            # Context-sensitive key hints
 │           ├── confirm.py           # Raw-terminal confirmation prompt
-│           └── styles.py            # Theme → Textual CSS generation
+│           ├── undo.py              # UndoStack — 10-deep LIFO for session mutations
+│           ├── commands.py          # SeshiCommands — Textual command palette provider
+│           ├── seshi.tcss           # Structural CSS (heights, widths, dock, padding)
+│           └── styles.py            # Theme → Textual CSS (colors only)
 └── tests/
     ├── conftest.py                  # Fixtures: tmp_db, mock_sessions, mock_queue
     ├── test_db.py
@@ -449,7 +452,7 @@ def list_cmd(ctx, fmt, limit, tag, sort, archived):
 
 ### Phase 7: TUI — Core (Weeks 4–5)
 
-**Files**: `tui/app.py`, `tui/sessions.py`, `tui/search_bar.py`, `tui/preview.py`, `tui/header.py`, `tui/footer.py`, `tui/styles.py`, `tui/confirm.py`
+**Files**: `tui/app.py`, `tui/sessions.py`, `tui/search_bar.py`, `tui/preview.py`, `tui/header.py`, `tui/footer.py`, `tui/styles.py`, `tui/seshi.tcss`, `tui/undo.py`, `tui/commands.py`, `tui/confirm.py`
 
 **`tui/app.py`** — Textual App subclass:
 ```python
@@ -486,8 +489,11 @@ class SeshiApp(App):
 - `f`: toggle favorite
 - `u`: toggle archive
 - `d`: delete (with confirmation)
+- `z`: undo last action (10-deep stack)
 - `s`: cycle sort mode
 - `H`: toggle hide missing dirs
+- `p`: toggle preview pane
+- `Ctrl-p`: open command palette
 - `Space`: toggle bulk selection
 - `Ctrl-a`: select all visible
 - `g`/`G`: top/bottom
@@ -501,17 +507,23 @@ class SeshiApp(App):
 
 **`tui/preview.py`** — Lazy-loads transcript on selection change. Shows last N messages with role labels.
 
-**`tui/styles.py`** — Converts a `Palette` to Textual CSS:
+**`tui/seshi.tcss`** — Structural CSS loaded via `CSS_PATH`. Contains layout properties (heights, widths, dock, padding) that don't change with themes.
+
+**`tui/styles.py`** — Converts a `Palette` to Textual CSS (colors only, loaded via `CSS`):
 ```python
 def theme_css(palette: Palette) -> str:
     return f"""
-    Screen {{ background: $surface; }}
+    Screen {{ background: {palette.bg}; }}
     .session-row {{ color: {palette.fg}; }}
     .session-row.--highlight {{ background: {palette.bg_selected}; }}
     .favorite {{ color: {palette.accent}; }}
     ...
     """
 ```
+
+**`tui/undo.py`** — SQL-based undo stack (10-deep LIFO). `UndoEntry` stores a list of `(sql, params)` tuples to reverse a mutation. Supports rename, tag, favorite, archive, and delete (captures full session + tag + prompt rows). FTS reindex on restore.
+
+**`tui/commands.py`** — `SeshiCommands(Provider)` for Textual's built-in command palette (`Ctrl+P`). Lists all session/view actions with fuzzy matching.
 
 **`tui/confirm.py`** — Standalone raw-terminal confirmation for `seshi resume` (NOT Textual):
 ```python
