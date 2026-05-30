@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+import time
 from dataclasses import dataclass
 
 from textual.widget import Widget
@@ -84,8 +85,7 @@ class SessionsList(Widget):
             sessions = [s for s in sessions if s.is_favorite]
             self.sessions = sessions
         elif scope == "recent":
-            import time as _time
-            cutoff = int(_time.time()) - 7 * 86400
+            cutoff = int(time.time()) - 7 * 86400
             sessions = [s for s in sessions if s.last_activity_at >= cutoff]
             self.sessions = sessions
         elif scope == "project" and self.filter_cwd:
