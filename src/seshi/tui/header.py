@@ -6,14 +6,15 @@ from rich.text import Text
 class Header(Widget):
     DEFAULT_CSS = """
     Header {
-        height: 5;
-        padding: 0 2;
+        height: 1;
+        padding: 0 1;
     }
     """
 
     session_count: reactive[int] = reactive(0)
     shown_count: reactive[int] = reactive(0)
     indexing: reactive[bool] = reactive(False)
+    sort_mode: reactive[str] = reactive("")
 
     accent: reactive[str] = reactive("#E08A5E")
 
@@ -23,15 +24,11 @@ class Header(Widget):
     def render(self) -> Text:
         from seshi import __version__
         text = Text()
-        text.append("  █▀▀ █▀▀ █▀▀ █ █ ▀█▀", style=f"bold {self.accent}")
-        text.append("   Seshi", style="bold")
-        text.append(f"   {self.shown_count} of {self.session_count} sessions", style="dim")
-        text.append(f"  v{__version__}", style="dim")
+        text.append(" SESHI", style=f"bold {self.accent}")
+        text.append(f"  {self.shown_count} of {self.session_count} sessions", style="dim")
+        if self.sort_mode:
+            text.append(f"  {self.sort_mode}", style="dim italic")
         if self.indexing:
-            text.append("  indexing…", style="dim italic")
-        text.append("\n")
-        text.append("  ▀▀█ █▀▀ ▀▀█ █▀█  █ ", style=f"bold {self.accent}")
-        text.append("   global session resumer", style="dim")
-        text.append("\n")
-        text.append("  ▀▀▀ ▀▀▀ ▀▀▀ ▀ ▀ ▀▀▀", style=f"bold {self.accent}")
+            text.append("  indexing…", style="dim")
+        text.append(f"  v{__version__}", style="dim")
         return text

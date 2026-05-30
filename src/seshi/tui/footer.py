@@ -35,10 +35,10 @@ class Footer(Widget):
 
         if self.view == "sessions":
             keys = [
-                ("↵", "resume"), ("/", "search"), ("e", "expand"),
-                ("r", "rename"), ("f", "fav"),
-                ("t", "tag"), ("u", "archive"), ("d", "delete"),
-                ("s", "sort"), ("H", "hide"),
+                ("↵", "resume"), ("/", "search"), ("f", "fav"),
+                ("d", "delete"), ("s", "sort"), ("r", "rename"),
+                ("t", "tag"), ("u", "archive"), ("e", "expand"),
+                ("H", "hide"),
                 ("p", "preview" if self.preview_visible else "hidden"),
                 ("Space", "select"), ("?", "help"),
             ]
@@ -52,7 +52,17 @@ class Footer(Widget):
         else:
             keys = [("j/k", "scroll"), ("Tab", "view")]
 
-        for key, label in keys:
+        w = self.size.width if self.size.width > 0 else 200
+        more_len = len("  ? more")
+        for i, (key, label) in enumerate(keys):
+            entry = f"  {key} {label}"
+            remaining = keys[i + 1:]
+            if remaining and len(text.plain) + len(entry) + more_len > w:
+                text.append("  ?", style=f"bold {self.accent}")
+                text.append(" more", style="dim")
+                break
+            if len(text.plain) + len(entry) > w:
+                break
             text.append(f"  {key}", style=f"bold {self.accent}")
             text.append(f" {label}", style="dim")
 

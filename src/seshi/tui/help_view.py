@@ -1,7 +1,14 @@
 from textual.widget import Widget
+from textual.reactive import reactive
 from textual import events
 from rich.text import Text
 
+
+_ASCII_ART = [
+    "  █▀▀ █▀▀ █▀▀ █ █ ▀█▀",
+    "  ▀▀█ █▀▀ ▀▀█ █▀█  █ ",
+    "  ▀▀▀ ▀▀▀ ▀▀▀ ▀ ▀ ▀▀▀",
+]
 
 HELP_TEXT = """
   Navigation
@@ -66,8 +73,17 @@ class HelpView(Widget):
 
     can_focus = True
 
+    accent: reactive[str] = reactive("#D97757")
+
     def render(self) -> Text:
         text = Text()
+        text.append(_ASCII_ART[0], style=f"bold {self.accent}")
+        text.append("\n")
+        text.append(_ASCII_ART[1], style=f"bold {self.accent}")
+        text.append("   global session resumer", style="dim")
+        text.append("\n")
+        text.append(_ASCII_ART[2], style=f"bold {self.accent}")
+        text.append("\n\n")
         for line in HELP_TEXT.strip().split("\n"):
             if line.strip().startswith("──"):
                 text.append(line + "\n", style="dim")
@@ -77,7 +93,7 @@ class HelpView(Widget):
                 parts = line.split(None, 1)
                 if len(parts) == 2:
                     key_part = line[:line.index(parts[1])]
-                    text.append(key_part, style="bold #D97757")
+                    text.append(key_part, style=f"bold {self.accent}")
                     text.append(parts[1] + "\n", style="dim")
                 else:
                     text.append(line + "\n")
