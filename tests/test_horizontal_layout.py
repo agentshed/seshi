@@ -186,7 +186,7 @@ def test_preview_text_width_respects_narrow_widget():
 
 # === Preview toggle width management ===
 
-def test_preview_toggle_sets_sessions_width(tmp_db):
+def test_preview_toggle_sets_override_and_calls_layout(tmp_db):
     _insert_session(tmp_db, "s1", custom_name="toggle-test")
     view = SessionsList(tmp_db)
 
@@ -205,15 +205,18 @@ def test_preview_toggle_sets_sessions_width(tmp_db):
         mock_event.is_printable = False
         view.on_key(mock_event)
 
-        assert mock_preview.display is False
-        assert view.styles.width is not None
+        assert mock_app._preview_user_override is False
+        mock_app._update_preview_layout.assert_called_once()
 
+        mock_preview.display = False
+        mock_app._update_preview_layout.reset_mock()
         mock_event2 = MagicMock()
         mock_event2.key = "p"
         mock_event2.is_printable = False
         view.on_key(mock_event2)
 
-        assert mock_preview.display is True
+        assert mock_app._preview_user_override is True
+        mock_app._update_preview_layout.assert_called_once()
     finally:
         type(view).app = original_app
 

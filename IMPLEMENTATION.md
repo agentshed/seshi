@@ -140,10 +140,10 @@ seshi/
 │           ├── sessions.py          # Sessions view — list, search, actions
 │           ├── overview.py          # Overview view — stats, sparkline, cost
 │           ├── projects.py          # Projects view — grouped by cwd
-│           ├── help_view.py         # Help view — keymap reference
+│           ├── help_view.py         # Help view — keymap reference, ASCII art logo
 │           ├── search_bar.py        # Search input with #tag parsing
 │           ├── preview.py           # Preview pane — transcript messages
-│           ├── header.py            # Logo, counts, version
+│           ├── header.py            # Compact status line: counts, sort mode, indexing
 │           ├── footer.py            # Context-sensitive key hints
 │           ├── confirm.py           # Raw-terminal confirmation prompt
 │           └── styles.py            # Theme → Textual CSS generation

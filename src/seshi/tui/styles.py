@@ -8,7 +8,6 @@ Screen {{
 }}
 
 #header {{
-    border: solid {palette.border};
     color: {palette.fg};
     background: {palette.bg};
 }}

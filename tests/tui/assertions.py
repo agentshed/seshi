@@ -19,8 +19,7 @@ def assert_screen_not_contains(screen: CapturedScreen, text: str, msg: str = "")
 
 
 def assert_header_visible(screen: CapturedScreen) -> None:
-    assert_screen_contains(screen, "█▀▀ █▀▀ █▀▀", "Header ASCII art not visible")
-    assert_screen_contains(screen, "Seshi", "Header 'Seshi' text not visible")
+    assert_screen_contains(screen, "SESHI", "Header 'SESHI' text not visible")
 
 
 def assert_session_count(screen: CapturedScreen, shown: int, total: int) -> None:

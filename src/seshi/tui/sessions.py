@@ -55,6 +55,7 @@ class SessionsList(Widget):
         self._collapsed: set[str] = set()
         self._display_rows: list[DisplayRow] = []
         self._matching_prompts: set[tuple[str, int]] = set()
+        self._tags: dict[str, list[str]] = {}
         self._undo = UndoStack()
         self._load_sessions()
 
@@ -79,6 +80,7 @@ class SessionsList(Widget):
         self._all_sessions = sessions
         self.sessions = sessions
         self._load_prompts()
+        self._load_tags()
 
         if query:
             allowed_ids = {s.session_id for s in sessions}
@@ -119,6 +121,25 @@ class SessionsList(Widget):
                 if sid not in self._prompts:
                     self._prompts[sid] = []
                 self._prompts[sid].append(Prompt.from_row(row))
+        except Exception:
+            pass
+
+    def _load_tags(self):
+        self._tags = {}
+        if not self._all_sessions:
+            return
+        ids = [s.session_id for s in self._all_sessions]
+        placeholders = ",".join("?" * len(ids))
+        try:
+            rows = self.conn.execute(
+                f"SELECT session_id, tag FROM tags WHERE session_id IN ({placeholders})",
+                ids,
+            ).fetchall()
+            for row in rows:
+                sid = row["session_id"]
+                if sid not in self._tags:
+                    self._tags[sid] = []
+                self._tags[sid].append(row["tag"])
         except Exception:
             pass
 
@@ -277,11 +298,9 @@ class SessionsList(Widget):
 
                 tags_str = ""
                 if w >= 60:
-                    tag_rows = self.conn.execute(
-                        "SELECT tag FROM tags WHERE session_id = ?", (s.session_id,)
-                    ).fetchall()
-                    if tag_rows:
-                        tags_str = " " + " ".join(f"#{r['tag']}" for r in tag_rows)
+                    session_tags = self._tags.get(s.session_id, [])
+                    if session_tags:
+                        tags_str = " " + " ".join(f"#{t}" for t in session_tags)
 
                 prefix = f"{collapse_mark}{sel_mark}{fav} {title}"
                 if tags_str:
@@ -559,11 +578,10 @@ class SessionsList(Widget):
 
     def _toggle_preview(self):
         if hasattr(self.app, '_preview'):
-            self.app._preview.display = not self.app._preview.display
-            if self.app._preview.display:
-                self.styles.width = 45
-            else:
-                self.styles.width = "1fr"
+            currently_visible = self.app._preview.display
+            self.app._preview_user_override = not currently_visible
+            if hasattr(self.app, '_update_preview_layout'):
+                self.app._update_preview_layout()
 
     def _apply_rename(self):
         s = self.current_session
@@ -581,7 +599,7 @@ class SessionsList(Widget):
                 ("UPDATE sessions SET custom_name = ? WHERE session_id = ?", (old_name, s.session_id)),
             ],
         ))
-        self._notify(f"Renamed to {display}")
+        self._notify(f"Renamed to '{display}'", severity="information", timeout=2)
         from seshi.session_index import reindex_session
         reindex_session(self.conn, s.session_id)
         self._reload_with_current_filter()
@@ -635,7 +653,7 @@ class SessionsList(Widget):
         label = "Favorited" if new_state else "Unfavorited"
         if len(targets) > 1:
             label += f" {len(targets)} sessions"
-        self._notify(label)
+        self._notify(label, severity="information", timeout=2)
         self._undo.push(UndoEntry(
             action="favorite",
             description=label,
@@ -674,7 +692,7 @@ class SessionsList(Widget):
         count = len(targets)
         verb = "Unarchived" if first_was_archived else "Archived"
         label = f"{verb} {count} session{'s' if count > 1 else ''}"
-        self._notify(label)
+        self._notify(label, severity="information", timeout=2)
         self._undo.push(UndoEntry(
             action="archive",
             description=label,
@@ -719,7 +737,7 @@ class SessionsList(Widget):
         self.conn.commit()
         count = len(targets)
         label = f"Deleted {count} session{'s' if count > 1 else ''}"
-        self._notify(label)
+        self._notify(label, severity="warning", timeout=2)
         self._undo.push(UndoEntry(
             action="delete",
             description=label,

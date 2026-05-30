@@ -1,5 +1,8 @@
 """Tests for UX enhancement issues #2, #42, #44, #45, #46, #47."""
 import time
+from unittest.mock import patch, PropertyMock
+
+from textual.geometry import Size
 
 from seshi.tui.sessions import SessionsList
 
@@ -88,54 +91,44 @@ def test_search_highlighting_present(tmp_db):
 
 # === #42: Footer keybindings ===
 
-def test_footer_shows_search_key():
+def _render_footer(view_name, width=200):
     from seshi.tui.footer import Footer
     footer = Footer()
-    footer.view = "sessions"
-    rendered = footer.render().plain
+    footer.view = view_name
+    with patch.object(type(footer), "size", new_callable=PropertyMock, return_value=Size(width, 1)):
+        return footer.render().plain
+
+
+def test_footer_shows_search_key():
+    rendered = _render_footer("sessions")
     assert "/" in rendered
     assert "search" in rendered
 
 
 def test_footer_shows_help_key():
-    from seshi.tui.footer import Footer
-    footer = Footer()
-    footer.view = "sessions"
-    rendered = footer.render().plain
+    rendered = _render_footer("sessions")
     assert "?" in rendered
     assert "help" in rendered
 
 
 def test_footer_shows_hide_key():
-    from seshi.tui.footer import Footer
-    footer = Footer()
-    footer.view = "sessions"
-    rendered = footer.render().plain
+    rendered = _render_footer("sessions")
     assert "H" in rendered
     assert "hide" in rendered
 
 
 def test_footer_shows_preview_key():
-    from seshi.tui.footer import Footer
-    footer = Footer()
-    footer.view = "sessions"
-    rendered = footer.render().plain
+    rendered = _render_footer("sessions")
     assert "preview" in rendered
 
 
 def test_footer_projects_shows_nav():
-    from seshi.tui.footer import Footer
-    footer = Footer()
-    footer.view = "projects"
-    rendered = footer.render().plain
+    rendered = _render_footer("projects")
     assert "g/G" in rendered
 
 
 def test_footer_overview_shows_scroll():
-    from seshi.tui.footer import Footer
-    footer = Footer()
-    footer.view = "overview"
-    rendered = footer.render().plain
+    rendered = _render_footer("overview")
     assert "scroll" in rendered
 
 

@@ -15,6 +15,7 @@ class Footer(Widget):
     has_selection: reactive[bool] = reactive(False)
     mode: reactive[str] = reactive("normal")
     accent: reactive[str] = reactive("#E08A5E")
+    preview_visible: reactive[bool] = reactive(True)
 
     def render(self) -> Text:
         text = Text()
@@ -34,11 +35,12 @@ class Footer(Widget):
 
         if self.view == "sessions":
             keys = [
-                ("↵", "resume"), ("/", "search"), ("e", "expand"),
-                ("r", "rename"), ("f", "fav"),
-                ("t", "tag"), ("u", "archive"), ("d", "delete"),
-                ("z", "undo"), ("s", "sort"), ("H", "hide"),
-                ("p", "preview"), ("Space", "select"), ("?", "help"),
+                ("↵", "resume"), ("/", "search"), ("f", "fav"),
+                ("d", "delete"), ("z", "undo"), ("s", "sort"),
+                ("r", "rename"), ("t", "tag"), ("u", "archive"),
+                ("e", "expand"), ("H", "hide"),
+                ("p", "preview" if self.preview_visible else "hidden"),
+                ("Space", "select"), ("?", "help"),
             ]
         elif self.view == "projects":
             keys = [
@@ -50,7 +52,20 @@ class Footer(Widget):
         else:
             keys = [("j/k", "scroll"), ("Tab", "view")]
 
-        for key, label in keys:
+        try:
+            w = self.size.width if self.size.width > 0 else 200
+        except (ValueError, AttributeError):
+            w = 200
+        more_len = len("  ? more")
+        for i, (key, label) in enumerate(keys):
+            entry = f"  {key} {label}"
+            remaining = keys[i + 1:]
+            if remaining and len(text.plain) + len(entry) + more_len > w:
+                text.append("  ?", style=f"bold {self.accent}")
+                text.append(" more", style="dim")
+                break
+            if len(text.plain) + len(entry) > w:
+                break
             text.append(f"  {key}", style=f"bold {self.accent}")
             text.append(f" {label}", style="dim")
 

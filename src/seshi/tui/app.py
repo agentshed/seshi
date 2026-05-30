@@ -47,6 +47,7 @@ class SeshiApp(App):
         self._owns_conn = conn is None
         self._view_counter = 0
         self._no_color = bool(os.environ.get("NO_COLOR"))
+        self._preview_user_override: bool | None = None
         theme_name = "coral"
         if self._no_color:
             theme_name = "mono"
@@ -95,12 +96,17 @@ class SeshiApp(App):
         main.mount(self._sessions_pane)
         self._sessions_pane.mount(self._sessions_list)
         self._sessions_pane.mount(self._preview)
+        self._update_preview_layout()
 
         self._sessions_list.focus()
         self._apply_palette()
         self._update_counts()
         self._update_tab_bar()
 
+        try:
+            self.query_one(Header).indexing = True
+        except Exception:
+            pass
         self._index_transcripts_async()
 
         initial_query = self.ctx_obj.get("search_query")
@@ -118,6 +124,7 @@ class SeshiApp(App):
         from seshi.transcript_index import index_pending
         from seshi.prompt_index import index_pending_prompts
         from seshi.session_index import index_pending_search
+        self.call_from_thread(self._set_indexing_flag, True)
         try:
             conn = sqlite3.connect(str(DB_PATH))
             conn.row_factory = sqlite3.Row
@@ -131,6 +138,14 @@ class SeshiApp(App):
                 conn.close()
         except Exception:
             logging.getLogger(__name__).debug("transcript indexing failed", exc_info=True)
+        finally:
+            self.call_from_thread(self._set_indexing_flag, False)
+
+    def _set_indexing_flag(self, value: bool) -> None:
+        try:
+            self.query_one(Header).indexing = value
+        except Exception:
+            pass
 
     def _apply_palette(self):
         accent = self._palette.accent
@@ -143,12 +158,47 @@ class SeshiApp(App):
                 self._preview.assistant_color = self._palette.assistant
         except Exception:
             pass
+        try:
+            preview = self.query_one(Preview)
+            preview.user_color = self._palette.user
+            preview.assistant_color = self._palette.assistant
+        except Exception:
+            pass
+
+    def _update_preview_layout(self) -> None:
+        if not hasattr(self, '_preview') or not hasattr(self, '_sessions_list'):
+            return
+        width = self.size.width if self.size.width > 0 else 120
+        if self._preview_user_override is not None:
+            show = self._preview_user_override
+        else:
+            show = width >= 100
+        self._preview.display = show
+        if show:
+            list_width = max(30, int(width * 0.4))
+            self._sessions_list.styles.width = list_width
+        else:
+            self._sessions_list.styles.width = "1fr"
+        try:
+            self.query_one(Footer).preview_visible = show
+        except Exception:
+            pass
+
+    def on_resize(self, event) -> None:
+        self._preview_user_override = None
+        if self.current_view == "sessions":
+            self._update_preview_layout()
 
     def _update_tab_bar(self):
+        shown_count = 0
+        project_count = 0
+        if hasattr(self, '_sessions_list'):
+            shown_count = len(self._sessions_list.sessions)
+            project_count = len(set(s.cwd for s in self._sessions_list.sessions))
         views = {
-            "sessions": "1 sessions",
+            "sessions": f"1 sessions {shown_count}",
             "overview": "2 overview",
-            "projects": "3 projects",
+            "projects": f"3 projects {project_count}",
             "help": "? help",
         }
         from rich.text import Text
@@ -168,11 +218,14 @@ class SeshiApp(App):
         shown = len(self._sessions_list.sessions) if hasattr(self, '_sessions_list') else 0
         header.session_count = total
         header.shown_count = shown
+        if hasattr(self, '_sessions_list'):
+            header.sort_mode = self._sessions_list.sort_mode
         search = self.query_one(SearchBar)
         search.total = total
         search.shown = shown
         if hasattr(self, '_sessions_list'):
             search.sort_mode = self._sessions_list.sort_mode
+        self._update_tab_bar()
 
     def on_search_changed(self, message: SearchChanged) -> None:
         if hasattr(self, '_sessions_list'):
@@ -336,10 +389,7 @@ class SeshiApp(App):
             self._sessions_pane.mount(self._sessions_list)
             if hasattr(self, '_preview'):
                 self._sessions_pane.mount(self._preview)
-                if self._preview.display:
-                    self._sessions_list.styles.width = 45
-                else:
-                    self._sessions_list.styles.width = "1fr"
+            self._update_preview_layout()
             self._sessions_list.focus()
         elif self.current_view == "overview":
             from seshi.tui.overview import OverviewView
@@ -354,6 +404,7 @@ class SeshiApp(App):
         elif self.current_view == "help":
             from seshi.tui.help_view import HelpView
             view = HelpView(id=f"help-view-{vid}")
+            view.accent = self._palette.accent
             main.mount(view)
             view.focus()
 
