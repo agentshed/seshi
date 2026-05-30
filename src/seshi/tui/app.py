@@ -212,11 +212,12 @@ class SeshiApp(App):
         search.shown = shown
         if hasattr(self, '_sessions_list'):
             search.sort_mode = self._sessions_list.sort_mode
+            search._has_filter_cwd = bool(self._sessions_list.filter_cwd)
         self._update_tab_bar()
 
     def on_search_changed(self, message: SearchChanged) -> None:
         if hasattr(self, '_sessions_list'):
-            self._sessions_list.filter(message.query)
+            self._sessions_list.filter(message.query, scope=message.scope)
             self._update_counts()
             s = self._sessions_list.current_session
             if hasattr(self, '_preview'):
@@ -305,7 +306,7 @@ class SeshiApp(App):
             search = self.query_one(SearchBar)
             if search.active:
                 search.search_text += char
-                search.post_message(SearchChanged(search.search_text))
+                search.post_message(SearchChanged(search.search_text, search.scope))
         except Exception:
             pass
 
