@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import partial
+
 from textual.command import Provider, Hit, Hits
 
 
@@ -39,6 +41,3 @@ class SeshiCommands(Provider):
 
     async def _run_command(self, action_name: str) -> None:
         self.app.call_later(getattr(self.app, action_name))
-
-
-from functools import partial  # noqa: E402

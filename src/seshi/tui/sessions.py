@@ -334,7 +334,7 @@ class SessionsList(Widget):
 
     def _notify(self, message: str, **kwargs) -> None:
         try:
-            self._notify(message, **kwargs)
+            self.app.notify(message, **kwargs)
         except Exception:
             pass
 
