@@ -93,9 +93,6 @@ class SeshiApp(App):
         self._update_counts()
         self._update_tab_bar()
 
-        search = self.query_one(SearchBar)
-        search._has_filter_cwd = bool(self._sessions_list.filter_cwd)
-
         try:
             self.query_one(Header).indexing = True
         except Exception:
@@ -233,6 +230,7 @@ class SeshiApp(App):
         search.shown = shown
         if hasattr(self, '_sessions_list'):
             search.sort_mode = self._sessions_list.sort_mode
+            search._has_filter_cwd = bool(self._sessions_list.filter_cwd)
         self._update_tab_bar()
 
     def on_search_changed(self, message: SearchChanged) -> None:
