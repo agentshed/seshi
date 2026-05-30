@@ -403,6 +403,10 @@ class SeshiApp(App):
         self._view_counter += 1
         vid = self._view_counter
 
+        breadcrumb = self.query_one("#breadcrumb", Static)
+        breadcrumb.update("")
+        breadcrumb.styles.height = 0
+
         main = self.query_one("#main-content")
         for child in list(main.children):
             child.remove()
@@ -414,6 +418,7 @@ class SeshiApp(App):
             if hasattr(self, '_preview'):
                 self._sessions_pane.mount(self._preview)
             self._update_preview_layout()
+            self._update_breadcrumb()
             self._sessions_list.focus()
         elif self.current_view == "overview":
             from seshi.tui.overview import OverviewView
