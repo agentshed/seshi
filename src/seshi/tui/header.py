@@ -13,8 +13,12 @@ class Header(Widget):
 
     session_count: reactive[int] = reactive(0)
     shown_count: reactive[int] = reactive(0)
+    indexing: reactive[bool] = reactive(False)
 
     accent: reactive[str] = reactive("#E08A5E")
+
+    def watch_indexing(self, value: bool) -> None:
+        self.refresh()
 
     def render(self) -> Text:
         from seshi import __version__
@@ -23,6 +27,8 @@ class Header(Widget):
         text.append("   Seshi", style="bold")
         text.append(f"   {self.shown_count} of {self.session_count} sessions", style="dim")
         text.append(f"  v{__version__}", style="dim")
+        if self.indexing:
+            text.append("  indexing…", style="dim italic")
         text.append("\n")
         text.append("  ▀▀█ █▀▀ ▀▀█ █▀█  █ ", style=f"bold {self.accent}")
         text.append("   global session resumer", style="dim")

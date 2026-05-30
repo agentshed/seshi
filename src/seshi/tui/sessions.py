@@ -418,11 +418,10 @@ class SessionsList(Widget):
             self._reload_with_current_filter()
         elif event.key == "p":
             if hasattr(self.app, '_preview'):
-                self.app._preview.display = not self.app._preview.display
-                if self.app._preview.display:
-                    self.styles.width = 45
-                else:
-                    self.styles.width = "1fr"
+                currently_visible = self.app._preview.display
+                self.app._preview_user_override = not currently_visible
+                if hasattr(self.app, '_update_preview_layout'):
+                    self.app._update_preview_layout()
         elif event.key == "slash":
             search = self.app.query_one(SearchBar)
             search.active = True
