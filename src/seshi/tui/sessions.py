@@ -776,6 +776,7 @@ class SessionsList(Widget):
         self.conn.commit()
         if entry.action in ("rename", "delete"):
             from seshi.session_index import reindex_session
+            from seshi.transcript_index import index_session as reindex_transcript
             restored_sids = set()
             for sql, params in entry.sql_statements:
                 if "INTO sessions" in sql and params:
@@ -784,6 +785,8 @@ class SessionsList(Widget):
                     restored_sids.add(params[1])
             for sid in restored_sids:
                 reindex_session(self.conn, sid)
+                if entry.action == "delete":
+                    reindex_transcript(self.conn, sid)
         self._notify(f"Undo: {entry.description}")
         self._reload_with_current_filter()
 
