@@ -59,6 +59,7 @@ class SeshiApp(App):
     def compose(self) -> ComposeResult:
         yield Header(id="header")
         yield Static("", id="tab-bar")
+        yield Static("", id="breadcrumb")
         yield SearchBar(id="search-bar")
         with Vertical(id="main-content"):
             yield Static("Loading...", id="placeholder")
@@ -102,6 +103,7 @@ class SeshiApp(App):
         self._apply_palette()
         self._update_counts()
         self._update_tab_bar()
+        self._update_breadcrumb()
 
         try:
             self.query_one(Header).indexing = True
@@ -228,6 +230,25 @@ class SeshiApp(App):
             search._has_filter_cwd = bool(self._sessions_list.filter_cwd)
         self._update_tab_bar()
 
+    def _update_breadcrumb(self):
+        breadcrumb = self.query_one("#breadcrumb", Static)
+        if not hasattr(self, '_sessions_list') or not self._sessions_list.filter_cwd:
+            breadcrumb.update("")
+            breadcrumb.styles.height = 0
+            return
+        from rich.text import Text
+        home = os.path.expanduser("~")
+        cwd = self._sessions_list.filter_cwd
+        display = "~" + cwd[len(home):] if cwd.startswith(home) else cwd
+        count = len(self._sessions_list.sessions)
+        label = "session" if count == 1 else "sessions"
+        text = Text()
+        text.append(f"  {display}", style=f"bold {self._palette.accent}")
+        text.append(f"  ({count} {label})", style="dim")
+        text.append("  Esc to clear", style="dim italic")
+        breadcrumb.update(text)
+        breadcrumb.styles.height = 1
+
     def on_search_changed(self, message: SearchChanged) -> None:
         if hasattr(self, '_sessions_list'):
             self._sessions_list.filter(message.query, scope=message.scope)
@@ -294,6 +315,7 @@ class SeshiApp(App):
             sl.filter_cwd = None
             sl._load_sessions()
             self._update_counts()
+            self._update_breadcrumb()
         elif sl.selected:
             sl.selected.clear()
             sl.refresh()

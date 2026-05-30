@@ -155,10 +155,12 @@ Favorites always sort to the top regardless of sort mode. Sort mode is persisted
 | `u` | Archive | Toggles `is_archived` (hides from views). Reversible alternative to delete |
 | `d` | Delete | Removes from registry (with confirmation). Bulk: deletes all selected |
 | `s` | Sort mode | Cycles through: frecency → recency → frequency (persisted) |
+| `c` | Compact mode | Toggles compact mode: all sessions collapsed except cursor row (persisted) |
+| `P` | Project filter | Filters sessions to the current session's project directory |
 | `H` | Hide missing | Toggles `hide_missing_dirs` setting (persisted) |
 | `Space` | Select | Toggles row in/out of bulk selection (`[x]` mark) |
 | `Ctrl-a` | Select all | Adds all visible rows to selection |
-| `Esc` | Clear/Quit | Clears selection if non-empty; otherwise quits |
+| `Esc` | Clear/Quit | Clears scope/search/selection/filter; otherwise quits |
 
 **Tag input rules**: only `[\w\-]` characters allowed. Toggle behavior: if session already has the tag, remove it; otherwise add it.
 
