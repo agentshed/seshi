@@ -93,6 +93,55 @@ class TestCompactMode:
         visible_prompt_sids = {r.session.session_id for r in view._display_rows if r.kind == "prompt" and r.session}
         assert len(visible_prompt_sids) == 1
 
+    def test_compact_mode_cursor_move_collapses_previous(self, tmp_db):
+        now = int(time.time())
+        _insert_session(tmp_db, "s1", custom_name="first", cwd="/tmp/a", ts=now)
+        _insert_session(tmp_db, "s2", custom_name="second", cwd="/tmp/b", ts=now - 100)
+        for sid, offset in [("s1", 0), ("s2", -100)]:
+            for i in range(3):
+                tmp_db.execute(
+                    "INSERT INTO prompts (session_id, prompt_index, text, timestamp_epoch) VALUES (?, ?, ?, ?)",
+                    (sid, i, f"prompt {i} for {sid}", now + offset - i),
+                )
+        tmp_db.commit()
+        set_setting(tmp_db, "compact_mode", "1")
+        view = SessionsList(tmp_db)
+
+        # Cursor starts at 0 — first session should be expanded
+        s0 = view.current_session
+        assert s0 is not None
+        assert s0.session_id not in view._collapsed
+        assert "s2" in view._collapsed
+
+        # Move cursor down past s1's prompts to reach s2
+        nav_count = view._nav_row_count()
+        for _ in range(nav_count - 1):
+            view.cursor += 1
+
+        # Now s2 should be expanded, s1 collapsed
+        s_new = view.current_session
+        assert s_new is not None
+        assert s_new.session_id != s0.session_id
+        assert s_new.session_id not in view._collapsed
+        assert s0.session_id in view._collapsed
+
+        # Verify only the new cursor session's prompts are visible
+        visible_prompt_sids = {r.session.session_id for r in view._display_rows if r.kind == "prompt" and r.session}
+        assert visible_prompt_sids == {s_new.session_id}
+
+    def test_compact_mode_adjusting_flag_prevents_reentry(self, tmp_db):
+        now = int(time.time())
+        _insert_session(tmp_db, "s1", custom_name="first", ts=now)
+        set_setting(tmp_db, "compact_mode", "1")
+        view = SessionsList(tmp_db)
+        assert view._adjusting_compact is False
+        # Simulating re-entry: if flag is set, watch_cursor should skip compact logic
+        view._adjusting_compact = True
+        old_collapsed = set(view._collapsed)
+        view.watch_cursor(0)
+        assert view._collapsed == old_collapsed
+        view._adjusting_compact = False
+
 
 # === Quick Project Filter (P key) ===
 
