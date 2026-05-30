@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+import time
 from dataclasses import dataclass
 
 from textual.widget import Widget
@@ -15,7 +16,7 @@ from seshi.search import list_sessions, rank_sessions, query_matches_text
 from seshi.time_utils import relative_time
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
-from seshi.tui.search_bar import SearchBar, SearchChanged
+from seshi.tui.search_bar import SearchBar, SearchChanged, SCOPES
 
 
 @dataclass
@@ -55,6 +56,7 @@ class SessionsList(Widget):
         self._display_rows: list[DisplayRow] = []
         self._matching_prompts: set[tuple[str, int]] = set()
         self._tags: dict[str, list[str]] = {}
+        self._current_scope: str = "all"
         self._load_sessions()
 
     def _load_sessions(self, query: str = "", tags: list[str] | None = None):
@@ -77,6 +79,21 @@ class SessionsList(Widget):
 
         self._all_sessions = sessions
         self.sessions = sessions
+
+        scope = self._current_scope
+        if scope not in SCOPES:
+            scope = "all"
+        if scope == "favorites":
+            sessions = [s for s in sessions if s.is_favorite]
+            self.sessions = sessions
+        elif scope == "recent":
+            cutoff = int(time.time()) - 7 * 86400
+            sessions = [s for s in sessions if s.last_activity_at >= cutoff]
+            self.sessions = sessions
+        elif scope == "project" and self.filter_cwd:
+            sessions = [s for s in sessions if s.cwd == self.filter_cwd]
+            self.sessions = sessions
+
         self._load_prompts()
         self._load_tags()
 
@@ -184,10 +201,11 @@ class SessionsList(Widget):
 
         self._display_rows = rows
 
-    def filter(self, query: str):
+    def filter(self, query: str, scope: str = "all"):
         text, tags = _parse_search(query)
         self._current_query = text
         self._current_tags = tags if tags else None
+        self._current_scope = scope
         self._load_sessions(query=text, tags=self._current_tags)
 
     def _cursor_to_display_index(self, cursor: int) -> int:
@@ -458,12 +476,12 @@ class SessionsList(Widget):
                 search = self.app.query_one(SearchBar)
                 search.active = True
                 search.search_text += event.character
-                search.post_message(SearchChanged(search.search_text))
+                search.post_message(SearchChanged(search.search_text, search.scope))
             elif event.key == "backspace":
                 search = self.app.query_one(SearchBar)
                 if search.search_text:
                     search.search_text = search.search_text[:-1]
-                    search.post_message(SearchChanged(search.search_text))
+                    search.post_message(SearchChanged(search.search_text, search.scope))
             else:
                 handled = False
 
