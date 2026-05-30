@@ -37,8 +37,8 @@ class Footer(Widget):
                 ("↵", "resume"), ("/", "search"), ("e", "expand"),
                 ("r", "rename"), ("f", "fav"),
                 ("t", "tag"), ("u", "archive"), ("d", "delete"),
-                ("s", "sort"), ("H", "hide"), ("p", "preview"),
-                ("Space", "select"), ("?", "help"),
+                ("z", "undo"), ("s", "sort"), ("H", "hide"),
+                ("p", "preview"), ("Space", "select"), ("?", "help"),
             ]
         elif self.view == "projects":
             keys = [

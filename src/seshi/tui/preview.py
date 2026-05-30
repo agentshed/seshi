@@ -17,6 +17,8 @@ class Preview(Widget):
     session: reactive[Session | None] = reactive(None)
     focus_prompt_index: reactive[int | None] = reactive(None)
     highlight_query: reactive[str] = reactive("")
+    user_color: reactive[str] = reactive("#E08A5E")
+    assistant_color: reactive[str] = reactive("#6BAED6")
 
     def watch_session(self, session: Session | None) -> None:
         self.refresh()
@@ -70,7 +72,7 @@ class Preview(Widget):
         for msg in display:
             role_map = {"user": "you", "assistant": "asst", "system": "sys", "tool": "tool"}
             role_label = role_map.get(msg.role, msg.role)
-            role_style = "#E08A5E" if msg.role == "user" else "#6BAED6"
+            role_style = self.user_color if msg.role == "user" else self.assistant_color
 
             line = Text()
             line.append(f"  ▎ {role_label:<5}", style=role_style)

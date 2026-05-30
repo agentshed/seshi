@@ -16,6 +16,7 @@ from seshi.time_utils import relative_time
 from seshi.lang_detect import detect_language
 from seshi.db import get_setting, set_setting
 from seshi.tui.search_bar import SearchBar, SearchChanged
+from seshi.tui.undo import UndoStack, UndoEntry
 
 
 @dataclass
@@ -54,6 +55,7 @@ class SessionsList(Widget):
         self._collapsed: set[str] = set()
         self._display_rows: list[DisplayRow] = []
         self._matching_prompts: set[tuple[str, int]] = set()
+        self._undo = UndoStack()
         self._load_sessions()
 
     def _load_sessions(self, query: str = "", tags: list[str] | None = None):
@@ -330,6 +332,12 @@ class SessionsList(Widget):
 
         return text
 
+    def _notify(self, message: str, **kwargs) -> None:
+        try:
+            self._notify(message, **kwargs)
+        except Exception:
+            pass
+
     _input_mode: str = ""
     _input_buffer: str = ""
     _cursor_visible: bool = True
@@ -416,6 +424,8 @@ class SessionsList(Widget):
             new_val = "0" if current == "1" else "1"
             set_setting(self.conn, "hide_stale_sessions", new_val)
             self._reload_with_current_filter()
+        elif event.key == "z":
+            self._undo_last()
         elif event.key == "p":
             if hasattr(self.app, '_preview'):
                 self.app._preview.display = not self.app._preview.display
@@ -547,9 +557,19 @@ class SessionsList(Widget):
         s = self.current_session
         if not s:
             return
+        old_name = s.custom_name
         name = self._input_buffer.strip() or None
         self.conn.execute("UPDATE sessions SET custom_name = ? WHERE session_id = ?", (name, s.session_id))
         self.conn.commit()
+        display = name or "(untitled)"
+        self._undo.push(UndoEntry(
+            action="rename",
+            description=f"Renamed to {display}",
+            sql_statements=[
+                ("UPDATE sessions SET custom_name = ? WHERE session_id = ?", (old_name, s.session_id)),
+            ],
+        ))
+        self._notify(f"Renamed to {display}")
         from seshi.session_index import reindex_session
         reindex_session(self.conn, s.session_id)
         self._reload_with_current_filter()
@@ -559,13 +579,29 @@ class SessionsList(Widget):
         if not tag or not re.match(r"^[\w\-]+$", tag):
             return
         targets = list(self.selected) if self.selected else [self.current_session.session_id] if self.current_session else []
+        undo_stmts: list[tuple[str, tuple]] = []
+        added = 0
+        removed = 0
         for sid in targets:
             existing = self.conn.execute("SELECT 1 FROM tags WHERE session_id = ? AND tag = ?", (sid, tag)).fetchone()
             if existing:
                 self.conn.execute("DELETE FROM tags WHERE session_id = ? AND tag = ?", (sid, tag))
+                undo_stmts.append(("INSERT OR IGNORE INTO tags (session_id, tag) VALUES (?, ?)", (sid, tag)))
+                removed += 1
             else:
                 self.conn.execute("INSERT INTO tags (session_id, tag) VALUES (?, ?)", (sid, tag))
+                undo_stmts.append(("DELETE FROM tags WHERE session_id = ? AND tag = ?", (sid, tag)))
+                added += 1
         self.conn.commit()
+        if added:
+            self._notify(f"Tagged #{tag}" + (f" on {added} sessions" if added > 1 else ""))
+        elif removed:
+            self._notify(f"Untagged #{tag}" + (f" from {removed} sessions" if removed > 1 else ""))
+        self._undo.push(UndoEntry(
+            action="tag",
+            description=f"Tag #{tag}",
+            sql_statements=undo_stmts,
+        ))
         self._reload_with_current_filter()
 
     def _toggle_favorite(self):
@@ -573,12 +609,26 @@ class SessionsList(Widget):
         if not s:
             return
         targets = list(self.selected) if self.selected else [s.session_id]
+        undo_stmts: list[tuple[str, tuple]] = []
         for sid in targets:
+            row = self.conn.execute("SELECT is_favorite FROM sessions WHERE session_id = ?", (sid,)).fetchone()
+            old_val = row["is_favorite"] if row else 0
             self.conn.execute(
                 "UPDATE sessions SET is_favorite = CASE WHEN is_favorite = 1 THEN 0 ELSE 1 END WHERE session_id = ?",
                 (sid,),
             )
+            undo_stmts.append(("UPDATE sessions SET is_favorite = ? WHERE session_id = ?", (old_val, sid)))
         self.conn.commit()
+        new_state = 0 if s.is_favorite else 1
+        label = "Favorited" if new_state else "Unfavorited"
+        if len(targets) > 1:
+            label += f" {len(targets)} sessions"
+        self._notify(label)
+        self._undo.push(UndoEntry(
+            action="favorite",
+            description=label,
+            sql_statements=undo_stmts,
+        ))
         self._reload_with_current_filter()
 
     def _toggle_archive(self):
@@ -596,12 +646,24 @@ class SessionsList(Widget):
             self._execute_archive(targets)
 
     def _execute_archive(self, targets: list[str]) -> None:
+        undo_stmts: list[tuple[str, tuple]] = []
         for sid in targets:
+            row = self.conn.execute("SELECT is_archived FROM sessions WHERE session_id = ?", (sid,)).fetchone()
+            old_val = row["is_archived"] if row else 0
             self.conn.execute(
                 "UPDATE sessions SET is_archived = CASE WHEN is_archived = 1 THEN 0 ELSE 1 END WHERE session_id = ?",
                 (sid,),
             )
+            undo_stmts.append(("UPDATE sessions SET is_archived = ? WHERE session_id = ?", (old_val, sid)))
         self.conn.commit()
+        count = len(targets)
+        label = f"Archived {count} session{'s' if count > 1 else ''}"
+        self._notify(label)
+        self._undo.push(UndoEntry(
+            action="archive",
+            description=label,
+            sql_statements=undo_stmts,
+        ))
         self.selected.clear()
         self._reload_with_current_filter()
 
@@ -617,10 +679,46 @@ class SessionsList(Widget):
         )
 
     def _execute_delete(self, targets: list[str]) -> None:
+        undo_stmts: list[tuple[str, tuple]] = []
         for sid in targets:
+            row = self.conn.execute("SELECT * FROM sessions WHERE session_id = ?", (sid,)).fetchone()
+            if row:
+                cols = row.keys()
+                vals = tuple(row[c] for c in cols)
+                placeholders = ",".join("?" * len(cols))
+                col_names = ",".join(cols)
+                undo_stmts.append((f"INSERT OR IGNORE INTO sessions ({col_names}) VALUES ({placeholders})", vals))
+            tag_rows = self.conn.execute("SELECT session_id, tag FROM tags WHERE session_id = ?", (sid,)).fetchall()
+            for tr in tag_rows:
+                undo_stmts.append(("INSERT OR IGNORE INTO tags (session_id, tag) VALUES (?, ?)", (tr["session_id"], tr["tag"])))
             self.conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
         self.conn.commit()
+        count = len(targets)
+        label = f"Deleted {count} session{'s' if count > 1 else ''}"
+        self._notify(label)
+        self._undo.push(UndoEntry(
+            action="delete",
+            description=label,
+            sql_statements=undo_stmts,
+        ))
         self.selected.clear()
+        self._reload_with_current_filter()
+
+
+    def _undo_last(self):
+        entry = self._undo.pop()
+        if not entry:
+            self._notify("Nothing to undo", severity="warning")
+            return
+        for sql, params in entry.sql_statements:
+            self.conn.execute(sql, params)
+        self.conn.commit()
+        if entry.action == "rename":
+            sid = entry.sql_statements[0][1][1] if entry.sql_statements else None
+            if sid:
+                from seshi.session_index import reindex_session
+                reindex_session(self.conn, sid)
+        self._notify(f"Undo: {entry.description}")
         self._reload_with_current_filter()
 
 

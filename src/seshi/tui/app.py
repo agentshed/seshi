@@ -9,7 +9,7 @@ from textual.containers import Vertical, Horizontal
 from textual.reactive import reactive
 from textual.widgets import Static
 
-from seshi.db import open_db, get_setting, record_resume
+from seshi.db import open_db, get_setting, set_setting, record_resume
 from seshi.models import Session
 from seshi.themes import get_theme
 from seshi.tui.styles import theme_css
@@ -18,6 +18,7 @@ from seshi.tui.footer import Footer
 from seshi.tui.search_bar import SearchBar, SearchChanged
 from seshi.tui.sessions import SessionsList
 from seshi.tui.preview import Preview
+from seshi.tui.commands import SeshiCommands
 
 
 class SeshiApp(App):
@@ -31,6 +32,9 @@ class SeshiApp(App):
         Binding("question_mark", "view_help", "Help", show=False, priority=True),
     ]
 
+    COMMANDS = {SeshiCommands}
+
+    CSS_PATH = "seshi.tcss"
     CSS = theme_css(get_theme("coral"))
 
     chosen_session: Session | None = None
@@ -42,8 +46,11 @@ class SeshiApp(App):
         self._conn = conn
         self._owns_conn = conn is None
         self._view_counter = 0
+        self._no_color = bool(os.environ.get("NO_COLOR"))
         theme_name = "coral"
-        if conn:
+        if self._no_color:
+            theme_name = "mono"
+        elif conn:
             theme_name = get_setting(conn, "theme") or "coral"
         self._palette = get_theme(theme_name)
         super().__init__(**kwargs)
@@ -64,7 +71,10 @@ class SeshiApp(App):
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA foreign_keys=ON")
 
-        theme_name = get_setting(self._conn, "theme") or "coral"
+        if self._no_color:
+            theme_name = "mono"
+        else:
+            theme_name = get_setting(self._conn, "theme") or "coral"
         sort_mode = get_setting(self._conn, "sort_mode") or "frecency"
 
         self._sessions_list = SessionsList(
@@ -128,6 +138,9 @@ class SeshiApp(App):
             self.query_one(Header).accent = accent
             self.query_one(Footer).accent = accent
             self.query_one(SearchBar).accent = accent
+            if hasattr(self, '_preview'):
+                self._preview.user_color = self._palette.user
+                self._preview.assistant_color = self._palette.assistant
         except Exception:
             pass
 
@@ -345,6 +358,79 @@ class SeshiApp(App):
             view.focus()
 
         self._update_tab_bar()
+
+    def action_resume(self) -> None:
+        if hasattr(self, '_sessions_list'):
+            s = self._sessions_list.current_session
+            if s:
+                self.chosen_session = s
+                self.exit()
+
+    def action_rename(self) -> None:
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._start_rename()
+
+    def action_favorite(self) -> None:
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_favorite()
+
+    def action_tag(self) -> None:
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._start_tag()
+
+    def action_archive(self) -> None:
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_archive()
+
+    def action_delete(self) -> None:
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._delete_selected()
+
+    def action_cycle_sort(self) -> None:
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            sl = self._sessions_list
+            modes = ["frecency", "recency", "frequency"]
+            idx = modes.index(sl.sort_mode) if sl.sort_mode in modes else 0
+            sl.sort_mode = modes[(idx + 1) % len(modes)]
+            set_setting(self._conn, "sort_mode", sl.sort_mode)
+            sl._reload_with_current_filter()
+
+    def action_toggle_preview(self) -> None:
+        if hasattr(self, '_preview'):
+            self._preview.display = not self._preview.display
+            if hasattr(self, '_sessions_list'):
+                if self._preview.display:
+                    self._sessions_list.styles.width = 45
+                else:
+                    self._sessions_list.styles.width = "1fr"
+
+    def action_toggle_expand(self) -> None:
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_expand()
+
+    def action_toggle_expand_all(self) -> None:
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_expand_all()
+
+    def action_undo(self) -> None:
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._undo_last()
+
+    def action_toggle_hide_missing(self) -> None:
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            from seshi.db import get_setting as gs
+            current = gs(self._conn, "hide_missing_dirs")
+            new_val = "0" if current == "1" else "1"
+            set_setting(self._conn, "hide_missing_dirs", new_val)
+            self._sessions_list._reload_with_current_filter()
+
+    def action_toggle_hide_stale(self) -> None:
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            from seshi.db import get_setting as gs
+            current = gs(self._conn, "hide_stale_sessions")
+            new_val = "0" if current == "1" else "1"
+            set_setting(self._conn, "hide_stale_sessions", new_val)
+            self._sessions_list._reload_with_current_filter()
 
     def on_unmount(self) -> None:
         if self._owns_conn and self._conn:
