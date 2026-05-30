@@ -3,7 +3,7 @@ import sys
 import sqlite3
 
 from textual.app import App, ComposeResult
-from textual import work
+from textual import events, work
 from textual.binding import Binding
 from textual.containers import Vertical, Horizontal
 from textual.reactive import reactive
@@ -36,6 +36,7 @@ class SeshiApp(App):
     chosen_session: Session | None = None
     current_view: reactive[str] = reactive("sessions")
     _quit_toast_active: bool = False
+    _preview_user_toggled: bool = False
 
     def __init__(self, ctx_obj: dict | None = None, conn: sqlite3.Connection | None = None, **kwargs):
         self.ctx_obj = ctx_obj or {}
@@ -85,11 +86,15 @@ class SeshiApp(App):
         main.mount(self._sessions_pane)
         self._sessions_pane.mount(self._sessions_list)
         self._sessions_pane.mount(self._preview)
+        self._apply_preview_layout()
 
         self._sessions_list.focus()
         self._apply_palette()
         self._update_counts()
         self._update_tab_bar()
+
+        search = self.query_one(SearchBar)
+        search._has_filter_cwd = bool(self._sessions_list.filter_cwd)
 
         try:
             self.query_one(Header).indexing = True
@@ -149,21 +154,69 @@ class SeshiApp(App):
         except Exception:
             pass
 
+    def _apply_preview_layout(self) -> None:
+        if not hasattr(self, '_preview') or not hasattr(self, '_sessions_list'):
+            return
+        width = self.size.width if self.size.width > 0 else 120
+        if self._preview_user_toggled:
+            show = self._preview.display
+        else:
+            show = width >= 100
+        self._preview.display = show
+        if show:
+            self._sessions_list.styles.width = "2fr"
+            self._preview.styles.width = "3fr"
+        else:
+            self._sessions_list.styles.width = "1fr"
+
+    def toggle_preview(self) -> None:
+        if not hasattr(self, '_preview'):
+            return
+        self._preview_user_toggled = True
+        self._preview.display = not self._preview.display
+        if hasattr(self, '_sessions_list'):
+            if self._preview.display:
+                self._sessions_list.styles.width = "2fr"
+                self._preview.styles.width = "3fr"
+            else:
+                self._sessions_list.styles.width = "1fr"
+
+    def on_resize(self, event: events.Resize) -> None:
+        if self.current_view == "sessions" and not self._preview_user_toggled:
+            self._apply_preview_layout()
+
+    def _get_project_count(self) -> int:
+        try:
+            row = self._conn.execute(
+                "SELECT COUNT(DISTINCT cwd) FROM sessions WHERE is_archived = 0"
+            ).fetchone()
+            return row[0] if row else 0
+        except Exception:
+            return 0
+
     def _update_tab_bar(self):
-        views = {
-            "sessions": "1 sessions",
-            "overview": "2 overview",
-            "projects": "3 projects",
-            "help": "? help",
-        }
+        session_count = len(self._sessions_list._all_sessions) if hasattr(self, '_sessions_list') else 0
+        project_count = self._get_project_count() if self._conn else 0
         from rich.text import Text
         text = Text()
-        for key, label in views.items():
+        views = [
+            ("sessions", "1 sessions", session_count),
+            ("overview", "2 overview", None),
+            ("projects", "3 projects", project_count),
+            ("help", "? help", None),
+        ]
+        for key, label, count in views:
             text.append("  ")
             if key == self.current_view:
-                text.append(f"[{label}]", style=f"bold {self._palette.accent}")
+                text.append(f"[{label}", style=f"bold {self._palette.accent}")
+                if count is not None:
+                    text.append(f" {count}", style=f"bold {self._palette.accent}")
+                text.append("]", style=f"bold {self._palette.accent}")
             else:
-                text.append(f" {label} ", style="dim")
+                text.append(f" {label}", style="dim")
+                if count is not None:
+                    text.append(f" {count}", style="dim")
+                text.append(" ", style="dim")
         tab_bar = self.query_one("#tab-bar", Static)
         tab_bar.update(text)
 
@@ -180,10 +233,11 @@ class SeshiApp(App):
         search.shown = shown
         if hasattr(self, '_sessions_list'):
             search.sort_mode = self._sessions_list.sort_mode
+        self._update_tab_bar()
 
     def on_search_changed(self, message: SearchChanged) -> None:
         if hasattr(self, '_sessions_list'):
-            self._sessions_list.filter(message.query)
+            self._sessions_list.filter(message.query, scope=message.scope)
             self._update_counts()
             s = self._sessions_list.current_session
             if hasattr(self, '_preview'):
@@ -343,10 +397,7 @@ class SeshiApp(App):
             self._sessions_pane.mount(self._sessions_list)
             if hasattr(self, '_preview'):
                 self._sessions_pane.mount(self._preview)
-                if self._preview.display:
-                    self._sessions_list.styles.width = 45
-                else:
-                    self._sessions_list.styles.width = "1fr"
+            self._apply_preview_layout()
             self._sessions_list.focus()
         elif self.current_view == "overview":
             from seshi.tui.overview import OverviewView

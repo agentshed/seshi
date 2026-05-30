@@ -190,14 +190,34 @@ def test_preview_text_width_respects_narrow_widget():
 
 # === Preview toggle width management ===
 
-def test_preview_toggle_sets_sessions_width(tmp_db):
+def test_preview_toggle_calls_app_toggle(tmp_db):
+    _insert_session(tmp_db, "s1", custom_name="toggle-test")
+    view = SessionsList(tmp_db)
+
+    mock_app = MagicMock()
+    mock_app._quit_toast_active = False
+    original_app = type(view).app
+    type(view).app = property(lambda self: mock_app)
+
+    try:
+        mock_event = MagicMock()
+        mock_event.key = "p"
+        mock_event.is_printable = False
+        view.on_key(mock_event)
+
+        mock_app.toggle_preview.assert_called_once()
+    finally:
+        type(view).app = original_app
+
+
+def test_preview_toggle_graceful_when_no_method(tmp_db):
     _insert_session(tmp_db, "s1", custom_name="toggle-test")
     view = SessionsList(tmp_db)
 
     mock_preview = MagicMock()
     mock_preview.display = True
 
-    mock_app = MagicMock()
+    mock_app = MagicMock(spec=[])
     mock_app._quit_toast_active = False
     mock_app._preview = mock_preview
     original_app = type(view).app
@@ -208,15 +228,8 @@ def test_preview_toggle_sets_sessions_width(tmp_db):
         mock_event.key = "p"
         mock_event.is_printable = False
         view.on_key(mock_event)
-
-        assert mock_preview.display is False
-        assert view.styles.width is not None
-
-        mock_event2 = MagicMock()
-        mock_event2.key = "p"
-        mock_event2.is_printable = False
-        view.on_key(mock_event2)
-
+        # When toggle_preview() is not available, nothing crashes
+        # Preview state stays unchanged
         assert mock_preview.display is True
     finally:
         type(view).app = original_app

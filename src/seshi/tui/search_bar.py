@@ -5,6 +5,8 @@ from textual import events
 from textual.timer import Timer
 from rich.text import Text
 
+SCOPES = ["all", "favorites", "recent", "project"]
+
 
 class SearchBar(Widget):
     DEFAULT_CSS = """
@@ -19,12 +21,14 @@ class SearchBar(Widget):
     total: reactive[int] = reactive(0)
     sort_mode: reactive[str] = reactive("frecency")
     active: reactive[bool] = reactive(False)
+    scope: reactive[str] = reactive("all")
 
     accent: reactive[str] = reactive("#E08A5E")
     can_focus = True
 
     _cursor_visible: bool = True
     _blink_timer: Timer | None = None
+    _has_filter_cwd: bool = False
 
     def watch_active(self, active: bool) -> None:
         if active:
@@ -41,6 +45,17 @@ class SearchBar(Widget):
         self._cursor_visible = not self._cursor_visible
         self.refresh()
 
+    def _cycle_scope(self) -> None:
+        idx = SCOPES.index(self.scope) if self.scope in SCOPES else 0
+        for _ in range(len(SCOPES)):
+            idx = (idx + 1) % len(SCOPES)
+            candidate = SCOPES[idx]
+            if candidate == "project" and not self._has_filter_cwd:
+                continue
+            self.scope = candidate
+            return
+        self.scope = "all"
+
     def render(self) -> Text:
         text = Text()
         text.append("  > ", style=f"bold {self.accent}")
@@ -49,6 +64,8 @@ class SearchBar(Widget):
             text.append("_", style=f"bold {self.accent}")
         elif self.active:
             text.append(" ")
+        if self.scope != "all":
+            text.append(f"  [{self.scope}]", style=f"bold {self.accent}")
         text.append(f"  {self.sort_mode}", style="dim italic")
         padding = " " * max(1, 60 - len(self.search_text) - len(self.sort_mode))
         text.append(padding)
@@ -59,13 +76,18 @@ class SearchBar(Widget):
         if event.key == "backspace":
             if self.search_text:
                 self.search_text = self.search_text[:-1]
-                self.post_message(SearchChanged(self.search_text))
+                self.post_message(SearchChanged(self.search_text, self.scope))
             event.stop()
         elif event.key == "escape":
-            if self.search_text:
+            if self.search_text or self.scope != "all":
                 self.search_text = ""
-                self.post_message(SearchChanged(self.search_text))
+                self.scope = "all"
+                self.post_message(SearchChanged(self.search_text, self.scope))
                 event.stop()
+        elif event.key == "ctrl+o":
+            self._cycle_scope()
+            self.post_message(SearchChanged(self.search_text, self.scope))
+            event.stop()
         elif event.key in ("up", "down", "enter"):
             sl = getattr(self.app, "_sessions_list", None)
             if sl:
@@ -84,7 +106,7 @@ class SearchBar(Widget):
             event.stop()
         elif event.is_printable and event.character:
             self.search_text += event.character
-            self.post_message(SearchChanged(self.search_text))
+            self.post_message(SearchChanged(self.search_text, self.scope))
             event.stop()
 
     def parse_query(self) -> tuple[str, list[str]]:
@@ -95,6 +117,7 @@ class SearchBar(Widget):
 
 
 class SearchChanged(Message):
-    def __init__(self, query: str) -> None:
+    def __init__(self, query: str, scope: str = "all") -> None:
         self.query = query
+        self.scope = scope
         super().__init__()
