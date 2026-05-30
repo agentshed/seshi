@@ -486,12 +486,12 @@ class SessionsList(Widget):
                 search = self.app.query_one(SearchBar)
                 search.active = True
                 search.search_text += event.character
-                search.post_message(SearchChanged(search.search_text))
+                search.post_message(SearchChanged(search.search_text, search.scope))
             elif event.key == "backspace":
                 search = self.app.query_one(SearchBar)
                 if search.search_text:
                     search.search_text = search.search_text[:-1]
-                    search.post_message(SearchChanged(search.search_text))
+                    search.post_message(SearchChanged(search.search_text, search.scope))
             else:
                 handled = False
 

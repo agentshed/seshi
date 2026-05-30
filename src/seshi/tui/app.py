@@ -326,7 +326,7 @@ class SeshiApp(App):
             search = self.query_one(SearchBar)
             if search.active:
                 search.search_text += char
-                search.post_message(SearchChanged(search.search_text))
+                search.post_message(SearchChanged(search.search_text, search.scope))
         except Exception:
             pass
 
