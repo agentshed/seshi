@@ -91,6 +91,10 @@ class SeshiApp(App):
         self._update_counts()
         self._update_tab_bar()
 
+        try:
+            self.query_one(Header).indexing = True
+        except Exception:
+            pass
         self._index_transcripts_async()
 
         initial_query = self.ctx_obj.get("search_query")
@@ -121,6 +125,14 @@ class SeshiApp(App):
                 conn.close()
         except Exception:
             logging.getLogger(__name__).debug("transcript indexing failed", exc_info=True)
+        finally:
+            self.call_from_thread(self._clear_indexing_indicator)
+
+    def _clear_indexing_indicator(self) -> None:
+        try:
+            self.query_one(Header).indexing = False
+        except Exception:
+            pass
 
     def _apply_palette(self):
         accent = self._palette.accent
@@ -128,6 +140,12 @@ class SeshiApp(App):
             self.query_one(Header).accent = accent
             self.query_one(Footer).accent = accent
             self.query_one(SearchBar).accent = accent
+        except Exception:
+            pass
+        try:
+            preview = self.query_one(Preview)
+            preview.user_color = self._palette.user
+            preview.assistant_color = self._palette.assistant
         except Exception:
             pass
 
@@ -155,6 +173,8 @@ class SeshiApp(App):
         shown = len(self._sessions_list.sessions) if hasattr(self, '_sessions_list') else 0
         header.session_count = total
         header.shown_count = shown
+        if hasattr(self, '_sessions_list'):
+            header.sort_mode = self._sessions_list.sort_mode
         search = self.query_one(SearchBar)
         search.total = total
         search.shown = shown
@@ -341,6 +361,7 @@ class SeshiApp(App):
         elif self.current_view == "help":
             from seshi.tui.help_view import HelpView
             view = HelpView(id=f"help-view-{vid}")
+            view.accent = self._palette.accent
             main.mount(view)
             view.focus()
 
