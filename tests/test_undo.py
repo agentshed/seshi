@@ -127,11 +127,14 @@ def test_undo_archive_restores_visibility(tmp_db):
 def test_undo_delete_restores_session(tmp_db):
     _insert_session(tmp_db, "s1", custom_name="to-delete")
     tmp_db.execute("INSERT INTO tags (session_id, tag) VALUES (?, ?)", ("s1", "important"))
+    tmp_db.execute("INSERT INTO prompts (session_id, prompt_index, text, timestamp_epoch) VALUES (?, ?, ?, ?)",
+                   ("s1", 0, "hello world", 1000))
     tmp_db.commit()
     view = SessionsList(tmp_db)
     view._execute_delete(["s1"])
     row = tmp_db.execute("SELECT 1 FROM sessions WHERE session_id = ?", ("s1",)).fetchone()
     assert row is None
+    assert tmp_db.execute("SELECT 1 FROM prompts WHERE session_id = ?", ("s1",)).fetchone() is None
 
     entry = view._undo.pop()
     for sql, params in entry.sql_statements:
@@ -143,6 +146,9 @@ def test_undo_delete_restores_session(tmp_db):
     tag = tmp_db.execute("SELECT tag FROM tags WHERE session_id = ?", ("s1",)).fetchone()
     assert tag is not None
     assert tag["tag"] == "important"
+    prompt = tmp_db.execute("SELECT text FROM prompts WHERE session_id = ?", ("s1",)).fetchone()
+    assert prompt is not None
+    assert prompt["text"] == "hello world"
 
 
 def test_multiple_undo_operations(tmp_db):

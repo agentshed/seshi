@@ -9,7 +9,7 @@ from textual.containers import Vertical, Horizontal
 from textual.reactive import reactive
 from textual.widgets import Static
 
-from seshi.db import open_db, get_setting, set_setting, record_resume
+from seshi.db import open_db, get_setting, record_resume
 from seshi.models import Session
 from seshi.themes import get_theme
 from seshi.tui.styles import theme_css
@@ -388,21 +388,11 @@ class SeshiApp(App):
 
     def action_cycle_sort(self) -> None:
         if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            sl = self._sessions_list
-            modes = ["frecency", "recency", "frequency"]
-            idx = modes.index(sl.sort_mode) if sl.sort_mode in modes else 0
-            sl.sort_mode = modes[(idx + 1) % len(modes)]
-            set_setting(self._conn, "sort_mode", sl.sort_mode)
-            sl._reload_with_current_filter()
+            self._sessions_list._cycle_sort()
 
     def action_toggle_preview(self) -> None:
-        if hasattr(self, '_preview'):
-            self._preview.display = not self._preview.display
-            if hasattr(self, '_sessions_list'):
-                if self._preview.display:
-                    self._sessions_list.styles.width = 45
-                else:
-                    self._sessions_list.styles.width = "1fr"
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_preview()
 
     def action_toggle_expand(self) -> None:
         if hasattr(self, '_sessions_list') and self.current_view == "sessions":
@@ -418,19 +408,11 @@ class SeshiApp(App):
 
     def action_toggle_hide_missing(self) -> None:
         if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            from seshi.db import get_setting as gs
-            current = gs(self._conn, "hide_missing_dirs")
-            new_val = "0" if current == "1" else "1"
-            set_setting(self._conn, "hide_missing_dirs", new_val)
-            self._sessions_list._reload_with_current_filter()
+            self._sessions_list._toggle_hide_missing()
 
     def action_toggle_hide_stale(self) -> None:
         if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            from seshi.db import get_setting as gs
-            current = gs(self._conn, "hide_stale_sessions")
-            new_val = "0" if current == "1" else "1"
-            set_setting(self._conn, "hide_stale_sessions", new_val)
-            self._sessions_list._reload_with_current_filter()
+            self._sessions_list._toggle_hide_stale()
 
     def on_unmount(self) -> None:
         if self._owns_conn and self._conn:

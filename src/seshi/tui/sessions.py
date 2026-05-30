@@ -409,30 +409,15 @@ class SessionsList(Widget):
         elif event.key == "d":
             self._delete_selected()
         elif event.key == "s":
-            modes = ["frecency", "recency", "frequency"]
-            idx = modes.index(self.sort_mode) if self.sort_mode in modes else 0
-            self.sort_mode = modes[(idx + 1) % len(modes)]
-            set_setting(self.conn, "sort_mode", self.sort_mode)
-            self._reload_with_current_filter()
+            self._cycle_sort()
         elif event.key == "H":
-            current = get_setting(self.conn, "hide_missing_dirs")
-            new_val = "0" if current == "1" else "1"
-            set_setting(self.conn, "hide_missing_dirs", new_val)
-            self._reload_with_current_filter()
+            self._toggle_hide_missing()
         elif event.key == "S":
-            current = get_setting(self.conn, "hide_stale_sessions")
-            new_val = "0" if current == "1" else "1"
-            set_setting(self.conn, "hide_stale_sessions", new_val)
-            self._reload_with_current_filter()
+            self._toggle_hide_stale()
         elif event.key == "z":
             self._undo_last()
         elif event.key == "p":
-            if hasattr(self.app, '_preview'):
-                self.app._preview.display = not self.app._preview.display
-                if self.app._preview.display:
-                    self.styles.width = 45
-                else:
-                    self.styles.width = "1fr"
+            self._toggle_preview()
         elif event.key == "slash":
             search = self.app.query_one(SearchBar)
             search.active = True
@@ -553,6 +538,33 @@ class SessionsList(Widget):
         except Exception:
             pass
 
+    def _cycle_sort(self):
+        modes = ["frecency", "recency", "frequency"]
+        idx = modes.index(self.sort_mode) if self.sort_mode in modes else 0
+        self.sort_mode = modes[(idx + 1) % len(modes)]
+        set_setting(self.conn, "sort_mode", self.sort_mode)
+        self._reload_with_current_filter()
+
+    def _toggle_hide_missing(self):
+        current = get_setting(self.conn, "hide_missing_dirs")
+        new_val = "0" if current == "1" else "1"
+        set_setting(self.conn, "hide_missing_dirs", new_val)
+        self._reload_with_current_filter()
+
+    def _toggle_hide_stale(self):
+        current = get_setting(self.conn, "hide_stale_sessions")
+        new_val = "0" if current == "1" else "1"
+        set_setting(self.conn, "hide_stale_sessions", new_val)
+        self._reload_with_current_filter()
+
+    def _toggle_preview(self):
+        if hasattr(self.app, '_preview'):
+            self.app._preview.display = not self.app._preview.display
+            if self.app._preview.display:
+                self.styles.width = 45
+            else:
+                self.styles.width = "1fr"
+
     def _apply_rename(self):
         s = self.current_session
         if not s:
@@ -647,9 +659,12 @@ class SessionsList(Widget):
 
     def _execute_archive(self, targets: list[str]) -> None:
         undo_stmts: list[tuple[str, tuple]] = []
+        first_was_archived = None
         for sid in targets:
             row = self.conn.execute("SELECT is_archived FROM sessions WHERE session_id = ?", (sid,)).fetchone()
             old_val = row["is_archived"] if row else 0
+            if first_was_archived is None:
+                first_was_archived = old_val
             self.conn.execute(
                 "UPDATE sessions SET is_archived = CASE WHEN is_archived = 1 THEN 0 ELSE 1 END WHERE session_id = ?",
                 (sid,),
@@ -657,7 +672,8 @@ class SessionsList(Widget):
             undo_stmts.append(("UPDATE sessions SET is_archived = ? WHERE session_id = ?", (old_val, sid)))
         self.conn.commit()
         count = len(targets)
-        label = f"Archived {count} session{'s' if count > 1 else ''}"
+        verb = "Unarchived" if first_was_archived else "Archived"
+        label = f"{verb} {count} session{'s' if count > 1 else ''}"
         self._notify(label)
         self._undo.push(UndoEntry(
             action="archive",
@@ -691,6 +707,14 @@ class SessionsList(Widget):
             tag_rows = self.conn.execute("SELECT session_id, tag FROM tags WHERE session_id = ?", (sid,)).fetchall()
             for tr in tag_rows:
                 undo_stmts.append(("INSERT OR IGNORE INTO tags (session_id, tag) VALUES (?, ?)", (tr["session_id"], tr["tag"])))
+            prompt_rows = self.conn.execute(
+                "SELECT session_id, prompt_index, text, timestamp_epoch FROM prompts WHERE session_id = ?", (sid,)
+            ).fetchall()
+            for pr in prompt_rows:
+                undo_stmts.append((
+                    "INSERT OR IGNORE INTO prompts (session_id, prompt_index, text, timestamp_epoch) VALUES (?, ?, ?, ?)",
+                    (pr["session_id"], pr["prompt_index"], pr["text"], pr["timestamp_epoch"]),
+                ))
             self.conn.execute("DELETE FROM sessions WHERE session_id = ?", (sid,))
         self.conn.commit()
         count = len(targets)
