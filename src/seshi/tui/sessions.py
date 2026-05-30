@@ -295,9 +295,10 @@ class SessionsList(Widget):
                 fav = " *" if s.is_favorite else "  "
 
                 tags_str = ""
-                session_tags = self._tags.get(s.session_id, [])
-                if session_tags:
-                    tags_str = " " + " ".join(f"#{t}" for t in session_tags)
+                if w >= 60:
+                    session_tags = self._tags.get(s.session_id, [])
+                    if session_tags:
+                        tags_str = " " + " ".join(f"#{t}" for t in session_tags)
 
                 prefix = f"{collapse_mark}{sel_mark}{fav} {title}"
                 if tags_str:
