@@ -59,6 +59,9 @@ class SessionsList(Widget):
         self._tags: dict[str, list[str]] = {}
         self._current_scope: str = "all"
         self._undo = UndoStack()
+        self._compact_mode: bool = get_setting(conn, "compact_mode") == "1"
+        self._compact_prev_sid: str | None = None
+        self._adjusting_compact: bool = False
         self._load_sessions()
 
     def _load_sessions(self, query: str = "", tags: list[str] | None = None):
@@ -115,6 +118,15 @@ class SessionsList(Widget):
                         self._matching_prompts.add((sid, p.prompt_index))
             for sid, _ in self._matching_prompts:
                 self._collapsed.discard(sid)
+
+        if self._compact_mode and not query:
+            self._collapsed = {s.session_id for s in self.sessions}
+            s = self.current_session or (self.sessions[0] if self.sessions else None)
+            if s:
+                self._collapsed.discard(s.session_id)
+                self._compact_prev_sid = s.session_id
+            else:
+                self._compact_prev_sid = None
 
         self._build_display_rows()
         nav_rows = [r for r in self._display_rows if r.kind != "bucket"]
@@ -224,6 +236,21 @@ class SessionsList(Widget):
         return sum(1 for r in self._display_rows if r.kind != "bucket")
 
     def watch_cursor(self, cursor: int) -> None:
+        if self._compact_mode and not self._adjusting_compact:
+            s = self.current_session
+            new_sid = s.session_id if s else None
+            if new_sid != self._compact_prev_sid:
+                if self._compact_prev_sid:
+                    self._collapsed.add(self._compact_prev_sid)
+                if new_sid:
+                    self._collapsed.discard(new_sid)
+                self._compact_prev_sid = new_sid
+                self._build_display_rows()
+                nav_count = self._nav_row_count()
+                if self.cursor >= nav_count:
+                    self._adjusting_compact = True
+                    self.cursor = max(0, nav_count - 1)
+                    self._adjusting_compact = False
         try:
             if hasattr(self.app, '_preview'):
                 self.app._preview.session = self.current_session
@@ -453,6 +480,10 @@ class SessionsList(Widget):
             self._toggle_hide_stale()
         elif event.key == "z":
             self._undo_last()
+        elif event.key == "c":
+            self._toggle_compact_mode()
+        elif event.key == "P":
+            self._filter_to_current_project()
         elif event.key == "p":
             self._toggle_preview()
         elif event.key == "slash":
@@ -568,6 +599,38 @@ class SessionsList(Widget):
             self.cursor = max(0, nav_count - 1)
         self.refresh()
 
+    def _toggle_compact_mode(self):
+        self._compact_mode = not self._compact_mode
+        set_setting(self.conn, "compact_mode", "1" if self._compact_mode else "0")
+        if self._compact_mode:
+            self._collapsed = {s.session_id for s in self.sessions}
+            s = self.current_session
+            if s:
+                self._collapsed.discard(s.session_id)
+                self._compact_prev_sid = s.session_id
+            else:
+                self._compact_prev_sid = None
+        else:
+            self._collapsed.clear()
+            self._compact_prev_sid = None
+        self._build_display_rows()
+        nav_count = self._nav_row_count()
+        if self.cursor >= nav_count:
+            self.cursor = max(0, nav_count - 1)
+        self.refresh()
+
+    def _filter_to_current_project(self):
+        s = self.current_session
+        if not s:
+            return
+        self.filter_cwd = s.cwd
+        self._load_sessions(query=self._current_query, tags=self._current_tags)
+        try:
+            self.app._update_counts()
+            self.app._update_breadcrumb()
+        except Exception:
+            pass
+
     def _reload_with_current_filter(self):
         self._load_sessions(query=self._current_query, tags=self._current_tags)
         try:
@@ -616,7 +679,6 @@ class SessionsList(Widget):
             sql_statements=[
                 ("UPDATE sessions SET custom_name = ? WHERE session_id = ?", (old_name, s.session_id)),
             ],
-            session_ids=[s.session_id],
         ))
         self._notify(f"Renamed to '{display}'", severity="information", timeout=2)
         from seshi.session_index import reindex_session
@@ -650,7 +712,6 @@ class SessionsList(Widget):
             action="tag",
             description=f"Tag #{tag}",
             sql_statements=undo_stmts,
-            session_ids=targets,
         ))
         self._reload_with_current_filter()
 
@@ -679,7 +740,6 @@ class SessionsList(Widget):
             action="favorite",
             description=label,
             sql_statements=undo_stmts,
-            session_ids=targets,
         ))
         self._reload_with_current_filter()
 
@@ -719,7 +779,6 @@ class SessionsList(Widget):
             action="archive",
             description=label,
             sql_statements=undo_stmts,
-            session_ids=targets,
         ))
         self.selected.clear()
         self._reload_with_current_filter()
@@ -765,7 +824,6 @@ class SessionsList(Widget):
             action="delete",
             description=label,
             sql_statements=undo_stmts,
-            session_ids=targets,
         ))
         self.selected.clear()
         self._reload_with_current_filter()
@@ -781,11 +839,14 @@ class SessionsList(Widget):
         self.conn.commit()
         if entry.action in ("rename", "delete"):
             from seshi.session_index import reindex_session
-            from seshi.transcript_index import index_session as reindex_transcript
-            for sid in entry.session_ids:
+            restored_sids = set()
+            for sql, params in entry.sql_statements:
+                if "INTO sessions" in sql and params:
+                    restored_sids.add(params[0])
+                elif "SET custom_name" in sql and params:
+                    restored_sids.add(params[1])
+            for sid in restored_sids:
                 reindex_session(self.conn, sid)
-                if entry.action == "delete":
-                    reindex_transcript(self.conn, sid)
         self._notify(f"Undo: {entry.description}")
         self._reload_with_current_filter()
 

@@ -59,6 +59,7 @@ class SeshiApp(App):
     def compose(self) -> ComposeResult:
         yield Header(id="header")
         yield Static("", id="tab-bar")
+        yield Static("", id="breadcrumb")
         yield SearchBar(id="search-bar")
         with Vertical(id="main-content"):
             yield Static("Loading...", id="placeholder")
@@ -102,6 +103,7 @@ class SeshiApp(App):
         self._apply_palette()
         self._update_counts()
         self._update_tab_bar()
+        self._update_breadcrumb()
 
         try:
             self.query_one(Header).indexing = True
@@ -228,6 +230,25 @@ class SeshiApp(App):
             search._has_filter_cwd = bool(self._sessions_list.filter_cwd)
         self._update_tab_bar()
 
+    def _update_breadcrumb(self):
+        breadcrumb = self.query_one("#breadcrumb", Static)
+        if not hasattr(self, '_sessions_list') or not self._sessions_list.filter_cwd:
+            breadcrumb.update("")
+            breadcrumb.styles.height = 0
+            return
+        from rich.text import Text
+        home = os.path.expanduser("~")
+        cwd = self._sessions_list.filter_cwd
+        display = "~" + cwd[len(home):] if cwd.startswith(home) else cwd
+        count = len(self._sessions_list.sessions)
+        label = "session" if count == 1 else "sessions"
+        text = Text()
+        text.append(f"  {display}", style=f"bold {self._palette.accent}")
+        text.append(f"  ({count} {label})", style="dim")
+        text.append("  Esc to clear", style="dim italic")
+        breadcrumb.update(text)
+        breadcrumb.styles.height = 1
+
     def on_search_changed(self, message: SearchChanged) -> None:
         if hasattr(self, '_sessions_list'):
             self._sessions_list.filter(message.query, scope=message.scope)
@@ -294,6 +315,7 @@ class SeshiApp(App):
             sl.filter_cwd = None
             sl._load_sessions()
             self._update_counts()
+            self._update_breadcrumb()
         elif sl.selected:
             sl.selected.clear()
             sl.refresh()
@@ -381,6 +403,10 @@ class SeshiApp(App):
         self._view_counter += 1
         vid = self._view_counter
 
+        breadcrumb = self.query_one("#breadcrumb", Static)
+        breadcrumb.update("")
+        breadcrumb.styles.height = 0
+
         main = self.query_one("#main-content")
         for child in list(main.children):
             child.remove()
@@ -392,6 +418,7 @@ class SeshiApp(App):
             if hasattr(self, '_preview'):
                 self._sessions_pane.mount(self._preview)
             self._update_preview_layout()
+            self._update_breadcrumb()
             self._sessions_list.focus()
         elif self.current_view == "overview":
             from seshi.tui.overview import OverviewView
@@ -419,45 +446,53 @@ class SeshiApp(App):
                 self.chosen_session = s
                 self.exit()
 
-    def _sessions_action(self, method: str) -> None:
-        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
-            getattr(self._sessions_list, method)()
-
     def action_rename(self) -> None:
-        self._sessions_action("_start_rename")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._start_rename()
 
     def action_favorite(self) -> None:
-        self._sessions_action("_toggle_favorite")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_favorite()
 
     def action_tag(self) -> None:
-        self._sessions_action("_start_tag")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._start_tag()
 
     def action_archive(self) -> None:
-        self._sessions_action("_toggle_archive")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_archive()
 
     def action_delete(self) -> None:
-        self._sessions_action("_delete_selected")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._delete_selected()
 
     def action_cycle_sort(self) -> None:
-        self._sessions_action("_cycle_sort")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._cycle_sort()
 
     def action_toggle_preview(self) -> None:
-        self._sessions_action("_toggle_preview")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_preview()
 
     def action_toggle_expand(self) -> None:
-        self._sessions_action("_toggle_expand")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_expand()
 
     def action_toggle_expand_all(self) -> None:
-        self._sessions_action("_toggle_expand_all")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_expand_all()
 
     def action_undo(self) -> None:
-        self._sessions_action("_undo_last")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._undo_last()
 
     def action_toggle_hide_missing(self) -> None:
-        self._sessions_action("_toggle_hide_missing")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_hide_missing()
 
     def action_toggle_hide_stale(self) -> None:
-        self._sessions_action("_toggle_hide_stale")
+        if hasattr(self, '_sessions_list') and self.current_view == "sessions":
+            self._sessions_list._toggle_hide_stale()
 
     def on_unmount(self) -> None:
         if self._owns_conn and self._conn:

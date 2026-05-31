@@ -37,8 +37,9 @@ class Footer(Widget):
             keys = [
                 ("↵", "resume"), ("/", "search"), ("f", "fav"),
                 ("d", "delete"), ("z", "undo"), ("s", "sort"),
-                ("r", "rename"), ("t", "tag"), ("u", "archive"),
-                ("e", "expand"), ("H", "hide"),
+                ("r", "rename"), ("t", "tag"), ("P", "project"),
+                ("u", "archive"), ("e", "expand"), ("c", "compact"),
+                ("H", "hide"),
                 ("p", "preview" if self.preview_visible else "hidden"),
                 ("Space", "select"), ("?", "help"),
             ]
