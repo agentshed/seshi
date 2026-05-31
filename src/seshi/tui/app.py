@@ -46,7 +46,7 @@ class SeshiApp(App):
         self._conn = conn
         self._owns_conn = conn is None
         self._view_counter = 0
-        self._no_color = bool(os.environ.get("NO_COLOR"))
+        self._no_color = "NO_COLOR" in os.environ
         self._preview_user_override: bool | None = None
         theme_name = "coral"
         if self._no_color:

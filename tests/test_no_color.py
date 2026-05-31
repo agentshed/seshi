@@ -51,6 +51,15 @@ def test_no_color_env_forces_mono_theme():
         assert app._palette == get_theme("mono")
 
 
+def test_no_color_empty_string_forces_mono():
+    """NO_COLOR='' (empty string) should still disable color per no-color.org spec."""
+    with mock.patch.dict(os.environ, {"NO_COLOR": ""}):
+        from seshi.tui.app import SeshiApp
+        app = SeshiApp()
+        assert app._no_color is True
+        assert app._palette == get_theme("mono")
+
+
 def test_no_color_env_absent_uses_default():
     env = os.environ.copy()
     env.pop("NO_COLOR", None)
