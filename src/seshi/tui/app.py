@@ -168,6 +168,7 @@ class SeshiApp(App):
             pass
 
     _PREVIEW_RATIOS = {"normal": 0.5, "min": 0.875, "max": 0.4}
+    PREVIEW_MODES = [*_PREVIEW_RATIOS, "off"]
 
     def _update_preview_layout(self) -> None:
         if not hasattr(self, '_preview') or not hasattr(self, '_sessions_list'):

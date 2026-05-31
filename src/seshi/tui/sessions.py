@@ -590,13 +590,13 @@ class SessionsList(Widget):
         set_setting(self.conn, "hide_stale_sessions", new_val)
         self._reload_with_current_filter()
 
-    _PREVIEW_MODES = ["normal", "min", "max", "off"]
-
     def _cycle_preview(self):
         if hasattr(self.app, '_preview'):
+            from seshi.tui.app import SeshiApp
+            modes = SeshiApp.PREVIEW_MODES
             current = getattr(self.app, '_preview_mode', 'normal')
-            idx = self._PREVIEW_MODES.index(current) if current in self._PREVIEW_MODES else 0
-            self.app._preview_mode = self._PREVIEW_MODES[(idx + 1) % len(self._PREVIEW_MODES)]
+            idx = modes.index(current) if current in modes else 0
+            self.app._preview_mode = modes[(idx + 1) % len(modes)]
             if hasattr(self.app, '_update_preview_layout'):
                 self.app._update_preview_layout()
 
