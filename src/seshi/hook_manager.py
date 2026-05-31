@@ -1,3 +1,4 @@
+import filecmp
 import importlib.resources
 import os
 import shutil
@@ -12,6 +13,22 @@ def install_hook() -> None:
     with importlib.resources.as_file(src) as src_path:
         shutil.copy2(str(src_path), str(HOOK_PATH))
     os.chmod(str(HOOK_PATH), 0o755)
+
+
+def hook_is_current() -> bool:
+    if not HOOK_PATH.exists():
+        return False
+    src = importlib.resources.files("seshi").joinpath("hook/hook.sh")
+    with importlib.resources.as_file(src) as src_path:
+        return filecmp.cmp(str(src_path), str(HOOK_PATH), shallow=False)
+
+
+def hook_needs_update() -> str | None:
+    if not HOOK_PATH.exists():
+        return "is not installed"
+    if not hook_is_current():
+        return "is outdated"
+    return None
 
 
 def uninstall_hook() -> None:

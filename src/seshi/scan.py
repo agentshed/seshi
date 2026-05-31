@@ -7,6 +7,11 @@ from seshi.transcript import find_transcript_path, parse_transcript
 
 log = logging.getLogger(__name__)
 
+# Bump when parse_transcript() or strip_system_blocks() changes in a way
+# that affects first_prompt extraction (triggers fix_prompts re-run).
+# v1 = PR #82 (skip isMeta)  v2 = PR #89 (strip_system_blocks)
+HOOK_VERSION = 2
+
 
 def scan_projects(
     conn: sqlite3.Connection,
@@ -57,6 +62,12 @@ def scan_projects(
                     count += 1
                     if verbose:
                         print(f"  + {session_id[:8]} ({summary.message_count} msgs)")
+                elif summary.first_prompt:
+                    conn.execute(
+                        "UPDATE sessions SET first_prompt = ? "
+                        "WHERE session_id = ? AND (first_prompt IS NULL OR first_prompt != ?)",
+                        (summary.first_prompt, session_id, summary.first_prompt),
+                    )
 
             elif entry.is_dir() and UUID_RE.match(entry.name):
                 session_id = entry.name
@@ -145,6 +156,7 @@ def auto_scan(conn: sqlite3.Connection, interval: int = 120) -> None:
     scan_projects(conn)
     set_setting(conn, "last_scan_at", str(now_ts))
 
-    if not get_setting(conn, "prompts_fixed"):
+    stored = get_setting(conn, "prompts_fixed")
+    if not stored or int(stored) < HOOK_VERSION:
         fix_prompts(conn)
-        set_setting(conn, "prompts_fixed", "1")
+        set_setting(conn, "prompts_fixed", str(HOOK_VERSION))
