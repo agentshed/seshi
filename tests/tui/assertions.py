@@ -33,7 +33,7 @@ def assert_search_bar_count(screen: CapturedScreen, shown: int, total: int) -> N
 
 
 def assert_sort_mode(screen: CapturedScreen, mode: str) -> None:
-    assert_screen_contains(screen, mode, f"Expected sort mode '{mode}' in search bar")
+    assert_screen_contains(screen, mode, f"Expected sort mode '{mode}' in header")
 
 
 def assert_session_visible(screen: CapturedScreen, name: str) -> None:

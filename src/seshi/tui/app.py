@@ -226,7 +226,6 @@ class SeshiApp(App):
         search.total = total
         search.shown = shown
         if hasattr(self, '_sessions_list'):
-            search.sort_mode = self._sessions_list.sort_mode
             search._has_filter_cwd = bool(self._sessions_list.filter_cwd)
         self._update_tab_bar()
 

@@ -390,13 +390,13 @@ class TestTUIFrecency:
 
     def test_sort_cycle_still_works(self, tmp_db):
         from seshi.tui.app import SeshiApp
-        from seshi.tui.search_bar import SearchBar
+        from seshi.tui.header import Header
 
         async def run_case():
             app = SeshiApp(conn=tmp_db)
             async with app.run_test() as pilot:
-                search = app.query_one(SearchBar)
-                assert search.sort_mode == "frecency"
+                header = app.query_one(Header)
+                assert header.sort_mode == "frecency"
                 await pilot.press("s")
                 assert app._sessions_list.sort_mode == "recency"
                 await pilot.press("s")

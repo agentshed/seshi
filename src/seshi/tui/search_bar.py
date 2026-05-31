@@ -19,7 +19,6 @@ class SearchBar(Widget):
     search_text: reactive[str] = reactive("")
     shown: reactive[int] = reactive(0)
     total: reactive[int] = reactive(0)
-    sort_mode: reactive[str] = reactive("frecency")
     active: reactive[bool] = reactive(False)
     scope: reactive[str] = reactive("all")
 
@@ -66,10 +65,11 @@ class SearchBar(Widget):
             text.append(" ")
         if self.scope != "all":
             text.append(f"  [{self.scope}]", style=f"bold {self.accent}")
-        text.append(f"  {self.sort_mode}", style="dim italic")
-        padding = " " * max(1, 60 - len(self.search_text) - len(self.sort_mode))
+        count_str = f"{self.shown} / {self.total}"
+        used = len(text)
+        padding = " " * max(1, 70 - used - len(count_str))
         text.append(padding)
-        text.append(f"{self.shown} / {self.total}", style="dim")
+        text.append(count_str, style="dim")
         return text
 
     def on_key(self, event: events.Key) -> None:

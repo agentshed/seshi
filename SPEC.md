@@ -133,7 +133,7 @@ Event-driven pipeline with command dispatch. The system has three layers:
 - `#tag` tokens in search filter by tag (AND semantics for multiple tags)
 - Selected row highlighted with accent-colored background
 
-**Sort modes**: three sort modes, cycled with the `s` key. Active sort mode displayed in the search bar area.
+**Sort modes**: three sort modes, cycled with the `s` key. Active sort mode displayed in the header.
 
 | Mode | Behavior | Default |
 |------|----------|---------|
