@@ -30,7 +30,7 @@ Screen {{
     max-height: 1;
     padding: 0 1;
     color: {palette.fg_muted};
-    background: #000000;
+    background: {palette.bg};
 }}
 
 #search-bar {{

@@ -8,6 +8,7 @@ class UndoEntry:
     action: str
     description: str
     sql_statements: list[tuple[str, tuple]] = field(default_factory=list)
+    session_ids: list[str] = field(default_factory=list)
 
 
 class UndoStack:
