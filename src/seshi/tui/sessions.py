@@ -679,6 +679,7 @@ class SessionsList(Widget):
             sql_statements=[
                 ("UPDATE sessions SET custom_name = ? WHERE session_id = ?", (old_name, s.session_id)),
             ],
+            session_ids=[s.session_id],
         ))
         self._notify(f"Renamed to '{display}'", severity="information", timeout=2)
         from seshi.session_index import reindex_session
@@ -712,6 +713,7 @@ class SessionsList(Widget):
             action="tag",
             description=f"Tag #{tag}",
             sql_statements=undo_stmts,
+            session_ids=targets,
         ))
         self._reload_with_current_filter()
 
@@ -740,6 +742,7 @@ class SessionsList(Widget):
             action="favorite",
             description=label,
             sql_statements=undo_stmts,
+            session_ids=targets,
         ))
         self._reload_with_current_filter()
 
@@ -779,6 +782,7 @@ class SessionsList(Widget):
             action="archive",
             description=label,
             sql_statements=undo_stmts,
+            session_ids=targets,
         ))
         self.selected.clear()
         self._reload_with_current_filter()
@@ -824,6 +828,7 @@ class SessionsList(Widget):
             action="delete",
             description=label,
             sql_statements=undo_stmts,
+            session_ids=targets,
         ))
         self.selected.clear()
         self._reload_with_current_filter()
@@ -839,14 +844,11 @@ class SessionsList(Widget):
         self.conn.commit()
         if entry.action in ("rename", "delete"):
             from seshi.session_index import reindex_session
-            restored_sids = set()
-            for sql, params in entry.sql_statements:
-                if "INTO sessions" in sql and params:
-                    restored_sids.add(params[0])
-                elif "SET custom_name" in sql and params:
-                    restored_sids.add(params[1])
-            for sid in restored_sids:
+            from seshi.transcript_index import index_session as reindex_transcript
+            for sid in entry.session_ids:
                 reindex_session(self.conn, sid)
+                if entry.action == "delete":
+                    reindex_transcript(self.conn, sid)
         self._notify(f"Undo: {entry.description}")
         self._reload_with_current_filter()
 

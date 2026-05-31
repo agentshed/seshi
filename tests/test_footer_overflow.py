@@ -1,18 +1,22 @@
 """Tests for footer overflow handling at narrow terminal widths."""
-from unittest.mock import MagicMock, PropertyMock
+from collections import namedtuple
+from unittest.mock import PropertyMock
 
 from seshi.tui.footer import Footer
+
+_Size = namedtuple("Size", ["width", "height"])
+_original_size = Footer.size
 
 
 def _render_footer_at_width(width, view="sessions", mode="normal"):
     footer = Footer()
     footer.view = view
     footer.mode = mode
-    mock_size = MagicMock()
-    mock_size.width = width
-    mock_size.height = 1
-    type(footer).size = PropertyMock(return_value=mock_size)
-    return footer.render()
+    type(footer).size = PropertyMock(return_value=_Size(width, 1))
+    try:
+        return footer.render()
+    finally:
+        type(footer).size = _original_size
 
 
 def test_footer_renders_all_keys_at_wide_width():
