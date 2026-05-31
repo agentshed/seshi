@@ -184,39 +184,30 @@ def test_preview_text_width_respects_narrow_widget():
     assert y_count >= 40
 
 
-# === Preview toggle width management ===
+# === Preview cycle width management ===
 
-def test_preview_toggle_sets_override_and_calls_layout(tmp_db):
+def test_preview_cycle_rotates_modes(tmp_db):
     _insert_session(tmp_db, "s1", custom_name="toggle-test")
     view = SessionsList(tmp_db)
 
     mock_preview = MagicMock()
-    mock_preview.display = True
-
     mock_app = MagicMock()
     mock_app._quit_toast_active = False
     mock_app._preview = mock_preview
+    mock_app._preview_mode = "normal"
     original_app = type(view).app
     type(view).app = property(lambda self: mock_app)
 
     try:
-        mock_event = MagicMock()
-        mock_event.key = "p"
-        mock_event.is_printable = False
-        view.on_key(mock_event)
-
-        assert mock_app._preview_user_override is False
-        mock_app._update_preview_layout.assert_called_once()
-
-        mock_preview.display = False
-        mock_app._update_preview_layout.reset_mock()
-        mock_event2 = MagicMock()
-        mock_event2.key = "p"
-        mock_event2.is_printable = False
-        view.on_key(mock_event2)
-
-        assert mock_app._preview_user_override is True
-        mock_app._update_preview_layout.assert_called_once()
+        expected_modes = ["min", "max", "off", "normal"]
+        for expected in expected_modes:
+            mock_app._update_preview_layout.reset_mock()
+            ev = MagicMock()
+            ev.key = "p"
+            ev.is_printable = False
+            view.on_key(ev)
+            assert mock_app._preview_mode == expected
+            mock_app._update_preview_layout.assert_called_once()
     finally:
         type(view).app = original_app
 

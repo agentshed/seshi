@@ -30,7 +30,7 @@ HELP_TEXT = """
   z                  Undo last action (up to 10 deep)
   s                  Cycle sort mode (frecency → recency → frequency)
   c                  Toggle compact mode (auto-expand cursor row only)
-  p                  Toggle preview pane
+  p                  Cycle preview (normal/min/max/off)
   P                  Filter to current session's project
   H                  Toggle hide sessions with missing directories
   S                  Toggle hide stale sessions (no longer in Claude Code)

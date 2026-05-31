@@ -1,4 +1,4 @@
-"""Tests for adaptive preview layout (Phase B, Item 6)."""
+"""Tests for adaptive preview layout with multi-mode cycling."""
 import time
 from unittest.mock import MagicMock, patch, PropertyMock
 
@@ -22,28 +22,45 @@ def _insert_session(conn, session_id, cwd="/tmp/project", custom_name=None,
     conn.commit()
 
 
-def test_preview_hidden_at_narrow_width(tmp_db):
-    _insert_session(tmp_db, "s1", custom_name="test-session")
+def test_default_mode_is_normal(tmp_db):
+    app = SeshiApp(conn=tmp_db)
+    assert app._preview_mode == "normal"
+
+
+def test_mode_normal_width_allocation(tmp_db):
     app = SeshiApp(conn=tmp_db)
     app._sessions_list = MagicMock()
     app._preview = MagicMock()
-    app._preview.display = True
 
     mock_footer = MagicMock()
     with patch.object(app, "query_one", return_value=mock_footer):
-        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(80, 24)):
+        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(120, 40)):
             app._update_preview_layout()
 
-    assert app._preview.display is False
-    assert app._sessions_list.styles.width == "1fr"
+    assert app._preview.display is True
+    assert app._sessions_list.styles.width == 60  # int(120 * 0.5)
 
 
-def test_preview_visible_at_wide_width(tmp_db):
-    _insert_session(tmp_db, "s1", custom_name="test-session")
+def test_mode_min_width_allocation(tmp_db):
     app = SeshiApp(conn=tmp_db)
     app._sessions_list = MagicMock()
     app._preview = MagicMock()
-    app._preview.display = False
+    app._preview_mode = "min"
+
+    mock_footer = MagicMock()
+    with patch.object(app, "query_one", return_value=mock_footer):
+        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(120, 40)):
+            app._update_preview_layout()
+
+    assert app._preview.display is True
+    assert app._sessions_list.styles.width == 105  # int(120 * 0.875)
+
+
+def test_mode_max_width_allocation(tmp_db):
+    app = SeshiApp(conn=tmp_db)
+    app._sessions_list = MagicMock()
+    app._preview = MagicMock()
+    app._preview_mode = "max"
 
     mock_footer = MagicMock()
     with patch.object(app, "query_one", return_value=mock_footer):
@@ -54,54 +71,11 @@ def test_preview_visible_at_wide_width(tmp_db):
     assert app._sessions_list.styles.width == 48  # int(120 * 0.4)
 
 
-def test_preview_proportional_width(tmp_db):
+def test_mode_off_hides_preview(tmp_db):
     app = SeshiApp(conn=tmp_db)
     app._sessions_list = MagicMock()
     app._preview = MagicMock()
-
-    mock_footer = MagicMock()
-    with patch.object(app, "query_one", return_value=mock_footer):
-        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(200, 50)):
-            app._update_preview_layout()
-
-    assert app._sessions_list.styles.width == 80  # int(200 * 0.4)
-    assert app._preview.display is True
-
-
-def test_preview_minimum_list_width(tmp_db):
-    app = SeshiApp(conn=tmp_db)
-    app._sessions_list = MagicMock()
-    app._preview = MagicMock()
-    app._preview_user_override = True
-
-    mock_footer = MagicMock()
-    with patch.object(app, "query_one", return_value=mock_footer):
-        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(60, 20)):
-            app._update_preview_layout()
-
-    assert app._sessions_list.styles.width == 30  # max(30, int(60 * 0.4))
-    assert app._preview.display is True
-
-
-def test_manual_override_forces_show(tmp_db):
-    app = SeshiApp(conn=tmp_db)
-    app._sessions_list = MagicMock()
-    app._preview = MagicMock()
-    app._preview_user_override = True
-
-    mock_footer = MagicMock()
-    with patch.object(app, "query_one", return_value=mock_footer):
-        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(80, 24)):
-            app._update_preview_layout()
-
-    assert app._preview.display is True
-
-
-def test_manual_override_forces_hide(tmp_db):
-    app = SeshiApp(conn=tmp_db)
-    app._sessions_list = MagicMock()
-    app._preview = MagicMock()
-    app._preview_user_override = False
+    app._preview_mode = "off"
 
     mock_footer = MagicMock()
     with patch.object(app, "query_one", return_value=mock_footer):
@@ -112,31 +86,48 @@ def test_manual_override_forces_hide(tmp_db):
     assert app._sessions_list.styles.width == "1fr"
 
 
-def test_resize_resets_override(tmp_db):
+def test_minimum_list_width_enforced(tmp_db):
     app = SeshiApp(conn=tmp_db)
     app._sessions_list = MagicMock()
     app._preview = MagicMock()
-    app._preview_user_override = True
+
+    mock_footer = MagicMock()
+    with patch.object(app, "query_one", return_value=mock_footer):
+        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(50, 20)):
+            app._update_preview_layout()
+
+    assert app._sessions_list.styles.width == 30  # max(30, int(50 * 0.5))
+    assert app._preview.display is True
+
+
+def test_proportional_width_at_200(tmp_db):
+    app = SeshiApp(conn=tmp_db)
+    app._sessions_list = MagicMock()
+    app._preview = MagicMock()
+
+    mock_footer = MagicMock()
+    with patch.object(app, "query_one", return_value=mock_footer):
+        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(200, 50)):
+            app._update_preview_layout()
+
+    assert app._sessions_list.styles.width == 100  # int(200 * 0.5)
+    assert app._preview.display is True
+
+
+def test_resize_preserves_mode(tmp_db):
+    app = SeshiApp(conn=tmp_db)
+    app._sessions_list = MagicMock()
+    app._preview = MagicMock()
+    app._preview_mode = "max"
 
     mock_footer = MagicMock()
     with patch.object(app, "query_one", return_value=mock_footer), \
          patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(120, 40)):
         app.on_resize(MagicMock())
 
-    assert app._preview_user_override is None
-
-
-def test_resize_auto_hides_at_narrow(tmp_db):
-    app = SeshiApp(conn=tmp_db)
-    app._sessions_list = MagicMock()
-    app._preview = MagicMock()
-
-    mock_footer = MagicMock()
-    with patch.object(app, "query_one", return_value=mock_footer), \
-         patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(80, 24)):
-        app.on_resize(MagicMock())
-
-    assert app._preview.display is False
+    assert app._preview_mode == "max"
+    assert app._preview.display is True
+    assert app._sessions_list.styles.width == 48  # int(120 * 0.4)
 
 
 def test_resize_does_not_update_in_non_sessions_view(tmp_db):
@@ -153,51 +144,52 @@ def test_resize_does_not_update_in_non_sessions_view(tmp_db):
         mock_layout.assert_not_called()
 
 
-def test_footer_updated_with_preview_state(tmp_db):
+def test_footer_updated_with_preview_mode(tmp_db):
     app = SeshiApp(conn=tmp_db)
     app._sessions_list = MagicMock()
     app._preview = MagicMock()
+    app._preview_mode = "min"
 
     mock_footer = MagicMock(spec=Footer)
     with patch.object(app, "query_one", return_value=mock_footer):
-        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(80, 24)):
+        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(120, 40)):
             app._update_preview_layout()
 
-    assert mock_footer.preview_visible is False
+    assert mock_footer.preview_mode == "min"
 
 
-def test_footer_preview_label_when_hidden():
+def test_footer_label_hidden():
     footer = Footer()
     footer.view = "sessions"
-    footer.preview_visible = False
+    footer.preview_mode = "off"
     rendered = footer.render().plain
     assert "hidden" in rendered
 
 
-def test_footer_preview_label_when_visible():
+def test_footer_label_normal():
     footer = Footer()
     footer.view = "sessions"
-    footer.preview_visible = True
+    footer.preview_mode = "normal"
     rendered = footer.render().plain
     assert "preview" in rendered
+    assert "min" not in rendered
+    assert "max" not in rendered
 
 
-def test_layout_boundary_at_100_width(tmp_db):
-    app = SeshiApp(conn=tmp_db)
-    app._sessions_list = MagicMock()
-    app._preview = MagicMock()
+def test_footer_label_min():
+    footer = Footer()
+    footer.view = "sessions"
+    footer.preview_mode = "min"
+    rendered = footer.render().plain
+    assert "preview:min" in rendered
 
-    mock_footer = MagicMock()
-    with patch.object(app, "query_one", return_value=mock_footer):
-        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(100, 30)):
-            app._update_preview_layout()
-    assert app._preview.display is True
 
-    with patch.object(app, "query_one", return_value=mock_footer):
-        with patch.object(type(app), "size", new_callable=PropertyMock, return_value=Size(99, 30)):
-            app._preview_user_override = None
-            app._update_preview_layout()
-    assert app._preview.display is False
+def test_footer_label_max():
+    footer = Footer()
+    footer.view = "sessions"
+    footer.preview_mode = "max"
+    rendered = footer.render().plain
+    assert "preview:max" in rendered
 
 
 def test_layout_skips_without_preview(tmp_db):
@@ -217,4 +209,4 @@ def test_layout_defaults_to_120_when_size_unknown(tmp_db):
             app._update_preview_layout()
 
     assert app._preview.display is True
-    assert app._sessions_list.styles.width == 48  # int(120 * 0.4)
+    assert app._sessions_list.styles.width == 60  # int(120 * 0.5)
