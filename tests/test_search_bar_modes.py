@@ -130,6 +130,26 @@ def test_cursor_hidden_after_exit_mode():
     assert bar.active is False
 
 
+def test_exit_mode_preserves_active_search():
+    bar = SearchBar()
+    bar.search_text = "query"
+    bar.active = True
+    bar.enter_mode("rename", "name")
+    assert bar.active is True
+    bar.exit_mode()
+    assert bar.active is True
+    assert bar.search_text == "query"
+
+
+def test_exit_mode_stays_inactive_if_was_inactive():
+    bar = SearchBar()
+    bar.active = False
+    bar.enter_mode("tag")
+    assert bar.active is True
+    bar.exit_mode()
+    assert bar.active is False
+
+
 # === Edge cases ===
 
 def test_enter_mode_while_already_in_mode():

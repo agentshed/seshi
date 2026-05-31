@@ -31,12 +31,14 @@ class SearchBar(Widget):
     _has_filter_cwd: bool = False
     _saved_search_text: str = ""
     _saved_scope: str = "all"
+    _saved_active: bool = False
 
     def enter_mode(self, mode: str, prefill: str = "") -> None:
         if mode not in ("rename", "tag"):
             return
         self._saved_search_text = self.search_text
         self._saved_scope = self.scope
+        self._saved_active = self.active
         self.mode = mode
         self.search_text = prefill
         self.active = True
@@ -51,7 +53,7 @@ class SearchBar(Widget):
         self.mode = "search"
         self.search_text = self._saved_search_text
         self.scope = self._saved_scope
-        self.active = False
+        self.active = self._saved_active
 
     def watch_active(self, active: bool) -> None:
         if active:

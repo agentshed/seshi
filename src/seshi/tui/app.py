@@ -339,7 +339,6 @@ class SeshiApp(App):
         search = self.query_one(SearchBar)
 
         if search.mode != "search":
-            mode = search.mode
             search.exit_mode()
             self._set_footer_mode("normal")
             self._focus_current_list()
