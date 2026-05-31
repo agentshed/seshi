@@ -25,10 +25,10 @@ class Header(Widget):
         from seshi import __version__
         text = Text()
         text.append(" SESHI", style=f"bold {self.accent}")
+        text.append(f" {__version__}", style="dim")
         text.append(f"  {self.shown_count} of {self.session_count} sessions", style="dim")
         if self.sort_mode:
-            text.append(f"  {self.sort_mode}", style="dim italic")
+            text.append(f"  sort by: {self.sort_mode}", style="dim italic")
         if self.indexing:
             text.append("  indexing…", style="dim")
-        text.append(f"  v{__version__}", style="dim")
         return text
