@@ -22,7 +22,8 @@ class TestLaunch:
         ctrl, _ = tui
         screen = ctrl.capture()
         assert_header_visible(screen)
-        assert_screen_contains(screen, "v0.1.0")
+        from seshi import __version__
+        assert_screen_contains(screen, __version__)
 
     def test_tab_bar_visible(self, tui):
         ctrl, _ = tui
