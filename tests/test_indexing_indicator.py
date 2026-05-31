@@ -33,13 +33,14 @@ def test_header_indexing_with_session_counts():
     assert "indexing" in rendered
 
 
-def test_header_indexing_position_before_version():
+def test_header_indexing_position_after_version():
+    from seshi import __version__
     header = Header()
     header.indexing = True
     rendered = header.render().plain
-    version_pos = rendered.find("v0.1.0")
+    version_pos = rendered.find(__version__)
     indexing_pos = rendered.find("indexing")
-    assert indexing_pos < version_pos, "indexing indicator should appear before version in compact header"
+    assert version_pos < indexing_pos, "version should appear before indexing indicator in header"
 
 
 def test_header_render_stable_without_indexing():

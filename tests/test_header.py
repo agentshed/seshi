@@ -13,9 +13,10 @@ def test_compact_header_renders_single_line():
 
 
 def test_compact_header_shows_version():
+    from seshi import __version__
     header = Header()
     rendered = header.render()
-    assert "v" in rendered.plain
+    assert __version__ in rendered.plain
 
 
 def test_compact_header_shows_counts():
