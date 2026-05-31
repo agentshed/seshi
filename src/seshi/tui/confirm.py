@@ -16,7 +16,7 @@ def confirm_resume(session: Session, query: str) -> str:
     tty_in = os.fdopen(tty_fd, "r", closefd=False)
     tty_out = os.fdopen(tty_fd, "w", closefd=False)
 
-    raw_name = session.custom_name or session.first_prompt or ""
+    raw_name = session.custom_name or session.ai_title or session.first_prompt or ""
     name = strip_markup_tags(raw_name) or session.session_id[:8]
     home = os.path.expanduser("~")
     cwd = session.cwd

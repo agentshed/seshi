@@ -128,7 +128,7 @@ Event-driven pipeline with command dispatch. The system has three layers:
 
 **Acceptance criteria**:
 - Sessions displayed in groups: `★ favorites` first, then grouped by project path with headers showing `── ~/path (lang) Xh ago ──`
-- Each row shows: favorite mark, title (custom_name or first_prompt), tag chips (at ≥60 char width)
+- Each row shows: favorite mark, title (custom_name or ai_title or first_prompt), tag chips (at ≥60 char width)
 - Live search: any typed character filters the list in real time
 - `#tag` tokens in search filter by tag (AND semantics for multiple tags)
 - Selected row highlighted with accent-colored background
@@ -200,7 +200,7 @@ Favorites always sort to the top regardless of sort mode. Sort mode is persisted
 **TUI search** (`seshi <query>`): opens the TUI with the search bar pre-populated with `<query>` and results filtered. When the argument doesn't match a subcommand, the CLI routes to the TUI. For non-interactive search resume, use `seshi resume <query>`.
 
 **Business rules**:
-1. **Exact match**: case-insensitive `custom_name` or `session_id` match → resume immediately (no prompt)
+1. **Exact match**: case-insensitive `custom_name`, `ai_title`, or `session_id` match → resume immediately (no prompt)
 2. **Multiple exact matches**: open TUI pre-filtered
 3. **Fuzzy ranking**: score = max of (`custom_name` × 4, `first_prompt` × 2, `cwd` × 1)
 4. **Clear winner**: if top score ≥ second score × 1.4, show confirmation prompt
@@ -270,7 +270,7 @@ When `--here` is active, only sessions matching the current `cwd` are considered
 
 - Tool-use blocks render as fenced code with the tool name as language hint
 - Tool results render in `tool-result` fences
-- Title priority: `custom_name` > `first_prompt` > `session_id`
+- Title priority: `custom_name` > `ai_title` > `first_prompt` > `session_id`
 - Session resolved via standard lookup (see section 9)
 
 **Input validation**: rejects IDs containing `/` or `..` (path traversal prevention).
@@ -690,7 +690,7 @@ These flags are available on all commands:
 
 Each session row contains:
 - **Gutter** (11 chars): selection/favorite mark (`[x]`, `*`, or space), language tag
-- **Title** (38 chars): `custom_name` or `first_prompt` or "(untitled)"
+- **Title** (38 chars): `custom_name` or `ai_title` or `first_prompt` or "(untitled)"
 - **CWD** (30 chars): shortened with mid-ellipsis if too long
 - **Relative time**: "just now", "17m ago", "3h ago", "yesterday", "3d ago", or ISO date for >60 days
 - **Tag chips**: `#bug #wip` (shown only if terminal width > 80)
@@ -1113,7 +1113,7 @@ Used by `auto-name` to generate session names. Inherits the user's existing Clau
 | **Dash encoding** | Claude Code's convention of encoding filesystem paths by replacing `/` with `-` in the projects directory name |
 | **Frecency** | A ranking heuristic that combines frequency (how often) and recency (how recently) into a single score. Used as the default session sort mode |
 | **Sort mode** | The active ordering strategy for session lists: frecency (default), recency, or frequency |
-| **Session resolution** | The standard lookup sequence used by all commands: try `custom_name` match first, then `session_id` (see section 9) |
+| **Session resolution** | The standard lookup sequence used by all commands: try `custom_name` match first, then `ai_title`, then `session_id` (see section 9) |
 | **Global flag** | A CLI flag (`--here`, `--no-color`, `--help`, `--version`) available on all commands |
 | **Archive** | Reversible soft-delete: hides a session from views without removing data from the registry |
 

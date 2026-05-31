@@ -19,7 +19,7 @@ def delete(identifier, force):
             click.echo(f"session not found: {identifier}", err=True)
             raise SystemExit(1)
 
-        name = session.custom_name or session.first_prompt or session.session_id[:8]
+        name = session.custom_name or session.ai_title or session.first_prompt or session.session_id[:8]
 
         if not force:
             try:

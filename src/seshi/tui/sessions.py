@@ -333,7 +333,7 @@ class SessionsList(Widget):
                     collapse_mark = " "
 
                 sel_mark = ("[x]" if is_selected else "   ") if in_selection else ""
-                title = (s.custom_name or strip_markup_tags(strip_system_blocks(s.first_prompt or "")) or "(untitled)")[:title_w]
+                title = (s.custom_name or s.ai_title or strip_markup_tags(strip_system_blocks(s.first_prompt or "")) or "(untitled)")[:title_w]
 
                 fav = " *" if s.is_favorite else "  "
 

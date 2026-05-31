@@ -68,6 +68,6 @@ def list_cmd(ctx, fmt, limit, tag, sort, archived, here):
         fav = "*" if s.is_favorite else " "
         lang = detect_language(s.cwd)
         lang_str = f" {lang:>3}" if lang else "    "
-        title = s.custom_name or (s.first_prompt or "(untitled)")[:38]
+        title = (s.custom_name or s.ai_title or s.first_prompt or "(untitled)")[:38]
         rel = relative_time(s.last_activity_at)
         click.echo(f" {fav}{lang_str}  {title:<38}  {s.cwd:<30}  {rel}")

@@ -8,7 +8,7 @@ def _session(cwd="/home/user", argv=None, session_id="test-id"):
     return Session(
         session_id=session_id, cwd=cwd, launch_argv_json=argv_json,
         env_json=None, git_branch=None, git_sha=None, first_prompt=None,
-        custom_name=None, is_favorite=0, is_archived=0, is_backfilled=0,
+        custom_name=None, ai_title=None, is_favorite=0, is_archived=0, is_backfilled=0,
         message_count=0, token_count=0, status=None,
         created_at=1000, last_activity_at=1000, origin_host=None, schema_version=1,
     )

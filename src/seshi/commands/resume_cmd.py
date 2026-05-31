@@ -33,7 +33,7 @@ def resume(ctx, query):
 
         if second_score == 0 or top_score >= second_score * 1.4:
             session = results[0][0]
-            name = session.custom_name or session.first_prompt or session.session_id[:8]
+            name = session.custom_name or session.ai_title or session.first_prompt or session.session_id[:8]
             click.echo(f"match: {name} ({session.cwd})", err=True)
             click.echo("press Enter to resume, or Ctrl-C to cancel", err=True)
             try:
@@ -48,6 +48,6 @@ def resume(ctx, query):
             click.echo(f"ambiguous query: {query_str}", err=True)
             click.echo("top matches:", err=True)
             for session, score in results[:5]:
-                name = session.custom_name or session.first_prompt or session.session_id[:8]
+                name = session.custom_name or session.ai_title or session.first_prompt or session.session_id[:8]
                 click.echo(f"  {name} ({session.cwd})", err=True)
             raise SystemExit(1)

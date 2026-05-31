@@ -40,7 +40,7 @@ The shell wrapper `seshi()` captures stdout via `$(command seshi "$@")` and `eva
 
 ### Session resolution
 
-All commands that take a session identifier use `search.session_resolve()`: try `custom_name` (case-insensitive) first, then `session_id`. Search uses `rank_sessions()` with a BM25+RRF pipeline: dual FTS5 tables (porter stemming + trigram substring) for session metadata are merged with transcript FTS5 results via Reciprocal Rank Fusion (K=60). Per-field BM25 weights (name=5×, prompt=2×, cwd=1×, prompt_text=1.5×) ensure name matches outrank transcript hits. Multi-term queries are boosted by proximity reranking (title match, minimum span, adjacent phrase pairs). When FTS returns nothing, Levenshtein edit-distance correction is applied as a fallback. Results are blended with frecency (1×–2× multiplier) so frequently-used sessions win ties.
+All commands that take a session identifier use `search.session_resolve()`: try `custom_name` (case-insensitive) first, then `ai_title` (case-insensitive), then `session_id`. Search uses `rank_sessions()` with a BM25+RRF pipeline: dual FTS5 tables (porter stemming + trigram substring) for session metadata are merged with transcript FTS5 results via Reciprocal Rank Fusion (K=60). Per-field BM25 weights (name=5×, prompt=2×, cwd=1×, prompt_text=1.5×) ensure name matches outrank transcript hits. Multi-term queries are boosted by proximity reranking (title match, minimum span, adjacent phrase pairs). When FTS returns nothing, Levenshtein edit-distance correction is applied as a fallback. Results are blended with frecency (1×–2× multiplier) so frequently-used sessions win ties.
 
 ### Path unsanitization
 

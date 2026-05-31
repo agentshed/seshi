@@ -37,13 +37,13 @@ def extract_vocabulary(conn: sqlite3.Connection, text: str) -> int:
 
 def index_session_search(conn: sqlite3.Connection, session_id: str) -> bool:
     row = conn.execute(
-        "SELECT custom_name, first_prompt, cwd FROM sessions WHERE session_id = ?",
+        "SELECT custom_name, ai_title, first_prompt, cwd FROM sessions WHERE session_id = ?",
         (session_id,),
     ).fetchone()
     if not row:
         return False
 
-    name = row["custom_name"] or ""
+    name = row["custom_name"] or row["ai_title"] or ""
     first_prompt = strip_markup_tags(strip_system_blocks(row["first_prompt"] or ""))
     cwd = row["cwd"] or ""
 
