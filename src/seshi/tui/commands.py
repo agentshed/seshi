@@ -16,7 +16,7 @@ class SeshiCommands(Provider):
             ("Toggle archive", "Archive or unarchive the selected session", "action_archive"),
             ("Delete session", "Delete the selected session (with confirmation)", "action_delete"),
             ("Cycle sort mode", "Cycle between frecency, recency, and frequency", "action_cycle_sort"),
-            ("Toggle preview pane", "Show or hide the preview pane", "action_toggle_preview"),
+            ("Cycle preview mode", "Cycle preview: normal / min / max / off", "action_toggle_preview"),
             ("Toggle expand", "Expand or collapse current session prompts", "action_toggle_expand"),
             ("Expand/collapse all", "Toggle expand on all sessions", "action_toggle_expand_all"),
             ("Undo last action", "Undo the most recent mutation", "action_undo"),

@@ -492,7 +492,7 @@ class SeshiApp(App):
 - `z`: undo last action (10-deep stack)
 - `s`: cycle sort mode
 - `H`: toggle hide missing dirs
-- `p`: toggle preview pane
+- `p`: cycle preview mode (normal / min / max / off)
 - `Ctrl-p`: open command palette
 - `Space`: toggle bulk selection
 - `Ctrl-a`: select all visible

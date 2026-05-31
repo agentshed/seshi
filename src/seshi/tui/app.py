@@ -47,7 +47,7 @@ class SeshiApp(App):
         self._owns_conn = conn is None
         self._view_counter = 0
         self._no_color = "NO_COLOR" in os.environ
-        self._preview_user_override: bool | None = None
+        self._preview_mode: str = "normal"
         theme_name = "coral"
         if self._no_color:
             theme_name = "mono"
@@ -167,27 +167,27 @@ class SeshiApp(App):
         except Exception:
             pass
 
+    _PREVIEW_RATIOS = {"normal": 0.5, "min": 0.875, "max": 0.4}
+    PREVIEW_MODES = [*_PREVIEW_RATIOS, "off"]
+
     def _update_preview_layout(self) -> None:
         if not hasattr(self, '_preview') or not hasattr(self, '_sessions_list'):
             return
         width = self.size.width if self.size.width > 0 else 120
-        if self._preview_user_override is not None:
-            show = self._preview_user_override
-        else:
-            show = width >= 100
-        self._preview.display = show
-        if show:
-            list_width = max(30, int(width * 0.4))
-            self._sessions_list.styles.width = list_width
-        else:
+        mode = self._preview_mode
+        if mode == "off":
+            self._preview.display = False
             self._sessions_list.styles.width = "1fr"
+        else:
+            self._preview.display = True
+            ratio = self._PREVIEW_RATIOS.get(mode, 0.5)
+            self._sessions_list.styles.width = max(30, int(width * ratio))
         try:
-            self.query_one(Footer).preview_visible = show
+            self.query_one(Footer).preview_mode = self._preview_mode
         except Exception:
             pass
 
     def on_resize(self, event) -> None:
-        self._preview_user_override = None
         if self.current_view == "sessions":
             self._update_preview_layout()
 
@@ -506,7 +506,7 @@ class SeshiApp(App):
         self._sessions_action("_cycle_sort")
 
     def action_toggle_preview(self) -> None:
-        self._sessions_action("_toggle_preview")
+        self._sessions_action("_cycle_preview")
 
     def action_toggle_expand(self) -> None:
         self._sessions_action("_toggle_expand")

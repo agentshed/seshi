@@ -15,7 +15,7 @@ class Footer(Widget):
     has_selection: reactive[bool] = reactive(False)
     mode: reactive[str] = reactive("normal")
     accent: reactive[str] = reactive("#E08A5E")
-    preview_visible: reactive[bool] = reactive(True)
+    preview_mode: reactive[str] = reactive("normal")
 
     def render(self) -> Text:
         text = Text()
@@ -40,7 +40,7 @@ class Footer(Widget):
                 ("r", "rename"), ("t", "tag"), ("P", "project"),
                 ("u", "archive"), ("e", "expand"), ("c", "compact"),
                 ("H", "hide"),
-                ("p", "preview" if self.preview_visible else "hidden"),
+                ("p", {"normal": "preview", "min": "preview:min", "max": "preview:max", "off": "hidden"}.get(self.preview_mode, "preview")),
                 ("Space", "select"), ("?", "help"),
             ]
         elif self.view == "projects":

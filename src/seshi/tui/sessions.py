@@ -453,7 +453,7 @@ class SessionsList(Widget):
         elif event.key == "P":
             self._filter_to_current_project()
         elif event.key == "p":
-            self._toggle_preview()
+            self._cycle_preview()
         elif event.key == "slash":
             search = self.app.query_one(SearchBar)
             search.active = True
@@ -590,10 +590,13 @@ class SessionsList(Widget):
         set_setting(self.conn, "hide_stale_sessions", new_val)
         self._reload_with_current_filter()
 
-    def _toggle_preview(self):
+    def _cycle_preview(self):
         if hasattr(self.app, '_preview'):
-            currently_visible = self.app._preview.display
-            self.app._preview_user_override = not currently_visible
+            from seshi.tui.app import SeshiApp
+            modes = SeshiApp.PREVIEW_MODES
+            current = getattr(self.app, '_preview_mode', 'normal')
+            idx = modes.index(current) if current in modes else 0
+            self.app._preview_mode = modes[(idx + 1) % len(modes)]
             if hasattr(self.app, '_update_preview_layout'):
                 self.app._update_preview_layout()
 
