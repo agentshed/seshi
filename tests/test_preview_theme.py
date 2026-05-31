@@ -2,6 +2,7 @@
 from unittest.mock import MagicMock, PropertyMock, patch
 from seshi.tui.preview import Preview
 from seshi.models import Session
+from textual.geometry import Size
 
 
 def _make_session(session_id="s1"):
@@ -27,15 +28,6 @@ def _make_session(session_id="s1"):
     )
 
 
-def _make_preview_with_size(**kwargs):
-    p = Preview(**kwargs)
-    mock_size = MagicMock()
-    mock_size.width = 120
-    mock_size.height = 20
-    type(p).size = PropertyMock(return_value=mock_size)
-    return p
-
-
 def _mock_messages():
     msg_user = MagicMock()
     msg_user.role = "user"
@@ -46,14 +38,19 @@ def _mock_messages():
     return [msg_user, msg_asst]
 
 
+def _render_with_size(preview):
+    with patch.object(type(preview), "size", new_callable=PropertyMock, return_value=Size(120, 20)):
+        return preview.render()
+
+
 def test_preview_uses_custom_user_color():
-    p = _make_preview_with_size()
+    p = Preview()
     p.user_color = "#FF0000"
     p.session = _make_session()
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
          patch("seshi.tui.preview.extract_messages", return_value=_mock_messages()):
-        rendered = p.render()
+        rendered = _render_with_size(p)
 
     spans = rendered._spans
     has_color = any("FF0000" in str(s.style).upper() or "ff0000" in str(s.style) for s in spans)
@@ -61,13 +58,13 @@ def test_preview_uses_custom_user_color():
 
 
 def test_preview_uses_custom_assistant_color():
-    p = _make_preview_with_size()
+    p = Preview()
     p.assistant_color = "#00FF00"
     p.session = _make_session()
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
          patch("seshi.tui.preview.extract_messages", return_value=_mock_messages()):
-        rendered = p.render()
+        rendered = _render_with_size(p)
 
     spans = rendered._spans
     has_color = any("00FF00" in str(s.style).upper() or "00ff00" in str(s.style) for s in spans)
@@ -75,38 +72,37 @@ def test_preview_uses_custom_assistant_color():
 
 
 def test_preview_defaults_to_fallback_colors():
-    p = _make_preview_with_size()
+    p = Preview()
     p.session = _make_session()
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
          patch("seshi.tui.preview.extract_messages", return_value=_mock_messages()):
-        rendered = p.render()
+        rendered = _render_with_size(p)
 
-    # Should use the default colors without crashing
     text = rendered.plain
     assert "you" in text
     assert "asst" in text
 
 
 def test_preview_with_no_session():
-    p = _make_preview_with_size()
+    p = Preview()
     p.user_color = "#FF0000"
     p.assistant_color = "#00FF00"
     p.session = None
-    rendered = p.render()
+    rendered = _render_with_size(p)
     assert "no session selected" in rendered.plain
 
 
 def test_preview_reacts_to_color_change():
-    p = _make_preview_with_size()
+    p = Preview()
     p.user_color = "#FF0000"
     p.session = _make_session()
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
          patch("seshi.tui.preview.extract_messages", return_value=_mock_messages()):
-        rendered1 = p.render()
+        rendered1 = _render_with_size(p)
         p.user_color = "#0000FF"
-        rendered2 = p.render()
+        rendered2 = _render_with_size(p)
 
     spans1 = rendered1._spans
     spans2 = rendered2._spans
