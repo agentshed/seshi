@@ -338,7 +338,7 @@ def find_transcript_path(session_id) -> Path | None:
 **`search.py`**:
 ```python
 def session_resolve(conn, identifier: str) -> Session:
-    """Standard lookup: custom_name (case-insensitive) → session_id → NOT_FOUND."""
+    """Standard lookup: custom_name → ai_title → session_id → NOT_FOUND (all case-insensitive)."""
 
 def rank_sessions(conn, query: str, filter_cwd=None) -> list[tuple[Session, float]]:
     """BM25+RRF pipeline: dual FTS5 (porter+trigram) + transcript FTS → RRF merge → proximity rerank → frecency blend."""
@@ -664,7 +664,7 @@ def mock_projects(tmp_path):
 |--------|-----------|---------------|
 | `db.py` | 6 | Schema creation, WAL mode, foreign keys, default settings, readonly, context cleanup |
 | `drain.py` | 9 | Start insert, stop update, idempotent start, malformed skip, missing queue, stop for unknown session, first_prompt COALESCE |
-| `search.py` | 10 | BM25+RRF ranking, sanitize_query, levenshtein, rrf_merge, proximity reranking, session_resolve by name/id, frecency ordering, false-positive rejection, typo correction |
+| `search.py` | 10 | BM25+RRF ranking, sanitize_query, levenshtein, rrf_merge, proximity reranking, session_resolve by name/ai_title/id, frecency ordering, false-positive rejection, typo correction |
 | `paths.py` | 7 | Basic unsanitize, power-set enumeration, dotfile `--` handling, resolve prefers existing, >6 dashes fallback |
 | `resume.py` | 8 | Format correctness, shell_quote safe/special chars, strip --resume, ensure argv[0]="claude" |
 | `scan.py` | 6 | Pattern A, Pattern B, idempotent, skip skill-injections, no double-insert |
