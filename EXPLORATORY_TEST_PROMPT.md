@@ -76,7 +76,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 
 #### 1.1 Cold Start (Positive)
 - Launch `uv run seshi` in a standard 120x40 terminal
-- **Verify:** Header renders with compact `SESHI` text, sort mode, session count (e.g., `SESHI  12 of 45 sessions  frecency  v0.1.0`), and optional `indexing…` indicator during background transcript indexing
+- **Verify:** Header renders with compact `SESHI` text, sort mode, session count (e.g., `SESHI 0.1.0  12 of 45 sessions  sort by: frecency`), and optional `indexing…` indicator during background transcript indexing
 - **Verify:** ASCII art logo appears in the Help view (`?`) with theme-aware accent color
 - **Verify:** Tab bar shows `1 sessions  2 overview  3 projects  ? help`
 - **Verify:** Search bar shows `>` prompt with cursor and count `N / N`
