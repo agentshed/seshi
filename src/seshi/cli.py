@@ -37,7 +37,7 @@ def main(ctx, no_color, here):
             from seshi.hook_manager import hook_needs_update, install_hook
             reason = hook_needs_update()
             if reason:
-                if click.confirm(f"Seshi hook {reason}. Install now?", default=True):
+                if click.confirm(f"Seshi hook {reason}. Install now?", default=True, err=True):
                     install_hook()
         except Exception:
             pass
