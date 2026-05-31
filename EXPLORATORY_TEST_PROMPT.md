@@ -79,7 +79,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - **Verify:** Header renders with compact `SESHI` text, sort mode, session count (e.g., `SESHI 0.1.0  12 of 45 sessions  sort by: frecency`), and optional `indexing…` indicator during background transcript indexing
 - **Verify:** ASCII art logo appears in the Help view (`?`) with theme-aware accent color
 - **Verify:** Tab bar shows `1 sessions  2 overview  3 projects  ? help`
-- **Verify:** Search bar shows `>` prompt with cursor and count `N / N`
+- **Verify:** Search bar shows `search>` prompt with cursor and count `N / N`
 - **Verify:** Session list populates with sessions sorted by frecency (favorites first, then by score)
 - **Verify:** Preview pane shows transcript of the cursor-highlighted session
 - **Verify:** Footer shows contextual keys ordered by priority: `Enter resume  / search  f favorite  d delete  s sort  r rename  t tag  u archive  Space select  Tab view`
@@ -347,7 +347,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 #### 5.3 Clear Selection (Escape)
 - Select some sessions, then press Escape
 - **Verify:** Selection clears (all `[x]` removed)
-- **Verify:** If there is also an active search, Escape priority is: input_mode > search active > search query > filter_cwd > selection > quit
+- **Verify:** If there is also an active search, Escape priority is: SearchBar non-search mode (rename/tag) > search active > search query > filter_cwd > selection > quit
 
 #### 5.4 Bulk Operations
 - Select 5 sessions, press `f` — all 5 favorited

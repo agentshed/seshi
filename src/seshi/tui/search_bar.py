@@ -33,6 +33,8 @@ class SearchBar(Widget):
     _saved_scope: str = "all"
 
     def enter_mode(self, mode: str, prefill: str = "") -> None:
+        if mode not in ("rename", "tag"):
+            return
         self._saved_search_text = self.search_text
         self._saved_scope = self.scope
         self.mode = mode

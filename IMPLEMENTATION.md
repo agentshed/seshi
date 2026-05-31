@@ -484,8 +484,8 @@ class SeshiApp(App):
 **`tui/sessions.py`** — The main view. Key bindings:
 - `j`/`k`/`↑`/`↓`: navigate
 - `Enter`: resume selected session
-- `r`: inline rename (text input overlay)
-- `t`: tag toggle prompt
+- `r`: rename (switches SearchBar to `rename>` mode)
+- `t`: tag (switches SearchBar to `tag>` mode)
 - `f`: toggle favorite
 - `u`: toggle archive
 - `d`: delete (with confirmation)
@@ -500,10 +500,10 @@ class SeshiApp(App):
 - `Ctrl-u`/`Ctrl-d`: page up/down
 - `Esc`: clear selection or quit
 
-**`tui/search_bar.py`** — Text input that:
-- Parses `#tag` tokens from the query
-- Triggers re-filter on every keystroke
-- Shows `{shown} / {total}` count
+**`tui/search_bar.py`** — Unified text input with a `mode` property (`search`, `rename`, `tag`):
+- Displays mode prefix (`search>`, `rename>`, `tag>`) with blinking cursor
+- In search mode: parses `#tag` tokens, triggers re-filter on every keystroke, shows `{shown} / {total}` count
+- In rename/tag mode: posts `InputSubmitted`/`InputCancelled` messages on Enter/Escape, hides counts and scope
 
 **`tui/preview.py`** — Lazy-loads transcript on selection change. Shows last N messages with role labels.
 
@@ -546,8 +546,8 @@ def confirm_resume(session, query) -> str:
 
 ### Phase 9: TUI — Advanced (Week 6)
 
-1. Inline rename overlay (text input on selected row)
-2. Tag toggle prompt (validates `[\w\-]`)
+1. Rename via SearchBar mode (`rename>` prefix, prefills current name)
+2. Tag via SearchBar mode (`tag>` prefix, validates `[\w\-]`)
 3. Bulk selection with `[x]` marks, bulk delete/tag
 4. Sort mode cycling with persisted setting
 5. Archive toggle (`u` key)
