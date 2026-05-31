@@ -228,8 +228,8 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 
 #### 4.3 Rename (r) — Positive
 - Press `r` on a session
-- **Verify:** Inline input appears with label "rename: " and a blinking cursor (block char)
-- **Verify:** If session already has a custom_name, it pre-fills the buffer
+- **Verify:** Search bar switches to `rename>` mode with a blinking cursor
+- **Verify:** If session already has a custom_name, it pre-fills the search bar
 - **Verify:** Footer changes to "Enter save  Esc cancel"
 - Type a new name, press Enter
 - **Verify:** Name updates in the list immediately
@@ -255,7 +255,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 
 #### 4.6 Tag (t) — Positive
 - Press `t` on a session
-- **Verify:** Inline input appears with label "tag: " and cursor
+- **Verify:** Search bar switches to `tag>` mode with a blinking cursor
 - **Verify:** Footer changes to "Enter apply  Esc cancel"
 - Type a tag name (alphanumeric + hyphens + underscores), press Enter
 - **Verify:** Tag appears next to the session as `#tagname`
@@ -464,7 +464,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - Cross-reference every keybinding in the help text against actual code behavior:
   - `r` in Projects view says "Rename project" — **Verify:** is this actually implemented? (check ProjectsView.on_key for 'r' handler)
   - Help says `#tag` uses "AND semantics for multiple" — **Verify:** correct per `_parse_search` and `list_sessions`
-  - Help mentions `Esc` to "Clear selection (or quit if none selected)" — **Verify:** actual Escape layering is more complex (input_mode > search active > search query > filter_cwd > selection > quit)
+  - Help mentions `Esc` to "Clear selection (or quit if none selected)" — **Verify:** actual Escape layering is more complex (SearchBar non-search mode > search active > search query > filter_cwd > selection > quit)
 
 ---
 
