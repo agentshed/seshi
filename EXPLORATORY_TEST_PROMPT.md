@@ -79,7 +79,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - **Verify:** Header renders with compact `SESHI` text, sort mode, session count (e.g., `SESHI  12 of 45 sessions  frecency  v0.1.0`), and optional `indexing…` indicator during background transcript indexing
 - **Verify:** ASCII art logo appears in the Help view (`?`) with theme-aware accent color
 - **Verify:** Tab bar shows `1 sessions  2 overview  3 projects  ? help`
-- **Verify:** Search bar shows `>` prompt with cursor, sort mode label (default: "frecency"), and count `N / N`
+- **Verify:** Search bar shows `>` prompt with cursor and count `N / N`
 - **Verify:** Session list populates with sessions sorted by frecency (favorites first, then by score)
 - **Verify:** Preview pane shows transcript of the cursor-highlighted session
 - **Verify:** Footer shows contextual keys ordered by priority: `Enter resume  / search  f favorite  d delete  s sort  r rename  t tag  u archive  Space select  Tab view`
@@ -314,7 +314,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 
 #### 4.14 Sort Cycling (s)
 - Press `s` once: sort changes from "frecency" to "recency"
-- **Verify:** Search bar shows updated sort mode label
+- **Verify:** Header shows updated sort mode label
 - **Verify:** Session order changes (now pure recency — most recent first)
 - Press `s` again: changes to "frequency"
 - **Verify:** Sessions sorted by resume count (most-resumed sessions first)
@@ -760,9 +760,9 @@ Rate each of these on a 1-5 scale and document observations:
 ### SECTION 19: Search Bar Display Details
 
 #### 19.1 Sort Mode Display
-- **Verify:** Current sort mode (frecency/recency/frequency) shown in search bar
+- **Verify:** Current sort mode (frecency/recency/frequency) shown in the header
 - Change sort mode with `s`
-- **Verify:** Search bar label updates immediately
+- **Verify:** Header sort label updates immediately
 
 #### 19.2 Count Display
 - **Verify:** Format is `{shown} / {total}` at the right edge of the search bar
