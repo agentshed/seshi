@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual import events
-from textual.timer import Timer
 from rich.text import Text
 
 from seshi.models import Session, Prompt
@@ -280,11 +279,6 @@ class SessionsList(Widget):
     def render(self) -> Text:
         text = Text()
 
-        if self._input_mode:
-            label = "rename" if self._input_mode == "rename" else "tag"
-            cursor = "_" if self._cursor_visible else " "
-            text.append(f"  {label}: {self._input_buffer}{cursor}\n\n", style="bold")
-
         if not self.sessions:
             if self._current_query or self._current_tags:
                 text.append("  No sessions match your search.\n", style="dim")
@@ -402,36 +396,10 @@ class SessionsList(Widget):
         except Exception:
             pass
 
-    _input_mode: str = ""
-    _input_buffer: str = ""
-    _cursor_visible: bool = True
-    _blink_timer: Timer | None = None
-
-    def _start_blink(self) -> None:
-        self._cursor_visible = True
-        try:
-            self._blink_timer = self.set_interval(0.5, self._toggle_cursor)
-        except RuntimeError:
-            pass
-
-    def _stop_blink(self) -> None:
-        if self._blink_timer:
-            self._blink_timer.stop()
-            self._blink_timer = None
-        self._cursor_visible = True
-
-    def _toggle_cursor(self) -> None:
-        self._cursor_visible = not self._cursor_visible
-        self.refresh()
-
     def on_key(self, event: events.Key) -> None:
         if getattr(self.app, "_quit_toast_active", False):
             self.app._quit_toast_active = False
             event.stop()
-            return
-
-        if self._input_mode:
-            self._handle_input_key(event)
             return
 
         nav_count = self._nav_row_count()
@@ -516,37 +484,6 @@ class SessionsList(Widget):
             self.refresh()
             event.stop()
 
-    def _handle_input_key(self, event: events.Key):
-        if event.key == "escape":
-            self._input_mode = ""
-            self._input_buffer = ""
-            self._stop_blink()
-            self._update_footer("normal")
-            self.refresh()
-            event.stop()
-            return
-        if event.key == "enter":
-            if self._input_mode == "rename":
-                self._apply_rename()
-            elif self._input_mode == "tag":
-                self._apply_tag()
-            self._input_mode = ""
-            self._input_buffer = ""
-            self._stop_blink()
-            self._update_footer("normal")
-            self.refresh()
-            event.stop()
-            return
-        if event.key == "backspace":
-            self._input_buffer = self._input_buffer[:-1]
-            self.refresh()
-            event.stop()
-            return
-        if event.is_printable and event.character:
-            self._input_buffer += event.character
-            self.refresh()
-            event.stop()
-
     def _update_footer(self, mode: str):
         try:
             footer = self.app.query_one("Footer")
@@ -558,21 +495,17 @@ class SessionsList(Widget):
         s = self.current_session
         if not s:
             return
-        self._input_mode = "rename"
-        self._input_buffer = s.custom_name or ""
-        self._start_blink()
+        search = self.app.query_one(SearchBar)
+        search.enter_mode("rename", prefill=s.custom_name or "")
         self._update_footer("rename")
-        self.refresh()
 
     def _start_tag(self):
         s = self.current_session
         if not s:
             return
-        self._input_mode = "tag"
-        self._input_buffer = ""
-        self._start_blink()
+        search = self.app.query_one(SearchBar)
+        search.enter_mode("tag")
         self._update_footer("tag")
-        self.refresh()
 
     def _toggle_expand(self):
         s = self.current_session
@@ -664,12 +597,12 @@ class SessionsList(Widget):
             if hasattr(self.app, '_update_preview_layout'):
                 self.app._update_preview_layout()
 
-    def _apply_rename(self):
+    def _apply_rename_text(self, text: str):
         s = self.current_session
         if not s:
             return
         old_name = s.custom_name
-        name = self._input_buffer.strip() or None
+        name = text.strip() or None
         self.conn.execute("UPDATE sessions SET custom_name = ? WHERE session_id = ?", (name, s.session_id))
         self.conn.commit()
         display = name or "(untitled)"
@@ -686,8 +619,8 @@ class SessionsList(Widget):
         reindex_session(self.conn, s.session_id)
         self._reload_with_current_filter()
 
-    def _apply_tag(self):
-        tag = self._input_buffer.strip()
+    def _apply_tag_text(self, text: str):
+        tag = text.strip()
         if not tag or not re.match(r"^[\w\-]+$", tag):
             return
         targets = list(self.selected) if self.selected else [self.current_session.session_id] if self.current_session else []

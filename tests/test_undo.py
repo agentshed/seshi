@@ -62,9 +62,7 @@ def test_undo_stack_empty_property():
 def test_undo_rename_restores_old_name(tmp_db):
     _insert_session(tmp_db, "s1", custom_name="original")
     view = SessionsList(tmp_db)
-    view._input_mode = "rename"
-    view._input_buffer = "new-name"
-    view._apply_rename()
+    view._apply_rename_text("new-name")
     row = tmp_db.execute("SELECT custom_name FROM sessions WHERE session_id = ?", ("s1",)).fetchone()
     assert row["custom_name"] == "new-name"
     assert not view._undo.empty
@@ -80,9 +78,7 @@ def test_undo_rename_restores_old_name(tmp_db):
 def test_undo_tag_removes_added_tag(tmp_db):
     _insert_session(tmp_db, "s1")
     view = SessionsList(tmp_db)
-    view._input_mode = "tag"
-    view._input_buffer = "prod"
-    view._apply_tag()
+    view._apply_tag_text("prod")
     tags = tmp_db.execute("SELECT tag FROM tags WHERE session_id = ?", ("s1",)).fetchall()
     assert any(t["tag"] == "prod" for t in tags)
 
@@ -155,13 +151,9 @@ def test_multiple_undo_operations(tmp_db):
     _insert_session(tmp_db, "s1", custom_name="orig")
     view = SessionsList(tmp_db)
 
-    view._input_mode = "rename"
-    view._input_buffer = "renamed"
-    view._apply_rename()
+    view._apply_rename_text("renamed")
 
-    view._input_mode = "tag"
-    view._input_buffer = "prod"
-    view._apply_tag()
+    view._apply_tag_text("prod")
 
     view._toggle_favorite()
 

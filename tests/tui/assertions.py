@@ -73,12 +73,12 @@ def assert_no_selection_marker(screen: CapturedScreen, name: str) -> None:
 
 
 def assert_input_prompt(screen: CapturedScreen, mode: str) -> None:
-    assert_screen_contains(screen, f"{mode}:", f"Expected '{mode}:' input prompt")
+    assert_screen_contains(screen, f"{mode}>", f"Expected '{mode}>' input prompt")
 
 
 def assert_no_input_prompt(screen: CapturedScreen) -> None:
-    assert_screen_not_contains(screen, "rename:", "Unexpected rename prompt")
-    assert_screen_not_contains(screen, "tag:", "Unexpected tag prompt")
+    assert_screen_not_contains(screen, "rename>", "Unexpected rename prompt")
+    assert_screen_not_contains(screen, "tag>", "Unexpected tag prompt")
 
 
 def assert_view_active(screen: CapturedScreen, view: str) -> None:

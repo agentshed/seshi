@@ -4,7 +4,6 @@ import sqlite3
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual import events
-from textual.timer import Timer
 from rich.text import Text
 
 from seshi.lang_detect import detect_language
@@ -20,24 +19,6 @@ class ProjectsView(Widget):
 
     can_focus = True
     cursor: reactive[int] = reactive(0)
-    _input_mode: str = ""
-    _input_buffer: str = ""
-    _cursor_visible: bool = True
-    _blink_timer: Timer | None = None
-
-    def _start_blink(self) -> None:
-        self._cursor_visible = True
-        self._blink_timer = self.set_interval(0.5, self._toggle_cursor)
-
-    def _stop_blink(self) -> None:
-        if self._blink_timer:
-            self._blink_timer.stop()
-            self._blink_timer = None
-        self._cursor_visible = True
-
-    def _toggle_cursor(self) -> None:
-        self._cursor_visible = not self._cursor_visible
-        self.refresh()
 
     def __init__(self, conn: sqlite3.Connection, **kwargs):
         super().__init__(**kwargs)
@@ -73,10 +54,6 @@ class ProjectsView(Widget):
 
     def render(self) -> Text:
         text = Text()
-
-        if self._input_mode == "rename":
-            cursor = "_" if self._cursor_visible else " "
-            text.append(f"  rename: {self._input_buffer}{cursor}\n\n", style="bold")
 
         if not self._projects:
             text.append("  No projects found.\n", style="dim")
@@ -121,10 +98,6 @@ class ProjectsView(Widget):
         return text
 
     def on_key(self, event: events.Key) -> None:
-        if self._input_mode:
-            self._handle_input_key(event)
-            return
-
         if event.key in ("up", "k"):
             self.cursor = max(0, self.cursor - 1)
             self.refresh()
@@ -155,10 +128,7 @@ class ProjectsView(Widget):
                 event.stop()
         elif event.key == "r":
             if 0 <= self.cursor < len(self._projects):
-                self._input_mode = "rename"
-                self._input_buffer = self._projects[self.cursor].get("custom_name") or ""
-                self._start_blink()
-                self.refresh()
+                self._start_rename()
                 event.stop()
         elif event.key == "enter":
             if 0 <= self.cursor < len(self._projects):
@@ -172,35 +142,23 @@ class ProjectsView(Widget):
                     self.app._update_counts()
                 event.stop()
 
-    def _handle_input_key(self, event: events.Key) -> None:
-        if event.key == "escape":
-            self._input_mode = ""
-            self._input_buffer = ""
-            self._stop_blink()
-            self.refresh()
-            event.stop()
-        elif event.key == "enter":
-            if self._input_mode == "rename":
-                self._apply_rename()
-            self._input_mode = ""
-            self._input_buffer = ""
-            self._stop_blink()
-            self.refresh()
-            event.stop()
-        elif event.key == "backspace":
-            self._input_buffer = self._input_buffer[:-1]
-            self.refresh()
-            event.stop()
-        elif event.is_printable and event.character:
-            self._input_buffer += event.character
-            self.refresh()
-            event.stop()
+    def _start_rename(self):
+        if not (0 <= self.cursor < len(self._projects)):
+            return
+        from seshi.tui.search_bar import SearchBar
+        search = self.app.query_one(SearchBar)
+        search.enter_mode("rename", prefill=self._projects[self.cursor].get("custom_name") or "")
+        try:
+            from seshi.tui.footer import Footer
+            self.app.query_one(Footer).mode = "rename"
+        except Exception:
+            pass
 
-    def _apply_rename(self):
+    def _apply_rename_text(self, text: str):
         if not (0 <= self.cursor < len(self._projects)):
             return
         cwd = self._projects[self.cursor]["cwd"]
-        name = self._input_buffer.strip() or None
+        name = text.strip() or None
         existing = self.conn.execute("SELECT 1 FROM project_favorites WHERE cwd = ?", (cwd,)).fetchone()
         if existing:
             self.conn.execute("UPDATE project_favorites SET custom_name = ? WHERE cwd = ?", (name, cwd))

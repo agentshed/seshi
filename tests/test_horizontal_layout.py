@@ -252,20 +252,20 @@ def test_sort_mode_cycling(tmp_db):
         type(view).app = original_app
 
 
-def test_rename_input_mode(tmp_db):
+def test_rename_applies_via_text(tmp_db):
     _insert_session(tmp_db, "s1", custom_name="old-name")
     view = SessionsList(tmp_db)
-    view._start_rename()
-    assert view._input_mode == "rename"
-    assert view._input_buffer == "old-name"
+    view._apply_rename_text("new-name")
+    row = tmp_db.execute("SELECT custom_name FROM sessions WHERE session_id = ?", ("s1",)).fetchone()
+    assert row["custom_name"] == "new-name"
 
 
-def test_tag_input_mode(tmp_db):
+def test_tag_applies_via_text(tmp_db):
     _insert_session(tmp_db, "s1")
     view = SessionsList(tmp_db)
-    view._start_tag()
-    assert view._input_mode == "tag"
-    assert view._input_buffer == ""
+    view._apply_tag_text("prod")
+    tags = tmp_db.execute("SELECT tag FROM tags WHERE session_id = ?", ("s1",)).fetchall()
+    assert any(t["tag"] == "prod" for t in tags)
 
 
 def test_cursor_stays_in_bounds(tmp_db):

@@ -57,7 +57,7 @@ class TestBulkSelection:
         ctrl.send_keys("j", "Space")
         time.sleep(0.2)
         ctrl.send_keys("t")
-        ctrl.wait_for("tag:")
+        ctrl.wait_for("tag>")
         ctrl.send_text("bulk-tag")
         ctrl.send_keys("Enter")
         time.sleep(0.5)

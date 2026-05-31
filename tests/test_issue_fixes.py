@@ -256,9 +256,7 @@ def test_project_rename(tmp_db):
     from seshi.tui.projects import ProjectsView
     view = ProjectsView(tmp_db)
     view.cursor = 0
-    view._input_mode = "rename"
-    view._input_buffer = "My Cool Project"
-    view._apply_rename()
+    view._apply_rename_text("My Cool Project")
     row = tmp_db.execute(
         "SELECT custom_name FROM project_favorites WHERE cwd = ?", ("/tmp/myproject",)
     ).fetchone()
