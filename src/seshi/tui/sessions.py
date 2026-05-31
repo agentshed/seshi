@@ -184,7 +184,8 @@ class SessionsList(Widget):
                 rows.append(DisplayRow(kind="session", session=s))
                 if s.session_id not in self._collapsed:
                     for p in self._prompts.get(s.session_id, []):
-                        rows.append(DisplayRow(kind="prompt", session=s, prompt=p))
+                        if strip_system_blocks(p.text):
+                            rows.append(DisplayRow(kind="prompt", session=s, prompt=p))
 
         groups: dict[str, list[Session]] = {}
         seen_cwds: list[str] = []
@@ -210,7 +211,8 @@ class SessionsList(Widget):
                 rows.append(DisplayRow(kind="session", session=s))
                 if s.session_id not in self._collapsed:
                     for p in self._prompts.get(s.session_id, []):
-                        rows.append(DisplayRow(kind="prompt", session=s, prompt=p))
+                        if strip_system_blocks(p.text):
+                            rows.append(DisplayRow(kind="prompt", session=s, prompt=p))
 
         self._display_rows = rows
 

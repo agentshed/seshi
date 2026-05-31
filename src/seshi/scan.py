@@ -10,7 +10,8 @@ log = logging.getLogger(__name__)
 # Bump when parse_transcript() or strip_system_blocks() changes in a way
 # that affects first_prompt extraction (triggers fix_prompts re-run).
 # v1 = PR #82 (skip isMeta)  v2 = PR #89 (strip_system_blocks)
-PROMPT_FIX_VERSION = 2
+# v3 = strip bash-input/stdout/stderr + local-command-stderr
+PROMPT_FIX_VERSION = 3
 
 
 def scan_projects(

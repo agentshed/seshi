@@ -60,6 +60,31 @@ def test_sessions_list_render_strips_system_blocks_from_prompt(tmp_db):
     assert "Open the repo" in rendered
 
 
+def test_sessions_list_hides_system_block_only_prompts(tmp_db):
+    _insert_session(tmp_db, "s1", "real prompt")
+    tmp_db.execute(
+        "INSERT INTO prompts (session_id, prompt_index, text) VALUES (?, ?, ?)",
+        ("s1", 0, "real prompt"),
+    )
+    tmp_db.execute(
+        "INSERT INTO prompts (session_id, prompt_index, text) VALUES (?, ?, ?)",
+        ("s1", 1, "<command-name>/clear</command-name><command-message>clear</command-message><command-args></command-args>"),
+    )
+    tmp_db.execute(
+        "INSERT INTO prompts (session_id, prompt_index, text) VALUES (?, ?, ?)",
+        ("s1", 2, "second real prompt"),
+    )
+    tmp_db.commit()
+
+    rendered = SessionsList(tmp_db).render().plain
+    lines = [l for l in rendered.split("\n") if l.strip()]
+
+    prompt_lines = [l for l in lines if "│" in l]
+    assert len(prompt_lines) == 2
+    assert any("real prompt" in l for l in prompt_lines)
+    assert any("second real prompt" in l for l in prompt_lines)
+
+
 def test_sessions_list_search_finds_visible_prompt_text(tmp_db):
     _insert_session(
         tmp_db,

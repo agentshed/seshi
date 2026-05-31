@@ -3,6 +3,8 @@ from datetime import datetime
 
 from seshi.transcript import find_transcript_path, extract_user_prompts
 
+PROMPT_INDEX_VERSION = 3
+
 
 def index_session_prompts(conn: sqlite3.Connection, session_id: str) -> bool:
     path = find_transcript_path(session_id)
@@ -49,6 +51,21 @@ def index_pending_prompts(conn: sqlite3.Connection) -> int:
         conn.execute("SELECT 1 FROM prompts LIMIT 0")
     except sqlite3.OperationalError:
         return 0
+
+    try:
+        row = conn.execute(
+            "SELECT value FROM settings WHERE key = 'prompt_index_version'"
+        ).fetchone()
+        stored = int(row["value"]) if row else 0
+    except Exception:
+        stored = 0
+    if stored < PROMPT_INDEX_VERSION:
+        conn.execute("DELETE FROM prompt_index_meta")
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES ('prompt_index_version', ?)",
+            (str(PROMPT_INDEX_VERSION),),
+        )
+        conn.commit()
 
     rows = conn.execute(
         "SELECT session_id FROM sessions WHERE is_archived = 0"

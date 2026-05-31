@@ -3,8 +3,10 @@ import re
 
 # Keep in sync with the inline copy in hook/hook.sh
 _SYSTEM_BLOCK_RE = re.compile(
-    r"<(local-command-caveat|system-reminder|command-name|command-message"
-    r"|command-args|local-command-stdout|task-notification)"
+    r"<(local-command-caveat|local-command-stdout|local-command-stderr"
+    r"|system-reminder|command-name|command-message|command-args"
+    r"|bash-input|bash-stdout|bash-stderr"
+    r"|task-notification)"
     r"(?:\s[^>]*)?>.*?</\1>",
     re.DOTALL,
 )
