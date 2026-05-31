@@ -24,7 +24,7 @@ Claude Code → hook.sh → ~/.seshi/queue.jsonl → drain_queue() → SQLite �
 
 1. **Hook** (`hook/hook.sh`): Bash script registered in `~/.claude/settings.json` on `SessionStart` and `Stop` events. Reads JSON from stdin, captures argv/git/env, appends JSONL to the queue. Must never write to stdout/stderr.
 2. **Queue drain** (`drain.py`): Runs on every CLI invocation before any subcommand. Reads the JSONL queue, upserts into SQLite in a single transaction, truncates the queue. `INSERT OR IGNORE` for starts, `UPDATE` for stops.
-3. **Startup tasks** (`cli.py`): After draining the queue, `age_frecency_ranks()` decays session scores (rate-limited to every 300s) and `auto_scan()` discovers new sessions from `~/.claude/projects/` (rate-limited to every 120s). Both are rate-limited via settings and wrapped in try/except to never break startup.
+3. **Startup tasks** (`cli.py`): Before DB operations, checks if the deployed `~/.seshi/hook.sh` is missing or outdated via `hook_needs_update()` and prompts the user to install/update. Then drains the queue, `age_frecency_ranks()` decays session scores (rate-limited to every 300s) and `auto_scan()` discovers new sessions from `~/.claude/projects/` (rate-limited to every 120s). `auto_scan()` also re-runs `fix_prompts()` when `PROMPT_FIX_VERSION` bumps. All wrapped in try/except to never break startup.
 4. **Registry** (`db.py`): SQLite with WAL mode. Tables: `sessions`, `tags`, `settings`, `project_favorites`, `prompts`, `prompt_index_meta`. `open_db()` context manager auto-initializes schema.
 
 ### Stdout protocol (critical constraint)

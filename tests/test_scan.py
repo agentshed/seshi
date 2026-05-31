@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from seshi.scan import auto_scan, fix_prompts, scan_projects, HOOK_VERSION
+from seshi.scan import auto_scan, fix_prompts, scan_projects, PROMPT_FIX_VERSION
 
 
 def _make_transcript(path: Path, messages=None):
@@ -146,10 +146,10 @@ def test_auto_scan_runs_fix_prompts_once(tmp_db, tmp_path, monkeypatch):
     )
 
     auto_scan(tmp_db, interval=0)
-    assert get_setting(tmp_db, "prompts_fixed") == str(HOOK_VERSION)
+    assert get_setting(tmp_db, "prompts_fixed") == str(PROMPT_FIX_VERSION)
 
     auto_scan(tmp_db, interval=0)
-    assert get_setting(tmp_db, "prompts_fixed") == str(HOOK_VERSION)
+    assert get_setting(tmp_db, "prompts_fixed") == str(PROMPT_FIX_VERSION)
 
 
 def test_auto_scan_reruns_fix_on_version_bump(tmp_db, tmp_path, monkeypatch):
@@ -168,11 +168,11 @@ def test_auto_scan_reruns_fix_on_version_bump(tmp_db, tmp_path, monkeypatch):
     )
 
     auto_scan(tmp_db, interval=0)
-    assert get_setting(tmp_db, "prompts_fixed") == str(HOOK_VERSION)
+    assert get_setting(tmp_db, "prompts_fixed") == str(PROMPT_FIX_VERSION)
 
-    monkeypatch.setattr(scan_mod, "HOOK_VERSION", HOOK_VERSION + 1)
+    monkeypatch.setattr(scan_mod, "PROMPT_FIX_VERSION", PROMPT_FIX_VERSION + 1)
     auto_scan(tmp_db, interval=0)
-    assert get_setting(tmp_db, "prompts_fixed") == str(HOOK_VERSION + 1)
+    assert get_setting(tmp_db, "prompts_fixed") == str(PROMPT_FIX_VERSION + 1)
 
 
 def test_scan_updates_existing_session_prompt(tmp_db, tmp_path):

@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 # Bump when parse_transcript() or strip_system_blocks() changes in a way
 # that affects first_prompt extraction (triggers fix_prompts re-run).
 # v1 = PR #82 (skip isMeta)  v2 = PR #89 (strip_system_blocks)
-HOOK_VERSION = 2
+PROMPT_FIX_VERSION = 2
 
 
 def scan_projects(
@@ -157,6 +157,6 @@ def auto_scan(conn: sqlite3.Connection, interval: int = 120) -> None:
     set_setting(conn, "last_scan_at", str(now_ts))
 
     stored = get_setting(conn, "prompts_fixed")
-    if not stored or int(stored) < HOOK_VERSION:
+    if not stored or int(stored) < PROMPT_FIX_VERSION:
         fix_prompts(conn)
-        set_setting(conn, "prompts_fixed", str(HOOK_VERSION))
+        set_setting(conn, "prompts_fixed", str(PROMPT_FIX_VERSION))
