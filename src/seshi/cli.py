@@ -31,6 +31,17 @@ def main(ctx, no_color, here):
     if no_color:
         os.environ["NO_COLOR"] = "1"
 
+    from seshi.paths import SESHI_DIR
+    if SESHI_DIR.exists():
+        try:
+            from seshi.hook_manager import hook_needs_update, install_hook
+            reason = hook_needs_update()
+            if reason:
+                if click.confirm(f"Seshi hook {reason}. Install now?", default=True, err=True):
+                    install_hook()
+        except Exception:
+            pass
+
     if DB_PATH.parent.exists():
         try:
             with open_db() as conn:

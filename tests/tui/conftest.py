@@ -53,6 +53,11 @@ def _cleanup_stale_sessions():
 def tmp_home(tmp_path):
     seshi_dir = tmp_path / ".seshi"
     seshi_dir.mkdir()
+    import importlib.resources
+    import shutil
+    src = importlib.resources.files("seshi").joinpath("hook/hook.sh")
+    with importlib.resources.as_file(src) as src_path:
+        shutil.copy2(str(src_path), str(seshi_dir / "hook.sh"))
     claude_dir = tmp_path / ".claude" / "projects"
     claude_dir.mkdir(parents=True)
     return str(tmp_path)

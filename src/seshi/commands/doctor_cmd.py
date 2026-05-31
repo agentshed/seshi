@@ -5,7 +5,7 @@ import click
 
 from seshi.cli import main
 from seshi.db import open_db, init_schema
-from seshi.hook_manager import install_hook
+from seshi.hook_manager import install_hook, hook_is_current
 from seshi.paths import SESHI_DIR, HOOK_PATH, DB_PATH, CLAUDE_SETTINGS
 from seshi.settings import patch_settings
 
@@ -17,6 +17,7 @@ def doctor(fix):
     checks = [
         ("Registry directory", SESHI_DIR.is_dir(), _fix_dir if fix else None),
         ("Hook installed", HOOK_PATH.exists() and os.access(str(HOOK_PATH), os.X_OK), _fix_hook if fix else None),
+        ("Hook up-to-date", hook_is_current(), _fix_hook if fix else None),
         ("Registry DB", DB_PATH.exists(), _fix_db if fix else None),
         ("Settings patched", _check_settings_patched(), _fix_settings if fix else None),
         ("Claude on PATH", shutil.which("claude") is not None, None),

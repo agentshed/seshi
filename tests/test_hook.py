@@ -3,7 +3,7 @@ import os
 import stat
 from unittest import mock
 
-from seshi.hook_manager import install_hook
+from seshi.hook_manager import install_hook, hook_is_current, hook_needs_update
 from seshi.settings import patch_settings, unpatch_settings
 
 
@@ -58,3 +58,45 @@ def test_unpatch_missing_file(tmp_path):
     settings_path = tmp_path / "nonexistent.json"
     with mock.patch("seshi.settings.CLAUDE_SETTINGS", settings_path):
         unpatch_settings()
+
+
+def test_hook_is_current_false_when_missing(tmp_path):
+    hook_path = tmp_path / "hook.sh"
+    with mock.patch("seshi.hook_manager.HOOK_PATH", hook_path):
+        assert hook_is_current() is False
+
+
+def test_hook_is_current_true_after_install(tmp_path):
+    hook_path = tmp_path / "hook.sh"
+    with mock.patch("seshi.hook_manager.SESHI_DIR", tmp_path), \
+         mock.patch("seshi.hook_manager.HOOK_PATH", hook_path):
+        install_hook()
+        assert hook_is_current() is True
+
+
+def test_hook_is_current_false_when_stale(tmp_path):
+    hook_path = tmp_path / "hook.sh"
+    hook_path.write_text("#!/bin/bash\n# old version\n")
+    with mock.patch("seshi.hook_manager.HOOK_PATH", hook_path):
+        assert hook_is_current() is False
+
+
+def test_hook_needs_update_not_installed(tmp_path):
+    hook_path = tmp_path / "hook.sh"
+    with mock.patch("seshi.hook_manager.HOOK_PATH", hook_path):
+        assert hook_needs_update() == "is not installed"
+
+
+def test_hook_needs_update_outdated(tmp_path):
+    hook_path = tmp_path / "hook.sh"
+    hook_path.write_text("#!/bin/bash\n# old version\n")
+    with mock.patch("seshi.hook_manager.HOOK_PATH", hook_path):
+        assert hook_needs_update() == "is outdated"
+
+
+def test_hook_needs_update_none_when_current(tmp_path):
+    hook_path = tmp_path / "hook.sh"
+    with mock.patch("seshi.hook_manager.SESHI_DIR", tmp_path), \
+         mock.patch("seshi.hook_manager.HOOK_PATH", hook_path):
+        install_hook()
+        assert hook_needs_update() is None

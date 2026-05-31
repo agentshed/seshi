@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from seshi.scan import auto_scan, fix_prompts, scan_projects
+from seshi.scan import auto_scan, fix_prompts, scan_projects, PROMPT_FIX_VERSION
 
 
 def _make_transcript(path: Path, messages=None):
@@ -146,10 +146,51 @@ def test_auto_scan_runs_fix_prompts_once(tmp_db, tmp_path, monkeypatch):
     )
 
     auto_scan(tmp_db, interval=0)
-    assert get_setting(tmp_db, "prompts_fixed") == "1"
+    assert get_setting(tmp_db, "prompts_fixed") == str(PROMPT_FIX_VERSION)
 
     auto_scan(tmp_db, interval=0)
-    assert get_setting(tmp_db, "prompts_fixed") == "1"
+    assert get_setting(tmp_db, "prompts_fixed") == str(PROMPT_FIX_VERSION)
+
+
+def test_auto_scan_reruns_fix_on_version_bump(tmp_db, tmp_path, monkeypatch):
+    from seshi.db import get_setting
+    import seshi.scan as scan_mod
+
+    monkeypatch.setattr("seshi.scan.CLAUDE_PROJECTS", tmp_path)
+    project = tmp_path / "-home"
+    project.mkdir()
+    sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    transcript = project / f"{sid}.jsonl"
+    _make_transcript(transcript)
+    monkeypatch.setattr(
+        "seshi.scan.find_transcript_path",
+        lambda s: transcript if s == sid else None,
+    )
+
+    auto_scan(tmp_db, interval=0)
+    assert get_setting(tmp_db, "prompts_fixed") == str(PROMPT_FIX_VERSION)
+
+    monkeypatch.setattr(scan_mod, "PROMPT_FIX_VERSION", PROMPT_FIX_VERSION + 1)
+    auto_scan(tmp_db, interval=0)
+    assert get_setting(tmp_db, "prompts_fixed") == str(PROMPT_FIX_VERSION + 1)
+
+
+def test_scan_updates_existing_session_prompt(tmp_db, tmp_path):
+    sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    tmp_db.execute(
+        """INSERT INTO sessions (session_id, cwd, first_prompt, created_at, last_activity_at)
+        VALUES (?, ?, ?, 0, 0)""",
+        (sid, "/tmp", "Caveat: The messages below were generated"),
+    )
+    tmp_db.commit()
+
+    project = tmp_path / "-home"
+    project.mkdir()
+    _make_transcript(project / f"{sid}.jsonl")
+
+    scan_projects(tmp_db, projects_root=tmp_path)
+    row = tmp_db.execute("SELECT first_prompt FROM sessions WHERE session_id = ?", (sid,)).fetchone()
+    assert row["first_prompt"] == "hello"
 
 
 def test_scan_uses_mtime_not_now(tmp_db, tmp_path):
