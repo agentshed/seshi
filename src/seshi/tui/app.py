@@ -15,7 +15,7 @@ from seshi.themes import get_theme
 from seshi.tui.styles import theme_css
 from seshi.tui.header import Header
 from seshi.tui.footer import Footer
-from seshi.tui.search_bar import SearchBar, SearchChanged
+from seshi.tui.search_bar import SearchBar, SearchChanged, InputSubmitted, InputCancelled
 from seshi.tui.sessions import SessionsList
 from seshi.tui.preview import Preview
 from seshi.tui.commands import SeshiCommands
@@ -249,6 +249,9 @@ class SeshiApp(App):
         breadcrumb.styles.height = 1
 
     def on_search_changed(self, message: SearchChanged) -> None:
+        search = self.query_one(SearchBar)
+        if search.mode != "search":
+            return
         if hasattr(self, '_sessions_list'):
             self._sessions_list.filter(message.query, scope=message.scope)
             self._update_counts()
@@ -256,6 +259,43 @@ class SeshiApp(App):
             if hasattr(self, '_preview'):
                 self._preview.session = s
                 self._preview.highlight_query = message.query
+
+    def on_input_submitted(self, message: InputSubmitted) -> None:
+        if self.current_view == "sessions" and hasattr(self, '_sessions_list'):
+            if message.mode == "rename":
+                self._sessions_list._apply_rename_text(message.text)
+            elif message.mode == "tag":
+                self._sessions_list._apply_tag_text(message.text)
+        elif self.current_view == "projects":
+            try:
+                from seshi.tui.projects import ProjectsView
+                pv = self.query_one(ProjectsView)
+                if message.mode == "rename":
+                    pv._apply_rename_text(message.text)
+            except Exception:
+                pass
+        self._set_footer_mode("normal")
+        self._focus_current_list()
+
+    def on_input_cancelled(self, message: InputCancelled) -> None:
+        self._set_footer_mode("normal")
+        self._focus_current_list()
+
+    def _set_footer_mode(self, mode: str) -> None:
+        try:
+            self.query_one(Footer).mode = mode
+        except Exception:
+            pass
+
+    def _focus_current_list(self) -> None:
+        if self.current_view == "sessions" and hasattr(self, '_sessions_list'):
+            self._sessions_list.focus()
+        elif self.current_view == "projects":
+            try:
+                from seshi.tui.projects import ProjectsView
+                self.query_one(ProjectsView).focus()
+            except Exception:
+                pass
 
     def watch_current_view(self, view: str) -> None:
         footer = self.query_one(Footer)
@@ -298,11 +338,10 @@ class SeshiApp(App):
         sl = self._sessions_list
         search = self.query_one(SearchBar)
 
-        if sl._input_mode:
-            sl._input_mode = ""
-            sl._input_buffer = ""
-            sl._update_footer("normal")
-            sl.refresh()
+        if search.mode != "search":
+            search.exit_mode()
+            self._set_footer_mode("normal")
+            self._focus_current_list()
         elif search.active or search.has_focus or search.search_text or search.scope != "all":
             search.active = False
             search.search_text = ""
@@ -322,8 +361,6 @@ class SeshiApp(App):
             self.exit()
 
     def _is_in_input_mode(self) -> bool:
-        if hasattr(self, '_sessions_list') and self._sessions_list._input_mode:
-            return True
         try:
             search = self.query_one(SearchBar)
             if search.active:
@@ -333,15 +370,13 @@ class SeshiApp(App):
         return False
 
     def _forward_char_to_input(self, char: str) -> None:
-        if hasattr(self, '_sessions_list') and self._sessions_list._input_mode:
-            self._sessions_list._input_buffer += char
-            self._sessions_list.refresh()
-            return
         try:
             search = self.query_one(SearchBar)
             if search.active:
                 search.search_text += char
-                search.post_message(SearchChanged(search.search_text, search.scope))
+                if search.mode == "search":
+                    search.post_message(SearchChanged(search.search_text, search.scope))
+                search.refresh()
         except Exception:
             pass
 
@@ -394,10 +429,13 @@ class SeshiApp(App):
             self._switch_view()
 
     def _switch_view(self) -> None:
-        if hasattr(self, '_sessions_list') and self._sessions_list._input_mode:
-            self._sessions_list._input_mode = ""
-            self._sessions_list._input_buffer = ""
-            self._sessions_list._update_footer("normal")
+        try:
+            search = self.query_one(SearchBar)
+            if search.mode != "search":
+                search.exit_mode()
+                self._set_footer_mode("normal")
+        except Exception:
+            pass
 
         self._view_counter += 1
         vid = self._view_counter

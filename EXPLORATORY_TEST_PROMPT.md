@@ -79,7 +79,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - **Verify:** Header renders with compact `SESHI` text, sort mode, session count (e.g., `SESHI 0.1.0  12 of 45 sessions  sort by: frecency`), and optional `indexing…` indicator during background transcript indexing
 - **Verify:** ASCII art logo appears in the Help view (`?`) with theme-aware accent color
 - **Verify:** Tab bar shows `1 sessions  2 overview  3 projects  ? help`
-- **Verify:** Search bar shows `>` prompt with cursor and count `N / N`
+- **Verify:** Search bar shows `search>` prompt with cursor and count `N / N`
 - **Verify:** Session list populates with sessions sorted by frecency (favorites first, then by score)
 - **Verify:** Preview pane shows transcript of the cursor-highlighted session
 - **Verify:** Footer shows contextual keys ordered by priority: `Enter resume  / search  f favorite  d delete  s sort  r rename  t tag  u archive  Space select  Tab view`
@@ -228,8 +228,8 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 
 #### 4.3 Rename (r) — Positive
 - Press `r` on a session
-- **Verify:** Inline input appears with label "rename: " and a blinking cursor (block char)
-- **Verify:** If session already has a custom_name, it pre-fills the buffer
+- **Verify:** Search bar switches to `rename>` mode with a blinking cursor
+- **Verify:** If session already has a custom_name, it pre-fills the search bar
 - **Verify:** Footer changes to "Enter save  Esc cancel"
 - Type a new name, press Enter
 - **Verify:** Name updates in the list immediately
@@ -255,7 +255,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 
 #### 4.6 Tag (t) — Positive
 - Press `t` on a session
-- **Verify:** Inline input appears with label "tag: " and cursor
+- **Verify:** Search bar switches to `tag>` mode with a blinking cursor
 - **Verify:** Footer changes to "Enter apply  Esc cancel"
 - Type a tag name (alphanumeric + hyphens + underscores), press Enter
 - **Verify:** Tag appears next to the session as `#tagname`
@@ -347,7 +347,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 #### 5.3 Clear Selection (Escape)
 - Select some sessions, then press Escape
 - **Verify:** Selection clears (all `[x]` removed)
-- **Verify:** If there is also an active search, Escape priority is: input_mode > search active > search query > filter_cwd > selection > quit
+- **Verify:** If there is also an active search, Escape priority is: SearchBar non-search mode (rename/tag) > search active > search query > filter_cwd > selection > quit
 
 #### 5.4 Bulk Operations
 - Select 5 sessions, press `f` — all 5 favorited
@@ -464,7 +464,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - Cross-reference every keybinding in the help text against actual code behavior:
   - `r` in Projects view says "Rename project" — **Verify:** is this actually implemented? (check ProjectsView.on_key for 'r' handler)
   - Help says `#tag` uses "AND semantics for multiple" — **Verify:** correct per `_parse_search` and `list_sessions`
-  - Help mentions `Esc` to "Clear selection (or quit if none selected)" — **Verify:** actual Escape layering is more complex (input_mode > search active > search query > filter_cwd > selection > quit)
+  - Help mentions `Esc` to "Clear selection (or quit if none selected)" — **Verify:** actual Escape layering is more complex (SearchBar non-search mode > search active > search query > filter_cwd > selection > quit)
 
 ---
 

@@ -31,8 +31,7 @@ def _make_widget_with_mock_app(tmp_db, session_id="s1", **kwargs):
 def test_rename_triggers_notification(tmp_db):
     sl, mock_app, orig = _make_widget_with_mock_app(tmp_db, custom_name="old-name")
     try:
-        sl._input_buffer = "new-name"
-        sl._apply_rename()
+        sl._apply_rename_text("new-name")
         mock_app.notify.assert_called()
         msg = mock_app.notify.call_args[0][0]
         assert "new-name" in msg
@@ -43,8 +42,7 @@ def test_rename_triggers_notification(tmp_db):
 def test_tag_triggers_notification(tmp_db):
     sl, mock_app, orig = _make_widget_with_mock_app(tmp_db)
     try:
-        sl._input_buffer = "prod"
-        sl._apply_tag()
+        sl._apply_tag_text("prod")
         mock_app.notify.assert_called_once()
         msg = mock_app.notify.call_args[0][0]
         assert "prod" in msg
@@ -107,11 +105,7 @@ def test_bulk_delete_notification_shows_count(tmp_db):
 def test_notification_not_called_on_cancelled_rename(tmp_db):
     sl, mock_app, orig = _make_widget_with_mock_app(tmp_db, custom_name="original")
     try:
-        sl._input_mode = "rename"
-        sl._input_buffer = "new-name"
-        # Cancel — just clear the mode without applying
-        sl._input_mode = ""
-        sl._input_buffer = ""
+        # Cancel without applying — no notification should fire
         mock_app.notify.assert_not_called()
     finally:
         type(sl).app = orig
@@ -120,11 +114,7 @@ def test_notification_not_called_on_cancelled_rename(tmp_db):
 def test_notification_not_called_on_cancelled_tag(tmp_db):
     sl, mock_app, orig = _make_widget_with_mock_app(tmp_db)
     try:
-        sl._input_mode = "tag"
-        sl._input_buffer = "sometag"
-        # Cancel without applying
-        sl._input_mode = ""
-        sl._input_buffer = ""
+        # Cancel without applying — no notification should fire
         mock_app.notify.assert_not_called()
     finally:
         type(sl).app = orig
@@ -133,8 +123,7 @@ def test_notification_not_called_on_cancelled_tag(tmp_db):
 def test_notification_not_called_on_invalid_tag(tmp_db):
     sl, mock_app, orig = _make_widget_with_mock_app(tmp_db)
     try:
-        sl._input_buffer = "invalid tag with spaces"
-        sl._apply_tag()
+        sl._apply_tag_text("invalid tag with spaces")
         mock_app.notify.assert_not_called()
     finally:
         type(sl).app = orig

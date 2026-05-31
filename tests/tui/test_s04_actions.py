@@ -21,7 +21,7 @@ class TestRename:
     def test_rename_mode_activates(self, tui_custom):
         ctrl, _ = tui_custom(seed_for_actions)
         ctrl.send_keys("r")
-        screen = ctrl.wait_for("rename:")
+        screen = ctrl.wait_for("rename>")
         assert_input_prompt(screen, "rename")
         assert_screen_contains(screen, "save")
         assert_screen_contains(screen, "cancel")
@@ -29,7 +29,7 @@ class TestRename:
     def test_rename_applies(self, tui_custom, db_path):
         ctrl, sessions = tui_custom(seed_for_actions)
         ctrl.send_keys("r")
-        ctrl.wait_for("rename:")
+        ctrl.wait_for("rename>")
         for _ in range(len("old-name")):
             ctrl.send_keys("BSpace")
         ctrl.send_text("new-name")
@@ -48,7 +48,7 @@ class TestRename:
     def test_rename_escape_cancels(self, tui_custom, db_path):
         ctrl, sessions = tui_custom(seed_for_actions)
         ctrl.send_keys("r")
-        ctrl.wait_for("rename:")
+        ctrl.wait_for("rename>")
         ctrl.send_text("should-not-apply")
         ctrl.send_keys("Escape")
         time.sleep(0.3)
@@ -65,7 +65,7 @@ class TestRename:
     def test_rename_to_empty_clears_name(self, tui_custom, db_path):
         ctrl, sessions = tui_custom(seed_for_actions)
         ctrl.send_keys("r")
-        ctrl.wait_for("rename:")
+        ctrl.wait_for("rename>")
         for _ in range(len("old-name")):
             ctrl.send_keys("BSpace")
         ctrl.send_keys("Enter")
@@ -80,8 +80,8 @@ class TestRename:
     def test_rename_prefills_existing_name(self, tui_custom):
         ctrl, _ = tui_custom(seed_for_actions)
         ctrl.send_keys("r")
-        screen = ctrl.wait_for("rename:")
-        assert_screen_contains(screen, "rename: old-name")
+        screen = ctrl.wait_for("rename>")
+        assert_screen_contains(screen, "rename> old-name")
 
 
 class TestTag:
@@ -89,7 +89,7 @@ class TestTag:
     def test_tag_applies(self, tui_custom, db_path):
         ctrl, sessions = tui_custom(seed_for_actions)
         ctrl.send_keys("t")
-        ctrl.wait_for("tag:")
+        ctrl.wait_for("tag>")
         ctrl.send_text("newtag")
         ctrl.send_keys("Enter")
         time.sleep(0.5)
@@ -103,12 +103,12 @@ class TestTag:
     def test_tag_toggles_off(self, tui_custom, db_path):
         ctrl, sessions = tui_custom(seed_for_actions)
         ctrl.send_keys("t")
-        ctrl.wait_for("tag:")
+        ctrl.wait_for("tag>")
         ctrl.send_text("toggle")
         ctrl.send_keys("Enter")
         time.sleep(0.3)
         ctrl.send_keys("t")
-        ctrl.wait_for("tag:")
+        ctrl.wait_for("tag>")
         ctrl.send_text("toggle")
         ctrl.send_keys("Enter")
         time.sleep(0.3)
@@ -122,7 +122,7 @@ class TestTag:
     def test_tag_invalid_chars_rejected(self, tui_custom, db_path):
         ctrl, sessions = tui_custom(seed_for_actions)
         ctrl.send_keys("t")
-        ctrl.wait_for("tag:")
+        ctrl.wait_for("tag>")
         ctrl.send_text("bad tag!")
         ctrl.send_keys("Enter")
         time.sleep(0.3)
@@ -136,7 +136,7 @@ class TestTag:
     def test_tag_empty_rejected(self, tui_custom, db_path):
         ctrl, sessions = tui_custom(seed_for_actions)
         ctrl.send_keys("t")
-        ctrl.wait_for("tag:")
+        ctrl.wait_for("tag>")
         ctrl.send_keys("Enter")
         time.sleep(0.3)
         rows = TmuxController.query_db(
