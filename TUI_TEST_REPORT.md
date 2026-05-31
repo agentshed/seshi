@@ -71,14 +71,14 @@ The header and search bar session counts (`N of N sessions`, `N / N`) never upda
 
 ## High Bugs
 
-### H1. Sort Mode Label Never Updates in Search Bar
+### H1. Sort Mode Label Never Updates in Header
 
-**File:** `tui/sessions.py:211-215`, `tui/app.py:106`
-**Status:** FAIL
+**File:** `tui/header.py`, `tui/app.py:106`
+**Status:** FIXED
 
-Pressing `s` cycles the actual sort mode and persists it to DB, and the session list reorders correctly. But the search bar label (e.g., "frecency") never updates because `_update_counts()` is not called.
+Pressing `s` cycles the actual sort mode and persists it to DB, and the session list reorders correctly. The sort mode indicator is displayed in the Header widget and updates via `_update_counts()`.
 
-**Tested:** Pressed `s` three times. DB value cycled correctly (frecency→recency→frequency→frecency). Display label never changed.
+**Tested:** Pressed `s` three times. DB value cycled correctly (frecency→recency→frequency→frecency). Header label updated each time.
 
 ### H2. Preview Pane Not Visible
 
@@ -433,7 +433,7 @@ Once C1 is fixed, re-run the complete matrix to verify all keys are correctly ro
 For each operation, record the before/after state of:
 - Header: `N of N sessions`
 - Search bar: `N / N`
-- Search bar sort label
+- Header sort label
 
 #### 22.1 Single-Session Mutations
 
