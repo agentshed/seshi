@@ -29,7 +29,7 @@ def auto_name(ctx, identifier, all_unnamed, limit):
 
     with open_db() as conn:
         if all_unnamed:
-            sql = "SELECT * FROM sessions WHERE custom_name IS NULL AND is_archived = 0"
+            sql = "SELECT * FROM sessions WHERE custom_name IS NULL AND ai_title IS NULL AND is_archived = 0"
             params = []
             if ctx.obj.get("here_cwd"):
                 sql += " AND cwd = ?"

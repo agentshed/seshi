@@ -12,6 +12,7 @@ class Session:
     git_sha: str | None
     first_prompt: str | None
     custom_name: str | None
+    ai_title: str | None
     is_favorite: int
     is_archived: int
     is_backfilled: int

@@ -604,8 +604,8 @@ def test_sqlite_matches_in_transcript(tmp_db, tmp_path, monkeypatch):
 
 def test_frecency_recent_scores_higher():
     now = int(time.time())
-    recent = Session("r", "/", "[]", None, None, None, None, None, 0, 0, 0, 0, 0, None, now, now - 3600, None, 1)
-    old = Session("o", "/", "[]", None, None, None, None, None, 0, 0, 0, 0, 0, None, now, now - 86400 * 7, None, 1)
+    recent = Session("r", "/", "[]", None, None, None, None, None, None, 0, 0, 0, 0, 0, None, now, now - 3600, None, 1)
+    old = Session("o", "/", "[]", None, None, None, None, None, None, 0, 0, 0, 0, 0, None, now, now - 86400 * 7, None, 1)
     assert frecency_score(recent, now) > frecency_score(old, now)
 
 
@@ -614,8 +614,8 @@ def test_frecency_recent_scores_higher():
 
 def test_blend_search_frecency_basic():
     now = int(time.time())
-    s1 = Session("a", "/", "[]", None, None, None, None, None, 0, 0, 0, 0, 0, None, now, now, None, 10.0)
-    s2 = Session("b", "/", "[]", None, None, None, None, None, 0, 0, 0, 0, 0, None, now, now, None, 1.0)
+    s1 = Session("a", "/", "[]", None, None, None, None, None, None, 0, 0, 0, 0, 0, None, now, now, None, 10.0)
+    s2 = Session("b", "/", "[]", None, None, None, None, None, None, 0, 0, 0, 0, 0, None, now, now, None, 1.0)
     scored = [(s1, 1.0, 10.0), (s2, 1.0, 1.0)]
     results = blend_search_frecency(scored)
     assert len(results) == 2

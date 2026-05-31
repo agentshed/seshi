@@ -40,7 +40,7 @@ def _make_session(session_id="test-id", cwd="/tmp/project", custom_name=None,
     return Session(
         session_id=session_id, cwd=cwd, launch_argv_json="[]",
         env_json=None, git_branch=None, git_sha=None,
-        first_prompt=first_prompt, custom_name=custom_name,
+        first_prompt=first_prompt, custom_name=custom_name, ai_title=None,
         is_favorite=is_favorite, is_archived=0, is_backfilled=0,
         message_count=10, token_count=5000, status=None,
         created_at=ts, last_activity_at=ts, origin_host=None,

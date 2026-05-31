@@ -14,6 +14,7 @@ class TranscriptSummary:
     token_count: int
     first_ts: int | None
     last_ts: int | None
+    ai_title: str | None = None
 
 
 @dataclass
@@ -29,6 +30,8 @@ def parse_transcript(path: Path) -> TranscriptSummary:
     token_count = 0
     first_ts = None
     last_ts = None
+    ai_title = None
+    custom_title = None
 
     try:
         with open(path) as f:
@@ -39,6 +42,18 @@ def parse_transcript(path: Path) -> TranscriptSummary:
                 try:
                     obj = json.loads(line)
                 except json.JSONDecodeError:
+                    continue
+
+                obj_type = obj.get("type")
+                if obj_type == "custom-title":
+                    title = obj.get("customTitle", "").strip('"')
+                    if title:
+                        custom_title = title
+                    continue
+                if obj_type == "ai-title":
+                    title = obj.get("aiTitle")
+                    if title:
+                        ai_title = title
                     continue
 
                 message_count += 1
@@ -81,6 +96,7 @@ def parse_transcript(path: Path) -> TranscriptSummary:
         token_count=token_count,
         first_ts=first_ts,
         last_ts=last_ts,
+        ai_title=custom_title or ai_title,
     )
 
 

@@ -292,14 +292,14 @@ def apply_proximity_reranking(
     reranked = []
     for session_id, rrf_score in results:
         row = conn.execute(
-            "SELECT custom_name, first_prompt, cwd FROM sessions WHERE session_id = ?",
+            "SELECT custom_name, ai_title, first_prompt, cwd FROM sessions WHERE session_id = ?",
             (session_id,),
         ).fetchone()
         if not row:
             reranked.append((session_id, rrf_score))
             continue
 
-        name = (row["custom_name"] or "").lower()
+        name = (row["custom_name"] or row["ai_title"] or "").lower()
         title_hits = sum(1 for t in terms if t in name)
         title_boost = 0.6 * (title_hits / len(terms)) if title_hits > 0 else 0.0
 
@@ -339,6 +339,13 @@ def query_matches_text(query: str, text: str) -> bool:
 def session_resolve(conn: sqlite3.Connection, identifier: str) -> Session | None:
     row = conn.execute(
         "SELECT * FROM sessions WHERE custom_name = ? COLLATE NOCASE ORDER BY last_activity_at DESC LIMIT 1",
+        (identifier,),
+    ).fetchone()
+    if row:
+        return Session.from_row(row)
+
+    row = conn.execute(
+        "SELECT * FROM sessions WHERE ai_title = ? COLLATE NOCASE ORDER BY last_activity_at DESC LIMIT 1",
         (identifier,),
     ).fetchone()
     if row:
@@ -554,6 +561,7 @@ def age_frecency_ranks(conn: sqlite3.Connection) -> int:
              AND frecency_rank < ?
              AND is_favorite = 0
              AND custom_name IS NULL
+             AND ai_title IS NULL
              AND session_id NOT IN (SELECT session_id FROM tags)
              AND session_id IN ({placeholders})""",
         [ARCHIVE_RANK_THRESHOLD] + live_ids,

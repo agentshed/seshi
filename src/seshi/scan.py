@@ -11,7 +11,8 @@ log = logging.getLogger(__name__)
 # that affects first_prompt extraction (triggers fix_prompts re-run).
 # v1 = PR #82 (skip isMeta)  v2 = PR #89 (strip_system_blocks)
 # v3 = strip bash-input/stdout/stderr + local-command-stderr
-PROMPT_FIX_VERSION = 3
+# v4 = extract ai_title from transcript
+PROMPT_FIX_VERSION = 4
 
 
 def scan_projects(
@@ -50,11 +51,12 @@ def scan_projects(
                 result = conn.execute(
                     """INSERT OR IGNORE INTO sessions
                     (session_id, cwd, launch_argv_json, first_prompt,
-                     message_count, token_count, is_backfilled,
+                     ai_title, message_count, token_count, is_backfilled,
                      created_at, last_activity_at, status)
-                    VALUES (?, ?, '[]', ?, ?, ?, 1, ?, ?, 'done')""",
+                    VALUES (?, ?, '[]', ?, ?, ?, ?, 1, ?, ?, 'done')""",
                     (
                         session_id, cwd, summary.first_prompt,
+                        summary.ai_title,
                         summary.message_count, summary.token_count,
                         created, last_activity,
                     ),
@@ -63,12 +65,21 @@ def scan_projects(
                     count += 1
                     if verbose:
                         print(f"  + {session_id[:8]} ({summary.message_count} msgs)")
-                elif summary.first_prompt:
-                    conn.execute(
-                        "UPDATE sessions SET first_prompt = ? "
-                        "WHERE session_id = ? AND (first_prompt IS NULL OR first_prompt != ?)",
-                        (summary.first_prompt, session_id, summary.first_prompt),
-                    )
+                else:
+                    updates = []
+                    params = []
+                    if summary.first_prompt:
+                        updates.append("first_prompt = CASE WHEN first_prompt IS NULL OR first_prompt != ? THEN ? ELSE first_prompt END")
+                        params.extend([summary.first_prompt, summary.first_prompt])
+                    if summary.ai_title:
+                        updates.append("ai_title = ?")
+                        params.append(summary.ai_title)
+                    if updates:
+                        params.append(session_id)
+                        conn.execute(
+                            f"UPDATE sessions SET {', '.join(updates)} WHERE session_id = ?",
+                            params,
+                        )
 
             elif entry.is_dir() and UUID_RE.match(entry.name):
                 session_id = entry.name
@@ -123,7 +134,7 @@ def fix_prompts(
     conn: sqlite3.Connection,
     verbose: bool = False,
 ) -> int:
-    rows = conn.execute("SELECT session_id, first_prompt FROM sessions").fetchall()
+    rows = conn.execute("SELECT session_id, first_prompt, ai_title FROM sessions").fetchall()
     count = 0
     for row in rows:
         session_id = row["session_id"]
@@ -131,16 +142,23 @@ def fix_prompts(
         if not path:
             continue
         summary = parse_transcript(path)
-        old_prompt = row["first_prompt"]
-        new_prompt = summary.first_prompt
-        if new_prompt != old_prompt:
+        changed = False
+        if summary.first_prompt != row["first_prompt"]:
             conn.execute(
                 "UPDATE sessions SET first_prompt = ? WHERE session_id = ?",
-                (new_prompt, session_id),
+                (summary.first_prompt, session_id),
             )
+            changed = True
+        if summary.ai_title and summary.ai_title != row["ai_title"]:
+            conn.execute(
+                "UPDATE sessions SET ai_title = ? WHERE session_id = ?",
+                (summary.ai_title, session_id),
+            )
+            changed = True
+        if changed:
             count += 1
             if verbose:
-                label = (new_prompt or "(untitled)")[:60]
+                label = (summary.first_prompt or "(untitled)")[:60]
                 print(f"  ~ {session_id[:8]}: {label}")
     conn.commit()
     return count

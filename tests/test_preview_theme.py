@@ -15,6 +15,7 @@ def _make_session(session_id="s1"):
         git_sha=None,
         first_prompt="What is this?",
         custom_name=None,
+        ai_title=None,
         is_favorite=0,
         is_archived=0,
         is_backfilled=0,

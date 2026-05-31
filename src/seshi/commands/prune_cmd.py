@@ -22,7 +22,7 @@ def prune(dry_run, days):
         rows = conn.execute(
             """SELECT session_id, custom_name, first_prompt, last_activity_at
             FROM sessions
-            WHERE last_activity_at < ? AND is_favorite = 0 AND custom_name IS NULL""",
+            WHERE last_activity_at < ? AND is_favorite = 0 AND custom_name IS NULL AND ai_title IS NULL""",
             (cutoff,),
         ).fetchall()
 
@@ -38,7 +38,7 @@ def prune(dry_run, days):
             return
 
         conn.execute(
-            "DELETE FROM sessions WHERE last_activity_at < ? AND is_favorite = 0 AND custom_name IS NULL",
+            "DELETE FROM sessions WHERE last_activity_at < ? AND is_favorite = 0 AND custom_name IS NULL AND ai_title IS NULL",
             (cutoff,),
         )
         conn.commit()

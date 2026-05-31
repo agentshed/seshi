@@ -34,6 +34,7 @@ def _make_session(
         git_sha=None,
         first_prompt=first_prompt,
         custom_name=custom_name,
+        ai_title=None,
         is_favorite=is_favorite,
         is_archived=is_archived,
         is_backfilled=0,

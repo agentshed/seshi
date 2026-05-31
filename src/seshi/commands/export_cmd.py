@@ -41,7 +41,7 @@ def export_cmd(identifier, fmt):
 
 
 def _export_markdown(session, path):
-    title = session.custom_name or session.first_prompt or session.session_id
+    title = session.custom_name or session.ai_title or session.first_prompt or session.session_id
     dt = datetime.fromtimestamp(session.created_at, tz=timezone.utc)
     date_str = dt.strftime("%Y-%m-%d")
 

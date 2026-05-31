@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     git_sha           TEXT,
     first_prompt      TEXT,
     custom_name       TEXT,
+    ai_title          TEXT,
     is_favorite       INTEGER NOT NULL DEFAULT 0,
     is_archived       INTEGER NOT NULL DEFAULT 0,
     is_backfilled     INTEGER NOT NULL DEFAULT 0,
@@ -88,6 +89,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
     for col, defn in [
         ("resume_count", "INTEGER NOT NULL DEFAULT 0"),
         ("frecency_rank", "REAL NOT NULL DEFAULT 1.0"),
+        ("ai_title", "TEXT"),
     ]:
         try:
             conn.execute(f"ALTER TABLE sessions ADD COLUMN {col} {defn}")
