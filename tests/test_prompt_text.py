@@ -76,7 +76,11 @@ def test_sessions_list_hides_system_block_only_prompts(tmp_db):
     )
     tmp_db.commit()
 
-    rendered = SessionsList(tmp_db).render().plain
+    sl = SessionsList(tmp_db)
+    # Sessions start collapsed by default; expand to see prompts
+    sl._collapsed.discard("s1")
+    sl._build_display_rows()
+    rendered = sl.render().plain
     lines = [l for l in rendered.split("\n") if l.strip()]
 
     prompt_lines = [l for l in lines if "│" in l]

@@ -13,21 +13,23 @@ from tests.tui.seed import seed_with_prompts, seed_for_bulk, insert_prompts
 @pytest.mark.smoke
 class TestPromptDisplay:
 
-    def test_prompts_visible_by_default(self, tui_custom):
+    def test_sessions_start_collapsed(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
         time.sleep(0.5)
         screen = ctrl.capture()
-        assert_screen_contains(screen, "│")
-        assert_screen_contains(screen, "fix the auth bug")
+        assert_screen_not_contains(screen, "│")
+        assert_screen_contains(screen, "▸")
 
     def test_session_header_shows_collapse_indicator(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
         time.sleep(0.5)
         screen = ctrl.capture()
-        assert_screen_contains(screen, "▾")
+        assert_screen_contains(screen, "▸")
 
-    def test_prompt_row_shows_text(self, tui_custom):
+    def test_prompt_row_shows_text_after_expand(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
+        time.sleep(0.5)
+        ctrl.send_keys("e")
         time.sleep(0.5)
         screen = ctrl.capture()
         assert_screen_contains(screen, "deploy to staging")
@@ -46,12 +48,13 @@ class TestPromptDisplay:
 @pytest.mark.smoke
 class TestPromptNavigation:
 
-    def test_j_navigates_through_prompt_rows(self, tui_custom):
+    def test_j_navigates_through_sessions_when_collapsed(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
         ctrl.send_keys("j")
         time.sleep(0.3)
         screen = ctrl.capture()
-        assert_screen_contains(screen, "│")
+        # When collapsed, j moves to next session, no prompt rows
+        assert_screen_not_contains(screen, "│")
 
     def test_g_jumps_to_first_row(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
@@ -66,47 +69,51 @@ class TestPromptNavigation:
 
 class TestExpandCollapse:
 
-    def test_e_collapses_session(self, tui_custom):
+    def test_e_expands_collapsed_session_on_startup(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
+        time.sleep(0.3)
+        ctrl.send_keys("e")
+        time.sleep(0.3)
+        screen = ctrl.capture()
+        assert_screen_contains(screen, "▾")
+        assert_screen_contains(screen, "│")
+
+    def test_e_collapses_expanded_session(self, tui_custom):
+        ctrl, sessions = tui_custom(seed_with_prompts)
+        time.sleep(0.3)
+        ctrl.send_keys("e")
         time.sleep(0.3)
         ctrl.send_keys("e")
         time.sleep(0.3)
         screen = ctrl.capture()
         assert_screen_contains(screen, "▸")
 
-    def test_e_expands_collapsed_session(self, tui_custom):
+    def test_E_expands_all_collapsed_sessions(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
         time.sleep(0.3)
-        ctrl.send_keys("e")
-        time.sleep(0.3)
-        ctrl.send_keys("e")
-        time.sleep(0.3)
+        ctrl.send_keys("E")
+        time.sleep(0.5)
         screen = ctrl.capture()
-        assert_screen_contains(screen, "▾")
+        assert_screen_contains(screen, "fix the auth bug")
+        assert_screen_contains(screen, "│")
 
-    def test_E_collapses_all(self, tui_custom):
+    def test_E_collapses_all_after_expand(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
+        time.sleep(0.3)
+        ctrl.send_keys("E")
         time.sleep(0.3)
         ctrl.send_keys("E")
         time.sleep(0.5)
         screen = ctrl.capture()
         assert_screen_not_contains(screen, "fix the auth bug")
 
-    def test_E_expands_all(self, tui_custom):
-        ctrl, sessions = tui_custom(seed_with_prompts)
-        time.sleep(0.3)
-        ctrl.send_keys("E")
-        time.sleep(0.3)
-        ctrl.send_keys("E")
-        time.sleep(0.5)
-        screen = ctrl.capture()
-        assert_screen_contains(screen, "fix the auth bug")
-
 
 class TestActionsOnPromptRows:
 
     def test_favorite_on_prompt_row(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
+        ctrl.send_keys("e")
+        time.sleep(0.3)
         ctrl.send_keys("j")
         time.sleep(0.3)
         ctrl.send_keys("f")
@@ -116,6 +123,8 @@ class TestActionsOnPromptRows:
 
     def test_space_on_prompt_row_selects_session(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
+        ctrl.send_keys("e")
+        time.sleep(0.3)
         ctrl.send_keys("j")
         time.sleep(0.3)
         ctrl.send_keys("space")
@@ -138,8 +147,6 @@ class TestPromptSearch:
 
     def test_search_auto_expands_matching_session(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
-        ctrl.send_keys("E")
-        time.sleep(0.3)
         ctrl.send_keys("/")
         time.sleep(0.3)
         ctrl.send_text("middleware")
@@ -158,3 +165,35 @@ class TestPromptSearch:
         screen = ctrl.capture()
         assert_session_visible(screen, "multi-prompt")
         assert_session_visible(screen, "many-prompts")
+
+    def test_search_clear_preserves_expanded_state(self, tui_custom):
+        ctrl, sessions = tui_custom(seed_with_prompts)
+        ctrl.send_keys("/")
+        time.sleep(0.3)
+        ctrl.send_text("middleware")
+        time.sleep(1.0)
+        ctrl.send_keys("Escape")
+        time.sleep(0.5)
+        screen = ctrl.capture()
+        # Session auto-expanded by search should remain expanded
+        assert_screen_contains(screen, "│")
+        assert_session_visible(screen, "multi-prompt")
+
+    def test_manual_collapse_after_search_stays_collapsed(self, tui_custom):
+        ctrl, sessions = tui_custom(seed_with_prompts)
+        ctrl.send_keys("/")
+        time.sleep(0.3)
+        ctrl.send_text("middleware")
+        time.sleep(1.0)
+        # Move to session header and collapse it
+        ctrl.send_keys("g")
+        time.sleep(0.3)
+        ctrl.send_keys("e")
+        time.sleep(0.3)
+        ctrl.send_keys("Escape")
+        time.sleep(0.5)
+        screen = ctrl.capture()
+        # Manually collapsed session should stay collapsed
+        assert_session_visible(screen, "multi-prompt")
+        # Check that the multi-prompt session's prompts are not showing
+        assert_screen_not_contains(screen, "middleware")

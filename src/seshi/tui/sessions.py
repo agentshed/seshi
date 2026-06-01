@@ -53,6 +53,7 @@ class SessionsList(Widget):
         self._current_tags: list[str] | None = None
         self._prompts: dict[str, list[Prompt]] = {}
         self._collapsed: set[str] = set()
+        self._search_expanded: set[str] = set()
         self._display_rows: list[DisplayRow] = []
         self._matching_prompts: set[tuple[str, int]] = set()
         self._tags: dict[str, list[str]] = {}
@@ -117,6 +118,13 @@ class SessionsList(Widget):
                         self._matching_prompts.add((sid, p.prompt_index))
             for sid, _ in self._matching_prompts:
                 self._collapsed.discard(sid)
+                self._search_expanded.add(sid)
+        else:
+            # Collapse all by default, but preserve search-expanded sessions
+            preserved = self._search_expanded.copy()
+            self._collapsed = {s.session_id for s in self.sessions}
+            for sid in preserved:
+                self._collapsed.discard(sid)
 
         if self._compact_mode and not query:
             self._collapsed = {s.session_id for s in self.sessions}
@@ -128,6 +136,16 @@ class SessionsList(Widget):
                 self._compact_prev_sid = None
 
         self._build_display_rows()
+
+        # Position cursor on matching prompt row when search matches
+        if query and self._matching_prompts:
+            for i, row in enumerate(self._display_rows):
+                if row.kind == "prompt" and row.session and row.prompt:
+                    if (row.session.session_id, row.prompt.prompt_index) in self._matching_prompts:
+                        nav_idx = sum(1 for r in self._display_rows[:i] if r.kind != "bucket")
+                        self.cursor = nav_idx
+                        break
+
         nav_rows = [r for r in self._display_rows if r.kind != "bucket"]
         if self.cursor >= len(nav_rows):
             self.cursor = max(0, len(nav_rows) - 1)
@@ -517,6 +535,7 @@ class SessionsList(Widget):
             self._collapsed.discard(s.session_id)
         else:
             self._collapsed.add(s.session_id)
+            self._search_expanded.discard(s.session_id)
         self._build_display_rows()
         nav_count = self._nav_row_count()
         if self.cursor >= nav_count:
@@ -526,8 +545,10 @@ class SessionsList(Widget):
     def _toggle_expand_all(self):
         if self._collapsed:
             self._collapsed.clear()
+            self._search_expanded.clear()
         else:
             self._collapsed = {s.session_id for s in self.sessions}
+            self._search_expanded.clear()
         self._build_display_rows()
         nav_count = self._nav_row_count()
         if self.cursor >= nav_count:
@@ -537,6 +558,7 @@ class SessionsList(Widget):
     def _toggle_compact_mode(self):
         self._compact_mode = not self._compact_mode
         set_setting(self.conn, "compact_mode", "1" if self._compact_mode else "0")
+        self._search_expanded.clear()
         if self._compact_mode:
             self._collapsed = {s.session_id for s in self.sessions}
             s = self.current_session
@@ -546,7 +568,7 @@ class SessionsList(Widget):
             else:
                 self._compact_prev_sid = None
         else:
-            self._collapsed.clear()
+            self._collapsed = {s.session_id for s in self.sessions}
             self._compact_prev_sid = None
         self._build_display_rows()
         nav_count = self._nav_row_count()
