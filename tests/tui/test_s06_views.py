@@ -15,21 +15,21 @@ from tests.tui.seed import seed_for_projects, seed_for_actions, seed_for_bulk, i
 
 class TestViewSwitching:
 
-    def test_tab_cycles_forward(self, tui):
+    def test_tab_toggles_preview_focus(self, tui):
         ctrl, _ = tui
-        ctrl.send_keys("Tab")
-        time.sleep(0.5)
-        assert_view_active(ctrl.capture(), "overview")
+        # First Tab in sessions view should focus the preview pane
         ctrl.send_keys("Tab")
         time.sleep(0.5)
         screen = ctrl.capture()
-        assert_screen_contains(screen, "sessions")  # projects show "N sessions"
+        # When preview is focused, footer shows scroll hints instead of session actions
+        assert_screen_contains(screen, "scroll")
+        # Confirm we did NOT cycle to overview — still in sessions view
+        assert_screen_not_contains(screen, "Totals")
+        # Second Tab should return focus to session list
         ctrl.send_keys("Tab")
         time.sleep(0.5)
-        assert_view_active(ctrl.capture(), "help")
-        ctrl.send_keys("Tab")
-        time.sleep(0.5)
-        assert_header_visible(ctrl.capture())
+        screen = ctrl.capture()
+        assert_footer_shows(screen, "resume")
 
     def test_shift_tab_cycles_backward(self, tui):
         ctrl, _ = tui

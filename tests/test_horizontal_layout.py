@@ -120,10 +120,10 @@ def test_preview_shows_more_than_6_messages_at_tall_height():
     session = _make_session(session_id="s-preview")
 
     preview = Preview()
-    preview.session = session
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake/path"), \
          patch("seshi.tui.preview.extract_messages", return_value=messages):
+        preview.session = session
         rendered = _render_with_size(preview, 80, 40).plain
 
     role_count = rendered.count("you") + rendered.count("asst")
@@ -138,10 +138,10 @@ def test_preview_caps_messages_to_available_height():
     session = _make_session(session_id="s-cap")
 
     preview = Preview()
-    preview.session = session
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake/path"), \
          patch("seshi.tui.preview.extract_messages", return_value=messages):
+        preview.session = session
         rendered = _render_with_size(preview, 80, 15).plain
 
     role_count = rendered.count("you") + rendered.count("asst")
@@ -157,10 +157,10 @@ def test_preview_text_width_scales_with_widget_width():
     session = _make_session(session_id="s-wide")
 
     preview = Preview()
-    preview.session = session
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake/path"), \
          patch("seshi.tui.preview.extract_messages", return_value=messages):
+        preview.session = session
         rendered = _render_with_size(preview, 150, 20).plain
 
     x_count = rendered.count("x")
@@ -173,10 +173,10 @@ def test_preview_text_width_respects_narrow_widget():
     session = _make_session(session_id="s-narrow")
 
     preview = Preview()
-    preview.session = session
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake/path"), \
          patch("seshi.tui.preview.extract_messages", return_value=messages):
+        preview.session = session
         rendered = _render_with_size(preview, 60, 20).plain
 
     y_count = rendered.count("y")
