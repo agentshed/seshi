@@ -31,6 +31,12 @@ class Preview(Widget):
 
     def watch_session(self, session: Session | None) -> None:
         self._update_cache(session)
+        # Defensive recovery: if cache is empty but transcript exists, retry
+        if session and not self._cached_messages:
+            path = find_transcript_path(session.session_id)
+            if path:
+                self._cached_session_id = None
+                self._update_cache(session)
         if not self.has_focus:
             self._scroll_offset = 0
         self.refresh()
@@ -155,16 +161,9 @@ class Preview(Widget):
         if self.has_focus and messages:
             text.append("\n")
 
-        path = find_transcript_path(s.session_id)
-        if not path and not messages:
+        if not messages:
             text.append("  (no transcript on disk)", style="dim")
             return text
-
-        # Use cached messages; if cache is empty but path exists, refresh
-        if not messages and path:
-            self._cached_session_id = None
-            self._update_cache(s)
-            messages = self._cached_messages
 
         max_text_width = max(self.size.width - 12, 40) if self.size.width > 0 else 120
 

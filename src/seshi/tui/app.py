@@ -452,6 +452,7 @@ class SeshiApp(App):
             self._switch_view()
 
     def _switch_view(self) -> None:
+        self._set_footer_preview_focused(False)
         try:
             search = self.query_one(SearchBar)
             if search.mode != "search":
