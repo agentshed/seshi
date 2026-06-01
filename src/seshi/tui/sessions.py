@@ -54,6 +54,7 @@ class SessionsList(Widget):
         self._prompts: dict[str, list[Prompt]] = {}
         self._collapsed: set[str] = set()
         self._search_expanded: set[str] = set()
+        self._manually_expanded: set[str] = set()
         self._display_rows: list[DisplayRow] = []
         self._matching_prompts: set[tuple[str, int]] = set()
         self._tags: dict[str, list[str]] = {}
@@ -120,8 +121,8 @@ class SessionsList(Widget):
                 self._collapsed.discard(sid)
                 self._search_expanded.add(sid)
         else:
-            # Collapse all by default, but preserve search-expanded sessions
-            preserved = self._search_expanded.copy()
+            # Collapse all by default, but preserve manually and search-expanded sessions
+            preserved = self._search_expanded | self._manually_expanded
             self._collapsed = {s.session_id for s in self.sessions}
             for sid in preserved:
                 self._collapsed.discard(sid)
@@ -533,9 +534,11 @@ class SessionsList(Widget):
             return
         if s.session_id in self._collapsed:
             self._collapsed.discard(s.session_id)
+            self._manually_expanded.add(s.session_id)
         else:
             self._collapsed.add(s.session_id)
             self._search_expanded.discard(s.session_id)
+            self._manually_expanded.discard(s.session_id)
         self._build_display_rows()
         nav_count = self._nav_row_count()
         if self.cursor >= nav_count:
@@ -546,9 +549,11 @@ class SessionsList(Widget):
         if self._collapsed:
             self._collapsed.clear()
             self._search_expanded.clear()
+            self._manually_expanded.clear()
         else:
             self._collapsed = {s.session_id for s in self.sessions}
             self._search_expanded.clear()
+            self._manually_expanded.clear()
         self._build_display_rows()
         nav_count = self._nav_row_count()
         if self.cursor >= nav_count:
@@ -559,6 +564,7 @@ class SessionsList(Widget):
         self._compact_mode = not self._compact_mode
         set_setting(self.conn, "compact_mode", "1" if self._compact_mode else "0")
         self._search_expanded.clear()
+        self._manually_expanded.clear()
         if self._compact_mode:
             self._collapsed = {s.session_id for s in self.sessions}
             s = self.current_session

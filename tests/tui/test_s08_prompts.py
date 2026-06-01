@@ -185,13 +185,14 @@ class TestPromptSearch:
         time.sleep(0.3)
         ctrl.send_text("middleware")
         time.sleep(1.0)
-        # Move to session header and collapse it
+        # Exit search first — search-expanded sessions stay expanded
+        ctrl.send_keys("Escape")
+        time.sleep(0.5)
+        # Now session list has focus; navigate to first session and collapse it
         ctrl.send_keys("g")
         time.sleep(0.3)
         ctrl.send_keys("e")
         time.sleep(0.3)
-        ctrl.send_keys("Escape")
-        time.sleep(0.5)
         screen = ctrl.capture()
         # Manually collapsed session should stay collapsed
         assert_session_visible(screen, "multi-prompt")
