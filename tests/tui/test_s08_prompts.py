@@ -17,7 +17,7 @@ class TestPromptDisplay:
         ctrl, sessions = tui_custom(seed_with_prompts)
         time.sleep(0.5)
         screen = ctrl.capture()
-        assert_screen_not_contains(screen, "│")
+        assert_screen_not_contains(screen, "fix the auth bug")
         assert_screen_contains(screen, "▸")
 
     def test_session_header_shows_collapse_indicator(self, tui_custom):
@@ -53,8 +53,8 @@ class TestPromptNavigation:
         ctrl.send_keys("j")
         time.sleep(0.3)
         screen = ctrl.capture()
-        # When collapsed, j moves to next session, no prompt rows
-        assert_screen_not_contains(screen, "│")
+        # When collapsed, j moves to next session, no prompt rows visible
+        assert_screen_not_contains(screen, "fix the auth bug")
 
     def test_g_jumps_to_first_row(self, tui_custom):
         ctrl, sessions = tui_custom(seed_with_prompts)
