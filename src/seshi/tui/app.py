@@ -287,6 +287,12 @@ class SeshiApp(App):
         except Exception:
             pass
 
+    def _set_footer_preview_focused(self, focused: bool) -> None:
+        try:
+            self.query_one(Footer).preview_focused = focused
+        except Exception:
+            pass
+
     def _focus_current_list(self) -> None:
         if self.current_view == "sessions" and hasattr(self, '_sessions_list'):
             self._sessions_list.focus()
@@ -324,6 +330,14 @@ class SeshiApp(App):
 
         if self._quit_toast_active:
             self._quit_toast_active = False
+            return
+
+        # If preview pane is focused, return focus to session list
+        if (self.current_view == "sessions"
+                and hasattr(self, '_preview')
+                and self._preview.has_focus):
+            self._sessions_list.focus()
+            self._set_footer_preview_focused(False)
             return
 
         if self.current_view != "sessions":
@@ -382,6 +396,15 @@ class SeshiApp(App):
 
     def action_next_view(self) -> None:
         if self._is_in_input_mode():
+            return
+        # In sessions view, Tab toggles focus between session list and preview
+        if self.current_view == "sessions" and hasattr(self, '_preview') and self._preview.display:
+            if self._preview.has_focus:
+                self._sessions_list.focus()
+                self._set_footer_preview_focused(False)
+            else:
+                self._preview.focus()
+                self._set_footer_preview_focused(True)
             return
         views = ["sessions", "overview", "projects", "help"]
         idx = views.index(self.current_view) if self.current_view in views else 0

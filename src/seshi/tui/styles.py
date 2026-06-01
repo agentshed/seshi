@@ -79,6 +79,10 @@ Screen {{
     background: {palette.bg};
 }}
 
+#preview:focus {{
+    border: solid {palette.accent};
+}}
+
 #preview .role-user {{
     color: {palette.user};
 }}
