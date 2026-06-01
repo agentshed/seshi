@@ -15,21 +15,19 @@ from tests.tui.seed import seed_for_projects, seed_for_actions, seed_for_bulk, i
 
 class TestViewSwitching:
 
-    def test_tab_cycles_forward(self, tui):
+    def test_number_keys_cycle_views(self, tui):
         ctrl, _ = tui
-        ctrl.send_keys("Tab")
-        time.sleep(0.5)
-        ctrl.send_keys("Tab")
+        ctrl.send_keys("2")
         time.sleep(0.5)
         assert_view_active(ctrl.capture(), "overview")
-        ctrl.send_keys("Tab")
+        ctrl.send_keys("3")
         time.sleep(0.5)
         screen = ctrl.capture()
         assert_screen_contains(screen, "sessions")  # projects show "N sessions"
-        ctrl.send_keys("Tab")
+        ctrl.send_keys("?")
         time.sleep(0.5)
         assert_view_active(ctrl.capture(), "help")
-        ctrl.send_keys("Tab")
+        ctrl.send_keys("1")
         time.sleep(0.5)
         assert_header_visible(ctrl.capture())
 
