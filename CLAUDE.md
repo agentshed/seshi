@@ -69,3 +69,7 @@ Before starting work, check all dependencies in `pyproject.toml` against their l
 ### Testing
 
 Tests use a `tmp_db` fixture (in-memory SQLite with schema initialized). Tests mock paths like `CLAUDE_SETTINGS` and `QUEUE_PATH` to avoid touching real user data. The suite includes unit tests for core logic and Textual-based TUI regression tests.
+
+#### TUI test helpers
+
+`line_containing(text)` returns the full terminal-width rendered line, including Textual panel borders and widget chrome. Do not assert absence of border characters (`│`, `─`, `┌`, `└`, etc.) on matched lines — they appear in panel borders regardless of content. Instead, assert the presence of expected markers.
