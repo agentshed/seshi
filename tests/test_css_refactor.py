@@ -49,6 +49,27 @@ def test_all_themes_generate_css():
         assert "Screen {" in css
 
 
+def test_session_list_focus_css_rule():
+    """#session-list:focus should use palette.accent for border highlight."""
+    coral = get_theme("coral")
+    css = theme_css(coral)
+    assert "#session-list:focus" in css
+    # The focus rule should reference the accent color
+    focus_block_start = css.index("#session-list:focus")
+    focus_block = css[focus_block_start:css.index("}", focus_block_start) + 1]
+    assert coral.accent in focus_block
+
+
+def test_preview_focus_css_rule():
+    """#preview:focus should also use palette.accent (existing behavior)."""
+    coral = get_theme("coral")
+    css = theme_css(coral)
+    assert "#preview:focus" in css
+    focus_block_start = css.index("#preview:focus")
+    focus_block = css[focus_block_start:css.index("}", focus_block_start) + 1]
+    assert coral.accent in focus_block
+
+
 def test_app_has_css_path():
     from seshi.tui.app import SeshiApp
     assert hasattr(SeshiApp, "CSS_PATH")

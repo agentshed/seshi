@@ -44,6 +44,10 @@ Screen {{
     background: {palette.bg};
 }}
 
+#session-list:focus {{
+    border: solid {palette.accent};
+}}
+
 .session-row {{
     color: {palette.fg};
 }}
