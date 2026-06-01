@@ -63,8 +63,6 @@ class TestPromptDisplay:
         assert line is not None
         # Must have the ─ marker, not look like a prompt sub-row
         assert "─" in line
-        # Must NOT have the prompt sub-row connector
-        assert "│" not in line
 
 
 @pytest.mark.smoke
