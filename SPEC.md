@@ -733,15 +733,16 @@ Groups are ordered by the first session's position in the active sort mode. With
 ### Preview Pane
 
 - Shows cwd, message count, token count
-- Loads last N messages from the JSONL transcript on disk (lazy, per selection change)
+- Loads messages from the JSONL transcript on disk, cached by session ID
 - Role labels: `you` (user), `asst` (assistant), `sys` (system), `tool`
 - Messages truncated to 200 chars, whitespace collapsed
+- `Tab` toggles focus to preview in sessions view; when focused, vim-style scrolling (`j`/`k`, `g`/`G`, `Ctrl-U`/`Ctrl-D`) is available. `Tab` or `Esc` returns focus to the session list. A scroll position indicator `[start-end/total]` appears in the header while focused.
 
 ### View Navigation
 
 | Key | Action |
 |-----|--------|
-| `Tab` / `Shift-Tab` | Cycle through views |
+| `Tab` | Toggle preview focus (sessions view) / Next view |
 | `1` | Sessions |
 | `2` | Overview |
 | `3` | Projects |

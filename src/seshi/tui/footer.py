@@ -16,6 +16,7 @@ class Footer(Widget):
     mode: reactive[str] = reactive("normal")
     accent: reactive[str] = reactive("#E08A5E")
     preview_mode: reactive[str] = reactive("normal")
+    preview_focused: reactive[bool] = reactive(False)
 
     def render(self) -> Text:
         text = Text()
@@ -33,7 +34,13 @@ class Footer(Widget):
             text.append(" cancel", style="dim")
             return text
 
-        if self.view == "sessions":
+        if self.view == "sessions" and self.preview_focused:
+            keys = [
+                ("j/k", "scroll"), ("g/G", "top/end"),
+                ("^U/^D", "page"), ("Tab", "back"),
+                ("Esc", "back"),
+            ]
+        elif self.view == "sessions":
             keys = [
                 ("↵", "resume"), ("/", "search"), ("f", "fav"),
                 ("d", "delete"), ("z", "undo"), ("s", "sort"),
