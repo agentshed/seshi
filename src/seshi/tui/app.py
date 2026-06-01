@@ -293,6 +293,15 @@ class SeshiApp(App):
         except Exception:
             pass
 
+    def on_descendant_focus(self, event) -> None:
+        """Sync footer preview_focused whenever any widget gains focus.
+
+        This catches all focus paths (Tab, Escape, mouse clicks, view switches)
+        so the footer hints always reflect the actual focus state.
+        """
+        if hasattr(self, '_preview'):
+            self._set_footer_preview_focused(event.widget is self._preview)
+
     def _focus_current_list(self) -> None:
         if self.current_view == "sessions" and hasattr(self, '_sessions_list'):
             self._sessions_list.focus()
