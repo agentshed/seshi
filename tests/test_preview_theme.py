@@ -47,10 +47,10 @@ def _render_with_size(preview):
 def test_preview_uses_custom_user_color():
     p = Preview()
     p.user_color = "#FF0000"
-    p.session = _make_session()
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
          patch("seshi.tui.preview.extract_messages", return_value=_mock_messages()):
+        p.session = _make_session()
         rendered = _render_with_size(p)
 
     spans = rendered._spans
@@ -61,10 +61,10 @@ def test_preview_uses_custom_user_color():
 def test_preview_uses_custom_assistant_color():
     p = Preview()
     p.assistant_color = "#00FF00"
-    p.session = _make_session()
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
          patch("seshi.tui.preview.extract_messages", return_value=_mock_messages()):
+        p.session = _make_session()
         rendered = _render_with_size(p)
 
     spans = rendered._spans
@@ -74,10 +74,10 @@ def test_preview_uses_custom_assistant_color():
 
 def test_preview_defaults_to_fallback_colors():
     p = Preview()
-    p.session = _make_session()
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
          patch("seshi.tui.preview.extract_messages", return_value=_mock_messages()):
+        p.session = _make_session()
         rendered = _render_with_size(p)
 
     text = rendered.plain
@@ -97,10 +97,10 @@ def test_preview_with_no_session():
 def test_preview_reacts_to_color_change():
     p = Preview()
     p.user_color = "#FF0000"
-    p.session = _make_session()
 
     with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
          patch("seshi.tui.preview.extract_messages", return_value=_mock_messages()):
+        p.session = _make_session()
         rendered1 = _render_with_size(p)
         p.user_color = "#0000FF"
         rendered2 = _render_with_size(p)

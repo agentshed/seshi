@@ -19,6 +19,8 @@ class TestViewSwitching:
         ctrl, _ = tui
         ctrl.send_keys("Tab")
         time.sleep(0.5)
+        ctrl.send_keys("Tab")
+        time.sleep(0.5)
         assert_view_active(ctrl.capture(), "overview")
         ctrl.send_keys("Tab")
         time.sleep(0.5)
