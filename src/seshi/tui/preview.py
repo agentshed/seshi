@@ -23,9 +23,11 @@ class Preview(Widget):
     user_color: reactive[str] = reactive("#E08A5E")
     assistant_color: reactive[str] = reactive("#6BAED6")
 
-    _cached_session_id: str | None = None
-    _cached_messages: list = []
-    _scroll_offset: int = 0
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._cached_session_id: str | None = None
+        self._cached_messages: list = []
+        self._scroll_offset: int = 0
 
     def watch_session(self, session: Session | None) -> None:
         self._update_cache(session)
@@ -66,19 +68,17 @@ class Preview(Widget):
         self._scroll_offset = 0
         self.refresh()
 
-    def _sync_scroll_to_focus(self) -> None:
-        """Set scroll offset to match the current auto-centered position."""
-        messages = self._cached_messages
+    @staticmethod
+    def _compute_start_offset(messages: list, focus_prompt_index: int | None, available: int) -> int:
+        """Compute the start offset for centering on a focused prompt."""
         if not messages:
-            self._scroll_offset = 0
-            return
-        available = self._available_lines()
-        if self.focus_prompt_index is not None:
+            return 0
+        if focus_prompt_index is not None:
             user_count = 0
             focus_pos = None
             for i, msg in enumerate(messages):
                 if msg.role == "user":
-                    if user_count == self.focus_prompt_index:
+                    if user_count == focus_prompt_index:
                         focus_pos = i
                         break
                     user_count += 1
@@ -88,11 +88,14 @@ class Preview(Widget):
                 end = min(len(messages), start + available)
                 if end - start < available:
                     start = max(0, end - available)
-                self._scroll_offset = start
-            else:
-                self._scroll_offset = max(0, len(messages) - available)
-        else:
-            self._scroll_offset = max(0, len(messages) - available)
+                return start
+        return max(0, len(messages) - available)
+
+    def _sync_scroll_to_focus(self) -> None:
+        """Set scroll offset to match the current auto-centered position."""
+        self._scroll_offset = self._compute_start_offset(
+            self._cached_messages, self.focus_prompt_index, self._available_lines()
+        )
 
     def on_key(self, event: events.Key) -> None:
         if not self.has_focus:
@@ -171,23 +174,9 @@ class Preview(Widget):
             end = min(start + available_lines, len(messages))
             display = messages[start:end]
         elif self.focus_prompt_index is not None and messages:
-            user_count = 0
-            focus_pos = None
-            for i, msg in enumerate(messages):
-                if msg.role == "user":
-                    if user_count == self.focus_prompt_index:
-                        focus_pos = i
-                        break
-                    user_count += 1
-            if focus_pos is not None:
-                half = available_lines // 2
-                start = max(0, focus_pos - half)
-                end = min(len(messages), start + available_lines)
-                if end - start < available_lines:
-                    start = max(0, end - available_lines)
-                display = messages[start:end]
-            else:
-                display = messages[-available_lines:] if len(messages) > available_lines else messages
+            start = self._compute_start_offset(messages, self.focus_prompt_index, available_lines)
+            end = min(start + available_lines, len(messages))
+            display = messages[start:end]
         else:
             display = messages[-available_lines:] if len(messages) > available_lines else messages
 

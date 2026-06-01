@@ -16,8 +16,15 @@ HELP_TEXT = """
   ↑/↓  j/k        Move cursor
   Ctrl-u / Ctrl-d  Page up / down
   g / G            Jump to top / bottom
-  Tab / Shift-Tab  Cycle views
+  Tab              Toggle preview focus (sessions view) / Next view
   1 2 3 ?          Jump to Sessions / Overview / Projects / Help
+
+  Preview (focused)
+  ─────────────────
+  j / k            Scroll line up / down
+  g / G            Jump to top / bottom
+  Ctrl-u / Ctrl-d  Page up / down
+  Tab / Esc        Return focus to session list
 
   Actions (Sessions view)
   ───────────────────────
