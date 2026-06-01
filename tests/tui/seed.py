@@ -296,6 +296,34 @@ def seed_with_prompts(conn: sqlite3.Connection) -> dict[str, str]:
     return sessions
 
 
+def seed_with_untitled_promptless(conn: sqlite3.Connection) -> dict[str, str]:
+    """Seed with a normal session followed by an untitled promptless session."""
+    now = int(time.time())
+    sessions: dict[str, str] = {}
+
+    sessions["normal"] = insert_session(
+        conn,
+        custom_name="normal-session",
+        first_prompt="do some work",
+        cwd="/tmp/normal",
+        last_activity_at=now,
+    )
+    insert_prompts(conn, sessions["normal"], [
+        ("do some work", now - 600),
+        ("more work", now),
+    ])
+
+    sessions["untitled_empty"] = insert_session(
+        conn,
+        custom_name=None,
+        first_prompt=None,
+        cwd="/tmp/empty",
+        last_activity_at=now - 7200,
+    )
+
+    return sessions
+
+
 def seed_with_transcript_files(
     conn: sqlite3.Connection,
     claude_projects_dir,

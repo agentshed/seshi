@@ -7,7 +7,7 @@ from tests.tui.assertions import (
     assert_session_visible,
     assert_search_bar_count,
 )
-from tests.tui.seed import seed_with_prompts, seed_for_bulk, insert_prompts
+from tests.tui.seed import seed_with_prompts, seed_for_bulk, insert_prompts, seed_with_untitled_promptless
 
 
 @pytest.mark.smoke
@@ -43,6 +43,28 @@ class TestPromptDisplay:
         line = screen.line_containing("no-prompts")
         assert line is not None
         assert "▾" not in line and "▸" not in line
+
+    def test_promptless_session_has_dash_marker(self, tui_custom):
+        """Promptless sessions use ─ instead of space as collapse mark."""
+        ctrl, sessions = tui_custom(seed_with_prompts)
+        ctrl.send_keys("G")
+        time.sleep(0.5)
+        screen = ctrl.capture()
+        line = screen.line_containing("no-prompts")
+        assert line is not None
+        assert "─" in line
+
+    def test_untitled_promptless_not_confused_with_prompt_row(self, tui_custom):
+        """Untitled promptless session uses ─ marker, not space indent."""
+        ctrl, sessions = tui_custom(seed_with_untitled_promptless)
+        time.sleep(0.5)
+        screen = ctrl.capture()
+        line = screen.line_containing("(untitled)")
+        assert line is not None
+        # Must have the ─ marker, not look like a prompt sub-row
+        assert "─" in line
+        # Must NOT have the prompt sub-row connector
+        assert "│" not in line
 
 
 @pytest.mark.smoke
