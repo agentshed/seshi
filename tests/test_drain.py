@@ -201,6 +201,19 @@ def test_drain_stop_null_message_count_with_prompt_updates(tmp_db, tmp_path):
     assert row["first_prompt"] == "hello"
 
 
+def test_drain_stop_null_token_count_stores_zero(tmp_db, tmp_path):
+    """A stop event with token_count=None should store 0, not NULL."""
+    from unittest import mock
+    q = _write_queue(tmp_path, [
+        {"event": "start", "ts": 1000, "session_id": "null-tokens-1", "cwd": "/home", "argv": "claude"},
+        {"event": "stop", "ts": 1001, "session_id": "null-tokens-1", "message_count": 1, "token_count": None, "first_prompt": "hello"},
+    ])
+    with mock.patch("seshi.drain.QUEUE_PATH", q):
+        drain_queue(tmp_db)
+    row = tmp_db.execute("SELECT token_count FROM sessions WHERE session_id = 'null-tokens-1'").fetchone()
+    assert row["token_count"] == 0
+
+
 def test_drain_keeps_session_with_first_prompt_only(tmp_db, tmp_path):
     """Stop with message_count=0 but a first_prompt keeps the session."""
     from unittest import mock
