@@ -10,7 +10,7 @@ from textual import events
 from rich.text import Text
 
 from seshi.models import Session, Prompt
-from seshi.prompt_text import strip_markup_tags, strip_system_blocks
+from seshi.prompt_text import replace_command_tags, strip_markup_tags, strip_system_blocks
 from seshi.search import list_sessions, rank_sessions, query_matches_text
 from seshi.time_utils import relative_time
 from seshi.lang_detect import detect_language
@@ -203,7 +203,7 @@ class SessionsList(Widget):
                 rows.append(DisplayRow(kind="session", session=s))
                 if s.session_id not in self._collapsed:
                     for p in self._prompts.get(s.session_id, []):
-                        if strip_system_blocks(p.text):
+                        if strip_system_blocks(replace_command_tags(p.text)):
                             rows.append(DisplayRow(kind="prompt", session=s, prompt=p))
 
         groups: dict[str, list[Session]] = {}
@@ -230,7 +230,7 @@ class SessionsList(Widget):
                 rows.append(DisplayRow(kind="session", session=s))
                 if s.session_id not in self._collapsed:
                     for p in self._prompts.get(s.session_id, []):
-                        if strip_system_blocks(p.text):
+                        if strip_system_blocks(replace_command_tags(p.text)):
                             rows.append(DisplayRow(kind="prompt", session=s, prompt=p))
 
         self._display_rows = rows
@@ -381,7 +381,7 @@ class SessionsList(Widget):
                 indent = " " * prefix_w
                 connector = "│ "
                 prompt_w = max(5, w - len(indent) - len(connector))
-                prompt_text = strip_system_blocks(p.text)[:prompt_w]
+                prompt_text = strip_system_blocks(replace_command_tags(p.text))[:prompt_w]
                 line = f"{indent}{connector}{prompt_text}"[:w]
                 visible_rows.append((line, style, di))
 
@@ -531,6 +531,8 @@ class SessionsList(Widget):
     def _toggle_expand(self):
         s = self.current_session
         if not s:
+            return
+        if not self._prompts.get(s.session_id):
             return
         if s.session_id in self._collapsed:
             self._collapsed.discard(s.session_id)

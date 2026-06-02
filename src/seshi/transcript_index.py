@@ -2,7 +2,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from seshi.prompt_text import strip_system_blocks
+from seshi.prompt_text import replace_command_tags, strip_system_blocks
 from seshi.transcript import find_transcript_path
 
 
@@ -25,7 +25,7 @@ def extract_full_text(path: Path) -> str:
                 content = msg.get("content", "")
                 if isinstance(content, str):
                     if is_user:
-                        content = strip_system_blocks(content)
+                        content = strip_system_blocks(replace_command_tags(content))
                     if content.strip():
                         parts.append(content)
                 elif isinstance(content, list):
@@ -33,7 +33,7 @@ def extract_full_text(path: Path) -> str:
                         if isinstance(block, dict) and block.get("type") == "text":
                             text = block.get("text", "")
                             if is_user:
-                                text = strip_system_blocks(text)
+                                text = strip_system_blocks(replace_command_tags(text))
                             if text.strip():
                                 parts.append(text)
     except OSError:

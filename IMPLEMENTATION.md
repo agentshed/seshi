@@ -103,7 +103,7 @@ seshi/
 │       ├── resume.py                # build_resume_line(), shell_quote()
 │       ├── scan.py                  # scan_projects(), fix_prompts(), auto_scan() — backfill + startup scan
 │       ├── transcript.py            # parse_transcript(), extract_messages(), extract_user_prompts()
-│       ├── prompt_text.py           # strip_system_blocks(), strip_markup_tags()
+│       ├── prompt_text.py           # strip_system_blocks(), replace_command_tags(), extract_command_text(), strip_markup_tags()
 │       ├── hook.py                  # install_hook(), patch_settings(), unpatch_settings()
 │       ├── themes.py                # 5 palettes, get_theme(), THEMES dict
 │       ├── cost.py                  # Model rate table, estimate_cost(), format_usd()

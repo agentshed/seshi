@@ -1,6 +1,6 @@
 import time
 
-from seshi.prompt_text import strip_markup_tags, strip_system_blocks
+from seshi.prompt_text import extract_command_text, replace_command_tags, strip_markup_tags, strip_system_blocks
 from seshi.tui.sessions import SessionsList
 
 
@@ -84,9 +84,68 @@ def test_sessions_list_hides_system_block_only_prompts(tmp_db):
     lines = [l for l in rendered.split("\n") if l.strip()]
 
     prompt_lines = [l for l in lines if "│" in l]
-    assert len(prompt_lines) == 2
+    assert len(prompt_lines) == 3
     assert any("real prompt" in l for l in prompt_lines)
+    assert any("/clear" in l for l in prompt_lines)
     assert any("second real prompt" in l for l in prompt_lines)
+
+
+def test_extract_command_text_basic():
+    text = "<command-name>/fullsend-autopilot</command-name><command-message>fullsend-autopilot</command-message><command-args>fix the login bug</command-args>"
+    assert extract_command_text(text) == "/fullsend-autopilot fix the login bug"
+
+
+def test_extract_command_text_no_args():
+    text = "<command-name>/clear</command-name><command-message>clear</command-message>"
+    assert extract_command_text(text) == "/clear"
+
+
+def test_extract_command_text_empty_args():
+    text = "<command-name>/clear</command-name><command-message>clear</command-message><command-args></command-args>"
+    assert extract_command_text(text) == "/clear"
+
+
+def test_extract_command_text_no_commands():
+    text = "plain text with no command tags"
+    assert extract_command_text(text) is None
+
+
+def test_replace_command_tags_produces_readable_text():
+    text = "<command-name>/foo</command-name><command-message>foo</command-message><command-args>bar baz</command-args>"
+    result = replace_command_tags(text)
+    # After replacing command tags, strip_system_blocks should preserve the text
+    cleaned = strip_system_blocks(result)
+    assert cleaned == "/foo bar baz"
+
+
+def test_replace_command_tags_mixed_content():
+    text = "<command-name>/clear</command-name><command-message>clear</command-message> actual prompt"
+    result = replace_command_tags(text)
+    cleaned = strip_system_blocks(result)
+    assert "actual prompt" in cleaned
+    assert "/clear" in cleaned
+
+
+def test_replace_command_tags_backslash_in_args():
+    text = r"<command-name>/foo</command-name><command-message>foo</command-message><command-args>path\1\data</command-args>"
+    result = replace_command_tags(text)
+    cleaned = strip_system_blocks(result)
+    assert r"\1" in cleaned
+
+
+def test_replace_command_tags_no_commands():
+    text = "plain text without commands"
+    assert replace_command_tags(text) == text
+
+
+def test_toggle_expand_no_prompts(tmp_db):
+    _insert_session(tmp_db, "no-prompts", "some prompt")
+    sl = SessionsList(tmp_db)
+    # Session has no prompts in the prompts table
+    old_collapsed = sl._collapsed.copy()
+    sl._toggle_expand()
+    # Should be a no-op since no prompts are loaded
+    assert sl._collapsed == old_collapsed
 
 
 def test_sessions_list_search_finds_visible_prompt_text(tmp_db):

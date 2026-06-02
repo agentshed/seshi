@@ -1,7 +1,7 @@
 import re
 import sqlite3
 
-from seshi.prompt_text import strip_markup_tags, strip_system_blocks
+from seshi.prompt_text import replace_command_tags, strip_markup_tags, strip_system_blocks
 
 STOPWORDS = frozenset([
     "the", "and", "for", "are", "but", "not", "you", "all", "can", "had",
@@ -44,14 +44,14 @@ def index_session_search(conn: sqlite3.Connection, session_id: str) -> bool:
         return False
 
     name = row["custom_name"] or row["ai_title"] or ""
-    first_prompt = strip_markup_tags(strip_system_blocks(row["first_prompt"] or ""))
+    first_prompt = strip_markup_tags(strip_system_blocks(replace_command_tags(row["first_prompt"] or "")))
     cwd = row["cwd"] or ""
 
     prompt_rows = conn.execute(
         "SELECT text FROM prompts WHERE session_id = ? ORDER BY prompt_index",
         (session_id,),
     ).fetchall()
-    prompt_text = "\n".join(strip_system_blocks(r["text"]) for r in prompt_rows)
+    prompt_text = "\n".join(strip_system_blocks(replace_command_tags(r["text"])) for r in prompt_rows)
 
     conn.execute("DELETE FROM session_search WHERE session_id = ?", (session_id,))
     conn.execute("DELETE FROM session_search_trigram WHERE session_id = ?", (session_id,))
