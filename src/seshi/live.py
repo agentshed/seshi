@@ -27,7 +27,14 @@ class LiveInfo:
     tools: list[ToolCall] = field(default_factory=list)
 
 
+import re
+
+_HEX8_RE = re.compile(r"^[0-9a-f]{8}$")
+
+
 def _read_state_json(daemon_short: str) -> dict:
+    if not _HEX8_RE.match(daemon_short):
+        return {}
     state_path = CLAUDE_JOBS / daemon_short / "state.json"
     try:
         return json.loads(state_path.read_text())
@@ -82,7 +89,6 @@ def _extract_live_tools(transcript_path: str) -> list[ToolCall]:
         if tools:
             break
 
-    tools.reverse()
     return tools
 
 

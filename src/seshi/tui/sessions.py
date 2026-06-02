@@ -77,7 +77,7 @@ class SessionsList(Widget):
             for info in self.live_states.values()
         )
         if has_busy:
-            self._anim_frame += 1
+            self._anim_frame = (self._anim_frame + 1) % 2
             self.refresh()
 
     def _rebuild_and_refresh(self) -> None:
@@ -383,9 +383,9 @@ class SessionsList(Widget):
     def render(self) -> Text:
         text = Text()
 
+        tracked_sids = {s.session_id for s in self.sessions}
         has_untracked_live = bool(self.live_states) and any(
-            sid not in {s.session_id for s in self.sessions}
-            for sid in self.live_states
+            sid not in tracked_sids for sid in self.live_states
         )
         if not self.sessions and not has_untracked_live:
             if self._current_query or self._current_tags:
@@ -629,16 +629,8 @@ class SessionsList(Widget):
         elif event.key == "escape":
             pass  # handled by app-level action_back_or_quit
         elif event.key == "enter":
-            s = self.current_session
-            if s:
-                live = self.live_states.get(s.session_id)
-                if live and live.kind == "background":
-                    self.app.chosen_action = "attach"
-                else:
-                    self.app.chosen_action = "resume"
-                self.app.chosen_session = s
-                self.app.exit()
-                return
+            self.app.action_resume()
+            return
         else:
             if event.is_printable and event.character:
                 search = self.app.query_one(SearchBar)

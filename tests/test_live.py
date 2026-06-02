@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from seshi.live import LiveInfo, fetch_live_sessions
+from seshi.live import LiveInfo, ToolCall, fetch_live_sessions, _extract_live_tools, _summarize_tool_input
 
 
 def _agents_json(*entries):
@@ -210,3 +210,85 @@ def test_fetch_handles_state_json_missing_detail(tmp_path):
 def test_fetch_empty_array():
     with patch("seshi.live.subprocess.run", return_value=_agents_json()):
         assert fetch_live_sessions() == {}
+
+
+# ── _summarize_tool_input tests ─────────────────────────────────────
+
+def test_summarize_bash():
+    assert _summarize_tool_input("Bash", {"command": "uv run pytest -x"}) == "uv run pytest -x"
+
+
+def test_summarize_read():
+    assert _summarize_tool_input("Read", {"file_path": "/src/main.py"}) == "/src/main.py"
+
+
+def test_summarize_write():
+    assert _summarize_tool_input("Write", {"file_path": "/out.txt"}) == "/out.txt"
+
+
+def test_summarize_edit():
+    result = _summarize_tool_input("Edit", {"file_path": "foo.py", "old_string": "hello world"})
+    assert "foo.py" in result
+
+
+def test_summarize_agent():
+    assert "search" in _summarize_tool_input("Agent", {"description": "search codebase"})
+
+
+def test_summarize_unknown():
+    result = _summarize_tool_input("CustomTool", {"a": 1})
+    assert isinstance(result, str)
+
+
+def test_summarize_bash_truncates():
+    long_cmd = "x" * 200
+    result = _summarize_tool_input("Bash", {"command": long_cmd})
+    assert len(result) <= 120
+
+
+# ── _extract_live_tools tests ───────────────────────────────────────
+
+def test_extract_live_tools_from_transcript(tmp_path):
+    transcript = tmp_path / "session.jsonl"
+    lines = [
+        json.dumps({"message": {"role": "user", "content": [{"type": "text", "text": "fix the bug"}]}}),
+        json.dumps({"message": {"role": "assistant", "content": [
+            {"type": "tool_use", "name": "Bash", "input": {"command": "pytest -x"}},
+            {"type": "tool_use", "name": "Read", "input": {"file_path": "src/main.py"}},
+        ]}}),
+    ]
+    transcript.write_text("\n".join(lines))
+    tools = _extract_live_tools(str(transcript))
+    assert len(tools) == 2
+    assert tools[0].name == "Bash"
+    assert "pytest" in tools[0].summary
+    assert tools[1].name == "Read"
+
+
+def test_extract_live_tools_empty_file(tmp_path):
+    transcript = tmp_path / "empty.jsonl"
+    transcript.write_text("")
+    tools = _extract_live_tools(str(transcript))
+    assert tools == []
+
+
+def test_extract_live_tools_missing_file():
+    tools = _extract_live_tools("/nonexistent/path.jsonl")
+    assert tools == []
+
+
+def test_extract_live_tools_stops_at_user_message(tmp_path):
+    transcript = tmp_path / "session.jsonl"
+    lines = [
+        json.dumps({"message": {"role": "assistant", "content": [
+            {"type": "tool_use", "name": "Bash", "input": {"command": "echo old"}},
+        ]}}),
+        json.dumps({"message": {"role": "user", "content": [{"type": "text", "text": "now do this"}]}}),
+        json.dumps({"message": {"role": "assistant", "content": [
+            {"type": "tool_use", "name": "Read", "input": {"file_path": "new.py"}},
+        ]}}),
+    ]
+    transcript.write_text("\n".join(lines))
+    tools = _extract_live_tools(str(transcript))
+    assert len(tools) == 1
+    assert tools[0].name == "Read"
