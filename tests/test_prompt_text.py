@@ -126,6 +126,13 @@ def test_replace_command_tags_mixed_content():
     assert "/clear" in cleaned
 
 
+def test_replace_command_tags_backslash_in_args():
+    text = r"<command-name>/foo</command-name><command-message>foo</command-message><command-args>path\1\data</command-args>"
+    result = replace_command_tags(text)
+    cleaned = strip_system_blocks(result)
+    assert r"\1" in cleaned
+
+
 def test_replace_command_tags_no_commands():
     text = "plain text without commands"
     assert replace_command_tags(text) == text

@@ -58,7 +58,7 @@ def replace_command_tags(text: str) -> str:
     if cmd_text is None:
         return text
     # Replace the first command-name tag with the full command text
-    result = _COMMAND_NAME_RE.sub(cmd_text, text, count=1)
+    result = _COMMAND_NAME_RE.sub(lambda _: cmd_text, text, count=1)
     # Remove remaining command-name tags (if any)
     result = _COMMAND_NAME_RE.sub("", result)
     # Remove command-args and command-message tags entirely
