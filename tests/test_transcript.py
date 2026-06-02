@@ -132,7 +132,7 @@ def test_extract_user_prompts_strips_embedded_system_blocks(tmp_path):
     ])
     result = extract_user_prompts(f)
     assert len(result) == 1
-    assert "/clear actual question" == result[0].text
+    assert result[0].text == "/clear actual question"
 
 
 def test_extract_user_prompts_skips_only_system_blocks(tmp_path):
