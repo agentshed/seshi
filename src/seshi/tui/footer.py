@@ -17,6 +17,7 @@ class Footer(Widget):
     accent: reactive[str] = reactive("#E08A5E")
     preview_mode: reactive[str] = reactive("normal")
     preview_focused: reactive[bool] = reactive(False)
+    live_bg_selected: reactive[bool] = reactive(False)
 
     def render(self) -> Text:
         text = Text()
@@ -42,7 +43,7 @@ class Footer(Widget):
             ]
         elif self.view == "sessions":
             keys = [
-                ("↵", "resume"), ("/", "search"), ("f", "fav"),
+                ("↵", "attach" if self.live_bg_selected else "resume"), ("/", "search"), ("f", "fav"),
                 ("d", "delete"), ("z", "undo"), ("s", "sort"),
                 ("r", "rename"), ("t", "tag"), ("P", "project"),
                 ("u", "archive"), ("e", "expand"), ("c", "compact"),

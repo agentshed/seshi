@@ -38,8 +38,10 @@ class SeshiApp(App):
     CSS = theme_css(get_theme("coral"))
 
     chosen_session: Session | None = None
+    chosen_action: str = "resume"
     current_view: reactive[str] = reactive("sessions")
     _quit_toast_active: bool = False
+    _live_states: dict = {}
 
     def __init__(self, ctx_obj: dict | None = None, conn: sqlite3.Connection | None = None, **kwargs):
         self.ctx_obj = ctx_obj or {}
@@ -111,6 +113,9 @@ class SeshiApp(App):
             pass
         self._index_transcripts_async()
 
+        self._poll_live_state()
+        self.set_interval(5.0, self._poll_live_state)
+
         initial_query = self.ctx_obj.get("search_query")
         if initial_query:
             search = self.query_one(SearchBar)
@@ -146,6 +151,43 @@ class SeshiApp(App):
     def _set_indexing_flag(self, value: bool) -> None:
         try:
             self.query_one(Header).indexing = value
+        except Exception:
+            pass
+
+    @work(thread=True, exclusive=True, group="live-poll")
+    def _poll_live_state(self) -> None:
+        from seshi.live import fetch_live_sessions
+        states = fetch_live_sessions()
+        self.call_from_thread(self._apply_live_states, states)
+
+    def _apply_live_states(self, states: dict) -> None:
+        if states == self._live_states:
+            return
+        self._live_states = states
+        if hasattr(self, '_sessions_list'):
+            self._sessions_list.live_states = states
+            self._sessions_list._rebuild_and_refresh()
+        try:
+            self.query_one(Header).live_count = len(states)
+        except Exception:
+            pass
+        if hasattr(self, '_preview'):
+            s = self._sessions_list.current_session if hasattr(self, '_sessions_list') else None
+            self._preview.live_state = states.get(s.session_id) if s else None
+        self._update_footer_live()
+
+    def _update_footer_live(self) -> None:
+        try:
+            footer = self.query_one(Footer)
+            if hasattr(self, '_sessions_list'):
+                s = self._sessions_list.current_session
+                if s:
+                    live = self._live_states.get(s.session_id)
+                    footer.live_bg_selected = bool(live and live.kind == "background")
+                else:
+                    footer.live_bg_selected = False
+            else:
+                footer.live_bg_selected = False
         except Exception:
             pass
 
@@ -513,6 +555,11 @@ class SeshiApp(App):
         if hasattr(self, '_sessions_list'):
             s = self._sessions_list.current_session
             if s:
+                live = self._live_states.get(s.session_id)
+                if live and live.kind == "background":
+                    self.chosen_action = "attach"
+                else:
+                    self.chosen_action = "resume"
                 self.chosen_session = s
                 self.exit()
 
@@ -584,33 +631,10 @@ def launch_tui(ctx_obj: dict | None = None):
             break
 
         session = app.chosen_session
+        action = app.chosen_action
+
         with open_db() as conn:
             record_resume(conn, session.session_id)
-        try:
-            argv = json.loads(session.launch_argv_json)
-        except (json.JSONDecodeError, TypeError):
-            argv = []
-        if isinstance(argv, str):
-            argv = argv.split()
-        if not isinstance(argv, list):
-            argv = []
-
-        filtered = []
-        skip_next = False
-        for arg in argv:
-            if skip_next:
-                skip_next = False
-                continue
-            if arg == "--resume":
-                skip_next = True
-                continue
-            if arg.startswith("--resume="):
-                continue
-            filtered.append(arg)
-
-        if not filtered or filtered[0] != "claude":
-            filtered.insert(0, "claude")
-        filtered.extend(["--resume", session.session_id])
 
         prev_dir = os.getcwd()
         try:
@@ -618,12 +642,47 @@ def launch_tui(ctx_obj: dict | None = None):
         except OSError:
             pass
 
-        try:
-            subprocess.run(filtered)
-        except FileNotFoundError:
-            print(f"seshi: command not found: {filtered[0]}", file=sys.stderr)
-        except KeyboardInterrupt:
-            pass
+        if action == "attach":
+            short_id = session.session_id[:8]
+            try:
+                subprocess.run(["claude", "attach", short_id])
+            except FileNotFoundError:
+                print("seshi: command not found: claude", file=sys.stderr)
+            except KeyboardInterrupt:
+                pass
+        else:
+            try:
+                argv = json.loads(session.launch_argv_json)
+            except (json.JSONDecodeError, TypeError):
+                argv = []
+            if isinstance(argv, str):
+                argv = argv.split()
+            if not isinstance(argv, list):
+                argv = []
+
+            filtered = []
+            skip_next = False
+            for arg in argv:
+                if skip_next:
+                    skip_next = False
+                    continue
+                if arg == "--resume":
+                    skip_next = True
+                    continue
+                if arg.startswith("--resume="):
+                    continue
+                filtered.append(arg)
+
+            if not filtered or filtered[0] != "claude":
+                filtered.insert(0, "claude")
+            filtered.extend(["--resume", session.session_id])
+
+            try:
+                subprocess.run(filtered)
+            except FileNotFoundError:
+                print(f"seshi: command not found: {filtered[0]}", file=sys.stderr)
+            except KeyboardInterrupt:
+                pass
 
         try:
             os.chdir(prev_dir)
