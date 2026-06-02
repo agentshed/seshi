@@ -72,22 +72,29 @@ def drain_queue(conn: sqlite3.Connection) -> int:
 
             elif event_type == "stop":
                 first_prompt = event.get("first_prompt") or None
-                conn.execute(
-                    """UPDATE sessions SET
-                        message_count = ?,
-                        token_count = ?,
-                        last_activity_at = ?,
-                        status = 'done',
-                        first_prompt = COALESCE(first_prompt, ?)
-                    WHERE session_id = ?""",
-                    (
-                        event.get("message_count", 0),
-                        event.get("token_count", 0),
-                        ts,
-                        first_prompt,
-                        session_id,
-                    ),
-                )
+                msg_count = event.get("message_count", 0)
+                if not msg_count and not first_prompt:
+                    conn.execute(
+                        "DELETE FROM sessions WHERE session_id = ?",
+                        (session_id,),
+                    )
+                else:
+                    conn.execute(
+                        """UPDATE sessions SET
+                            message_count = ?,
+                            token_count = ?,
+                            last_activity_at = ?,
+                            status = 'done',
+                            first_prompt = COALESCE(first_prompt, ?)
+                        WHERE session_id = ?""",
+                        (
+                            msg_count,
+                            event.get("token_count", 0),
+                            ts,
+                            first_prompt,
+                            session_id,
+                        ),
+                    )
                 count += 1
 
     try:
