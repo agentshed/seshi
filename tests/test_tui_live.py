@@ -81,7 +81,7 @@ def test_live_bucket_shown_when_live_sessions_exist():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {s.session_id: _make_live(s.session_id)}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "live" in text
 
@@ -92,7 +92,7 @@ def test_live_bucket_not_shown_when_empty():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "live" not in text.split("★")[0] if "★" in text else "live" not in text
 
@@ -103,7 +103,7 @@ def test_live_session_shows_busy_icon():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {s.session_id: _make_live(s.session_id, status="busy")}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "✽" in text or "✻" in text
 
@@ -114,7 +114,7 @@ def test_live_session_shows_needs_input_icon():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {s.session_id: _make_live(s.session_id, status="needs_input")}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "✻" in text
 
@@ -125,7 +125,7 @@ def test_live_session_shows_detail():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {s.session_id: _make_live(s.session_id, detail="Running pytest...")}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "Running pytest" in text
 
@@ -141,7 +141,7 @@ def test_live_sessions_sorted_by_urgency():
         s1.session_id: _make_live(s1.session_id, status="busy"),
         s2.session_id: _make_live(s2.session_id, status="needs_input"),
     }
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     pos_waiting = text.find("waiting one")
     pos_busy = text.find("busy one")
@@ -154,7 +154,7 @@ def test_live_session_suppressed_from_cwd_group():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {s.session_id: _make_live(s.session_id)}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     count = text.count("active session")
     assert count == 1, f"Expected 1 occurrence, found {count}"
@@ -208,7 +208,7 @@ def test_enter_on_live_bg_sets_attach():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {s.session_id: _make_live(s.session_id, kind="background")}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     live = sl.live_states.get(s.session_id)
     assert live is not None
     assert live.kind == "background"
@@ -220,7 +220,7 @@ def test_enter_on_live_interactive_should_resume():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {s.session_id: _make_live(s.session_id, kind="interactive")}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     live = sl.live_states.get(s.session_id)
     assert live is not None
     assert live.kind == "interactive"
@@ -234,7 +234,7 @@ def test_no_icon_when_no_live_states():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "✽" not in text
     assert "✻" not in text
@@ -249,7 +249,7 @@ def test_no_crash_when_live_sid_not_in_sessions():
             name="untracked", cwd="/tmp/untracked",
         )
     }
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "untracked" in text
     assert "live" in text
@@ -261,7 +261,7 @@ def test_no_detail_on_narrow_terminal():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {s.session_id: _make_live(s.session_id, detail="Running tests...")}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl, width=60).plain
     assert "Running tests" not in text
 
@@ -275,11 +275,11 @@ def test_live_state_removal_drops_from_live_bucket():
     sl = SessionsList(conn)
 
     sl.live_states = {s.session_id: _make_live(s.session_id)}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     assert "live" in _render_sessions_list(sl).plain
 
     sl.live_states = {}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "was live" in text
     assert "● " not in text.split("was live")[0] or "live" not in text.split("★")[0] if "★" in text else True
@@ -291,7 +291,7 @@ def test_animation_toggles_busy_icon():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {s.session_id: _make_live(s.session_id, status="busy")}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
 
     sl._anim_frame = 0
     text0 = _render_sessions_list(sl).plain
@@ -309,7 +309,7 @@ def test_detail_truncation():
     sl = SessionsList(conn)
     long_detail = "A" * 200
     sl.live_states = {s.session_id: _make_live(s.session_id, detail=long_detail)}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl, width=120).plain
     lines = text.split("\n")
     for line in lines:
@@ -323,11 +323,11 @@ def test_state_column_only_when_live_exists():
     sl = SessionsList(conn)
 
     sl.live_states = {}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text_no_live = _render_sessions_list(sl).plain
 
     sl.live_states = {s.session_id: _make_live(s.session_id)}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text_live = _render_sessions_list(sl).plain
 
     no_live_lines = [l for l in text_no_live.split("\n") if "test" in l]
@@ -347,7 +347,7 @@ def test_untracked_live_session_uses_name_from_liveinfo():
             name="fix-auth",
         )
     }
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "fix-auth" in text
 
@@ -358,7 +358,7 @@ def test_live_favorite_in_live_bucket_not_favorites():
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {s.session_id: _make_live(s.session_id)}
-    sl._rebuild_and_refresh()
+    sl._refresh_display()
     text = _render_sessions_list(sl).plain
     live_pos = text.find("live")
     fav_pos = text.find("fav live")

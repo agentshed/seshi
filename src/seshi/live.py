@@ -1,10 +1,11 @@
 import json
 import os
+import re
 import subprocess
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from seshi.paths import CLAUDE_JOBS
+from seshi.paths import CLAUDE_JOBS, CLAUDE_DIR
+from seshi.transcript import find_transcript_path
 
 
 @dataclass
@@ -26,8 +27,6 @@ class LiveInfo:
     transcript_path: str | None = None
     tools: list[ToolCall] = field(default_factory=list)
 
-
-import re
 
 _HEX8_RE = re.compile(r"^[0-9a-f]{8}$")
 
@@ -125,10 +124,15 @@ def fetch_live_sessions() -> dict[str, LiveInfo]:
             transcript_path = state.get("linkScanPath")
 
         if not transcript_path:
-            from seshi.transcript import find_transcript_path
             found = find_transcript_path(sid)
             if found:
                 transcript_path = str(found)
+
+        if transcript_path:
+            tp = os.path.realpath(transcript_path)
+            claude_root = str(CLAUDE_DIR)
+            if not tp.startswith(claude_root + os.sep):
+                transcript_path = None
 
         if transcript_path and entry.get("status") == "busy":
             tools = _extract_live_tools(transcript_path)

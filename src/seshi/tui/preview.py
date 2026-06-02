@@ -4,6 +4,7 @@ from textual import events
 from rich.text import Text
 
 from seshi.models import Session
+from seshi.live import LiveInfo
 from seshi.transcript import find_transcript_path, extract_messages
 
 
@@ -22,7 +23,7 @@ class Preview(Widget):
     highlight_query: reactive[str] = reactive("")
     user_color: reactive[str] = reactive("#E08A5E")
     assistant_color: reactive[str] = reactive("#6BAED6")
-    live_state: reactive[object] = reactive(None)
+    live_state: reactive[LiveInfo | None] = reactive(None)
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -50,9 +51,14 @@ class Preview(Widget):
     def watch_highlight_query(self, query: str) -> None:
         self.refresh()
 
-    def watch_live_state(self, state: object) -> None:
+    def watch_live_state(self, state: LiveInfo | None) -> None:
         if state is not None:
             self._refresh_live_transcript()
+            self._scroll_offset = 0
+        else:
+            if self._live_messages:
+                self._scroll_offset = 0
+            self._live_messages = []
         self.refresh()
 
     def _refresh_live_transcript(self) -> None:

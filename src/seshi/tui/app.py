@@ -41,9 +41,9 @@ class SeshiApp(App):
     chosen_action: str = "resume"
     current_view: reactive[str] = reactive("sessions")
     _quit_toast_active: bool = False
-    _live_states: dict = {}
 
     def __init__(self, ctx_obj: dict | None = None, conn: sqlite3.Connection | None = None, **kwargs):
+        self._live_states: dict = {}
         self.ctx_obj = ctx_obj or {}
         self._conn = conn
         self._owns_conn = conn is None
@@ -164,16 +164,14 @@ class SeshiApp(App):
         if states == self._live_states:
             return
         self._live_states = states
-        if hasattr(self, '_sessions_list'):
-            self._sessions_list.live_states = states
-            self._sessions_list._rebuild_and_refresh()
         try:
+            self._sessions_list.live_states = states
+            self._sessions_list._refresh_display()
+            s = self._sessions_list.current_session
+            self._preview.live_state = states.get(s.session_id) if s else None
             self.query_one(Header).live_count = len(states)
         except Exception:
             pass
-        if hasattr(self, '_preview'):
-            s = self._sessions_list.current_session if hasattr(self, '_sessions_list') else None
-            self._preview.live_state = states.get(s.session_id) if s else None
         self._update_footer_live()
 
     def _update_footer_live(self) -> None:

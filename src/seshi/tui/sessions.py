@@ -80,7 +80,7 @@ class SessionsList(Widget):
             self._anim_frame = (self._anim_frame + 1) % 2
             self.refresh()
 
-    def _rebuild_and_refresh(self) -> None:
+    def _refresh_display(self) -> None:
         self._build_display_rows()
         nav_count = self._nav_row_count()
         if self.cursor >= nav_count:
