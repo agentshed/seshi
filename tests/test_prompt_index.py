@@ -250,17 +250,17 @@ def test_index_transcript_malformed_json(tmp_db, tmp_path, monkeypatch):
 
 
 def test_prompt_text_truncation(tmp_db, tmp_path, monkeypatch):
-    p = tmp_path / "long.jsonl"
+    p = tmp_path / "int.jsonl"
     long_text = "x" * 1200
     _write_jsonl(p, [_user_msg(long_text)])
 
-    monkeypatch.setattr("seshi.prompt_index.find_transcript_path", lambda sid: p if sid == "long-01" else None)
-    _insert_session(tmp_db, "long-01")
+    monkeypatch.setattr("seshi.prompt_index.find_transcript_path", lambda sid: p if sid == "int-01" else None)
+    _insert_session(tmp_db, "int-01")
 
-    index_session_prompts(tmp_db, "long-01")
+    index_session_prompts(tmp_db, "int-01")
     tmp_db.commit()
 
-    rows = tmp_db.execute("SELECT text FROM prompts WHERE session_id = ?", ("long-01",)).fetchall()
+    rows = tmp_db.execute("SELECT text FROM prompts WHERE session_id = ?", ("int-01",)).fetchall()
     assert len(rows) == 1
     assert len(rows[0]["text"]) == 500
 

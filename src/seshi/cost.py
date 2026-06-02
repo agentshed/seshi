@@ -27,7 +27,7 @@ def estimate_cost(token_count: int, model: str | None = None) -> float:
     input_rate, output_rate = _get_rate(model)
     input_tokens = token_count * 0.25
     output_tokens = token_count * 0.75
-    return (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000
+    return input_tokens * input_rate + output_tokens * output_rate / 1_000_000
 
 
 def format_usd(amount: float) -> str:
