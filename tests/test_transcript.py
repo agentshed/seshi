@@ -132,7 +132,7 @@ def test_extract_user_prompts_strips_embedded_system_blocks(tmp_path):
     ])
     result = extract_user_prompts(f)
     assert len(result) == 1
-    assert result[0].text == "actual question"
+    assert "/clear actual question" == result[0].text
 
 
 def test_extract_user_prompts_skips_only_system_blocks(tmp_path):
@@ -215,6 +215,47 @@ def test_extract_user_prompts_preserves_order(tmp_path):
     ])
     result = extract_user_prompts(f)
     assert [m.text for m in result] == ["alpha", "beta", "gamma"]
+
+
+def test_parse_transcript_slash_command_first_prompt(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "<command-name>/fullsend-autopilot</command-name><command-message>fullsend-autopilot</command-message><command-args>fix the login bug</command-args>"}},
+    ])
+    s = parse_transcript(f)
+    assert s.first_prompt is not None
+    assert "/fullsend-autopilot" in s.first_prompt
+    assert "fix the login bug" in s.first_prompt
+
+
+def test_extract_user_prompts_slash_command(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "<command-name>/foo</command-name><command-message>foo</command-message><command-args>bar baz</command-args>"}},
+        {"timestamp": "2025-01-01T00:01:00Z",
+         "message": {"role": "assistant", "content": "response"}},
+        {"timestamp": "2025-01-01T00:02:00Z",
+         "message": {"role": "user", "content": "second question"}},
+    ])
+    result = extract_user_prompts(f)
+    assert len(result) == 2
+    assert "/foo" in result[0].text
+    assert "bar baz" in result[0].text
+    assert result[1].text == "second question"
+
+
+def test_extract_messages_slash_command(tmp_path):
+    f = tmp_path / "test.jsonl"
+    _write_jsonl(f, [
+        {"timestamp": "2025-01-01T00:00:00Z",
+         "message": {"role": "user", "content": "<command-name>/autopilot</command-name><command-message>autopilot</command-message><command-args>do something</command-args>"}},
+    ])
+    msgs = extract_messages(f)
+    assert len(msgs) == 1
+    assert "/autopilot" in msgs[0].text
+    assert "do something" in msgs[0].text
 
 
 def test_extract_user_prompts_with_timestamps(tmp_path):

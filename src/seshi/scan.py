@@ -12,7 +12,8 @@ log = logging.getLogger(__name__)
 # v1 = PR #82 (skip isMeta)  v2 = PR #89 (strip_system_blocks)
 # v3 = strip bash-input/stdout/stderr + local-command-stderr
 # v4 = extract ai_title from transcript
-PROMPT_FIX_VERSION = 4
+# v5 = extract slash-command text instead of stripping it (#124)
+PROMPT_FIX_VERSION = 5
 
 
 def scan_projects(
