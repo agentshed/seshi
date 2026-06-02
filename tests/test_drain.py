@@ -172,6 +172,35 @@ def test_drain_deletes_preexisting_empty_session(tmp_db, tmp_path):
     assert row is None
 
 
+def test_drain_stop_null_message_count_deletes(tmp_db, tmp_path):
+    """A stop event with message_count=None and no first_prompt should delete the session."""
+    from unittest import mock
+    q = _write_queue(tmp_path, [
+        {"event": "start", "ts": 1000, "session_id": "null-mc-1", "cwd": "/home", "argv": "claude"},
+        {"event": "stop", "ts": 1001, "session_id": "null-mc-1", "message_count": None, "token_count": 0},
+    ])
+    with mock.patch("seshi.drain.QUEUE_PATH", q):
+        count = drain_queue(tmp_db)
+    assert count == 2
+    row = tmp_db.execute("SELECT * FROM sessions WHERE session_id = 'null-mc-1'").fetchone()
+    assert row is None
+
+
+def test_drain_stop_null_message_count_with_prompt_updates(tmp_db, tmp_path):
+    """A stop event with message_count=None but a valid first_prompt should update, not delete."""
+    from unittest import mock
+    q = _write_queue(tmp_path, [
+        {"event": "start", "ts": 1000, "session_id": "null-mc-2", "cwd": "/home", "argv": "claude"},
+        {"event": "stop", "ts": 1001, "session_id": "null-mc-2", "message_count": None, "token_count": 0, "first_prompt": "hello"},
+    ])
+    with mock.patch("seshi.drain.QUEUE_PATH", q):
+        drain_queue(tmp_db)
+    row = tmp_db.execute("SELECT * FROM sessions WHERE session_id = 'null-mc-2'").fetchone()
+    assert row is not None
+    assert row["status"] == "done"
+    assert row["first_prompt"] == "hello"
+
+
 def test_drain_keeps_session_with_first_prompt_only(tmp_db, tmp_path):
     """Stop with message_count=0 but a first_prompt keeps the session."""
     from unittest import mock
