@@ -38,6 +38,7 @@ class SeshiApp(App):
     CSS = theme_css(get_theme("coral"))
 
     chosen_session: Session | None = None
+    chosen_cwd: str | None = None
     chosen_action: str = "resume"
     current_view: reactive[str] = reactive("sessions")
     _quit_toast_active: bool = False
@@ -624,6 +625,24 @@ def launch_tui(ctx_obj: dict | None = None):
     while True:
         app = SeshiApp(ctx_obj=ctx_obj)
         app.run()
+
+        if app.chosen_cwd and not app.chosen_session:
+            prev_dir = os.getcwd()
+            try:
+                os.chdir(app.chosen_cwd)
+            except OSError:
+                pass
+            try:
+                subprocess.run(["claude"])
+            except FileNotFoundError:
+                print("seshi: command not found: claude", file=sys.stderr)
+            except KeyboardInterrupt:
+                pass
+            try:
+                os.chdir(prev_dir)
+            except OSError:
+                pass
+            continue
 
         if not app.chosen_session:
             break

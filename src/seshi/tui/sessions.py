@@ -618,6 +618,11 @@ class SessionsList(Widget):
             self._undo_last()
         elif event.key == "c":
             self._toggle_compact_mode()
+        elif event.key == "n":
+            self.app.chosen_cwd = os.getcwd()
+            self.app.exit()
+        elif event.key == "N":
+            self._open_dir_picker()
         elif event.key == "P":
             self._filter_to_current_project()
         elif event.key == "p":
@@ -727,6 +732,17 @@ class SessionsList(Widget):
         if self.cursor >= nav_count:
             self.cursor = max(0, nav_count - 1)
         self.refresh()
+
+    def _open_dir_picker(self):
+        from seshi.tui.dir_picker import DirPickerScreen
+        screen = DirPickerScreen(self.conn)
+
+        def _on_dismiss(selected_cwd: str | None | bool) -> None:
+            if selected_cwd and isinstance(selected_cwd, str):
+                self.app.chosen_cwd = selected_cwd
+                self.app.exit()
+
+        self.app.push_screen(screen, _on_dismiss)
 
     def _filter_to_current_project(self):
         s = self.current_session

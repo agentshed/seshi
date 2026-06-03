@@ -29,6 +29,8 @@ HELP_TEXT = """
   Actions (Sessions view)
   ───────────────────────
   Enter              Resume selected session
+  n                  New session in current directory
+  N                  New session in a chosen directory (picker)
   r                  Rename session (inline edit)
   t                  Toggle tag on session
   f                  Toggle favorite
