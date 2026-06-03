@@ -36,6 +36,7 @@ HELP_TEXT = """
   f                  Toggle favorite
   u                  Toggle archive (reversible hide)
   d                  Delete from registry (with confirmation)
+  K                  Kill live session (stop, then remove worktree)
   z                  Undo last action (up to 10 deep)
   s                  Cycle sort mode (frecency → recency → frequency)
   c                  Toggle compact mode (auto-expand cursor row only)

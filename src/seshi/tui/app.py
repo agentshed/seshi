@@ -581,6 +581,9 @@ class SeshiApp(App):
     def action_delete(self) -> None:
         self._sessions_action("_delete_selected")
 
+    def action_kill(self) -> None:
+        self._sessions_action("_kill_selected")
+
     def action_cycle_sort(self) -> None:
         self._sessions_action("_cycle_sort")
 

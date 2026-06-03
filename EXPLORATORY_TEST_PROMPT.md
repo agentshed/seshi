@@ -82,7 +82,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - **Verify:** Search bar shows `search>` prompt with cursor and count `N / N`
 - **Verify:** Session list populates with sessions sorted by frecency (favorites first, then by score)
 - **Verify:** Preview pane shows transcript of the cursor-highlighted session
-- **Verify:** Footer shows contextual keys ordered by priority: `Enter resume  / search  f favorite  d delete  s sort  r rename  t tag  u archive  Space select  Tab view`
+- **Verify:** Footer shows contextual keys ordered by priority: `Enter resume  / search  f favorite  d delete  K kill  s sort  r rename  t tag  u archive  Space select  Tab view`
 - **Verify:** On narrow terminals, footer truncates with `? more` instead of silently clipping keys
 - **Verify:** Cursor (reverse-video highlight) is on the first session
 - **Verify:** Project path headers appear (e.g., "── ★ favorites ──", "── ~/seshi (py) 1h ago ──")
@@ -312,7 +312,21 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - Delete the last session in the list when cursor is at the end — **Verify:** cursor moves up, no index error
 - Delete when "no sessions found" already shows — **Verify:** no crash
 
-#### 4.14 Sort Cycling (s)
+#### 4.14 Kill Session (K) — Two-Press Workflow
+- Highlight a live session, press `K`
+- **Verify:** `claude stop <daemon_short>` is called, notification "Stopped session — press K again to remove worktree"
+- Press `K` again on the same session
+- **Verify:** `claude rm <daemon_short>` is called, notification "Removed session worktree"
+- **Verify:** Session disappears from live state display
+
+#### 4.15 Kill Session — Edge Cases
+- Press `K` on a non-live session — **Verify:** notification "Session is not running"
+- Press `K` rapidly twice while first stop is in-flight — **Verify:** second press is no-op (in-flight guard)
+- Press `K` on a session with invalid daemon ID format — **Verify:** notification "Invalid session ID format"
+- Stop a session, then have it relaunched externally (new daemon_short appears in live poll) — **Verify:** pressing `K` sends `stop` again (not `rm` with stale daemon)
+- After `claude rm` succeeds — **Verify:** session removed from `live_states` immediately (no 5s stale display)
+
+#### 4.16 Sort Cycling (s)
 - Press `s` once: sort changes from "frecency" to "recency"
 - **Verify:** Header shows updated sort mode label
 - **Verify:** Session order changes (now pure recency — most recent first)
@@ -321,7 +335,7 @@ tmux send-keys -t seshi-test 'uv run seshi' Enter
 - Press `s` again: cycles back to "frecency"
 - **Verify:** Setting persists in DB (re-launch TUI, sort mode is remembered)
 
-#### 4.15 Hide Missing Dirs (H)
+#### 4.17 Hide Missing Dirs (H)
 - Press `H` (Shift+H)
 - **Verify:** Sessions whose cwd directory no longer exists on disk are hidden
 - **Verify:** Count updates
@@ -560,13 +574,13 @@ The Escape key has a complex, layered behavior defined in `action_back_or_quit`.
 
 #### 13.1 Key Capture in Input Mode
 - Enter rename/tag mode
-- Press every key: letters, numbers, symbols, Tab, Shift+Tab, 1/2/3, `?`, `/`, `j`, `k`, Space
+- Press every key: letters, numbers, symbols, Tab, Shift+Tab, 1/2/3, `?`, `/`, `j`, `k`, `K`, Space
 - **Verify:** All printable keys add to the input buffer, NOT trigger navigation or view switching
 - Only Enter (submit) and Escape (cancel) should escape input mode
 
 #### 13.2 Key Capture in Search Mode
 - Activate search bar
-- Press `1`, `2`, `3`, `?`, `s`, `r`, `f`, `d`, `t`, `u`
+- Press `1`, `2`, `3`, `?`, `s`, `r`, `f`, `d`, `t`, `u`, `K`
 - **Verify:** Each character is added to the search query (they are printable characters)
 - **Verify:** These do NOT trigger session actions or view switches
 

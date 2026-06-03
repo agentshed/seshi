@@ -154,6 +154,7 @@ Favorites always sort to the top regardless of sort mode. Sort mode is persisted
 | `f` | Favorite | Toggles `is_favorite` (favorites sort to top) |
 | `u` | Archive | Toggles `is_archived` (hides from views). Reversible alternative to delete |
 | `d` | Delete | Removes from registry (with confirmation). Bulk: deletes all selected |
+| `K` | Kill session | Stop a live session and remove its worktree (two-press: stop, then rm) |
 | `s` | Sort mode | Cycles through: frecency → recency → frequency (persisted) |
 | `c` | Compact mode | Toggles compact mode: all sessions collapsed except cursor row (persisted) |
 | `n` | New session | Starts a new Claude session in the current working directory |

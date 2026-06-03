@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+import subprocess
 import time
 from dataclasses import dataclass
 
@@ -10,7 +11,7 @@ from textual import events
 from rich.text import Text
 
 from seshi.models import Session, Prompt
-from seshi.live import LiveInfo
+from seshi.live import LiveInfo, is_valid_daemon_short
 from seshi.prompt_text import replace_command_tags, strip_markup_tags, strip_system_blocks
 from seshi.search import list_sessions, rank_sessions, query_matches_text
 from seshi.time_utils import relative_time
@@ -65,6 +66,9 @@ class SessionsList(Widget):
         self._compact_prev_sid: str | None = None
         self._adjusting_compact: bool = False
         self.live_states: dict[str, LiveInfo] = {}
+        self._stopped_sessions: dict[str, str] = {}
+        self._kill_in_flight: set[str] = set()
+        self._recently_removed: dict[str, float] = {}
         self._anim_frame: int = 0
         self._load_sessions()
 
@@ -81,6 +85,20 @@ class SessionsList(Widget):
             self.refresh()
 
     def _refresh_display(self) -> None:
+        # Prune stopped sessions that have fully disappeared from live state
+        for sid in set(self._stopped_sessions) - set(self.live_states) - self._kill_in_flight:
+            self._stopped_sessions.pop(sid, None)
+        # Clear stopped state for sessions relaunched externally (new daemon)
+        for sid in set(self._stopped_sessions) & set(self.live_states):
+            if self.live_states[sid].daemon_short != self._stopped_sessions[sid]:
+                self._stopped_sessions.pop(sid, None)
+        # Suppress sessions that were recently removed (grace period for poller)
+        now = time.time()
+        expired = [sid for sid, ts in self._recently_removed.items() if now - ts > 10]
+        for sid in expired:
+            self._recently_removed.pop(sid, None)
+        for sid in list(self._recently_removed):
+            self.live_states.pop(sid, None)
         self._build_display_rows()
         nav_count = self._nav_row_count()
         if self.cursor >= nav_count:
@@ -608,6 +626,8 @@ class SessionsList(Widget):
             self._toggle_archive()
         elif event.key == "d":
             self._delete_selected()
+        elif event.key == "K":
+            self._kill_selected()
         elif event.key == "s":
             self._cycle_sort()
         elif event.key == "H":
@@ -914,6 +934,99 @@ class SessionsList(Widget):
         ))
         self.selected.clear()
         self._reload_with_current_filter()
+
+    def _resolve_daemon_short(self, sid: str) -> str | None:
+        live = self.live_states.get(sid)
+        ds = (live.daemon_short if live else None) or sid[:8]
+        return ds if is_valid_daemon_short(ds) else None
+
+    def _run_claude_cmd(self, cmd: str, daemon_short: str) -> subprocess.CompletedProcess:
+        if cmd not in ("stop", "rm"):
+            raise ValueError(f"Invalid command: {cmd}")
+        return subprocess.run(
+            ["claude", cmd, daemon_short],
+            capture_output=True, text=True, timeout=10,
+        )
+
+    def _kill_selected(self):
+        s = self.current_session
+        if not s:
+            return
+        sid = s.session_id
+        if sid in self._kill_in_flight:
+            return
+        live = self.live_states.get(sid)
+
+        if sid in self._stopped_sessions:
+            stored_ds = self._stopped_sessions[sid]
+            # If session was relaunched with a new daemon, clear stopped
+            # state and re-route to stop for the new instance.
+            if live and live.daemon_short and live.daemon_short != stored_ds:
+                self._stopped_sessions.pop(sid, None)
+                daemon_short = self._resolve_daemon_short(sid)
+                if not daemon_short:
+                    self._notify("Invalid session ID format", severity="error")
+                    return
+                self._kill_in_flight.add(sid)
+                self.run_worker(
+                    lambda: self._do_kill("stop", sid, daemon_short),
+                    thread=True,
+                )
+                return
+            if not is_valid_daemon_short(stored_ds):
+                self._notify("Invalid session ID format", severity="error")
+                return
+            self._kill_in_flight.add(sid)
+            self.run_worker(
+                lambda: self._do_kill("rm", sid, stored_ds),
+                thread=True,
+            )
+        elif live:
+            daemon_short = self._resolve_daemon_short(sid)
+            if not daemon_short:
+                self._notify("Invalid session ID format", severity="error")
+                return
+            self._kill_in_flight.add(sid)
+            self.run_worker(
+                lambda: self._do_kill("stop", sid, daemon_short),
+                thread=True,
+            )
+        else:
+            self._notify("Session is not running", severity="warning", timeout=2)
+
+    def _do_kill(self, cmd: str, sid: str, daemon_short: str) -> None:
+        label = "stop session" if cmd == "stop" else "remove worktree"
+        try:
+            result = self._run_claude_cmd(cmd, daemon_short)
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            self.app.call_from_thread(self._on_kill_error, sid, f"Failed to {label}: {exc}")
+            return
+        if result.returncode != 0:
+            self.app.call_from_thread(
+                self._on_kill_error, sid, f"Failed to {label}: {result.stderr.strip()}",
+            )
+            return
+        if cmd == "stop":
+            self.app.call_from_thread(self._on_kill_stopped, sid, daemon_short)
+        else:
+            self.app.call_from_thread(self._on_kill_removed, sid)
+
+    def _on_kill_error(self, sid: str, message: str) -> None:
+        self._kill_in_flight.discard(sid)
+        self._notify(message, severity="error")
+
+    def _on_kill_stopped(self, sid: str, daemon_short: str) -> None:
+        self._kill_in_flight.discard(sid)
+        self._stopped_sessions[sid] = daemon_short
+        self._notify("Stopped session — press K again to remove worktree", severity="information", timeout=4)
+
+    def _on_kill_removed(self, sid: str) -> None:
+        self._kill_in_flight.discard(sid)
+        self._stopped_sessions.pop(sid, None)
+        self.live_states.pop(sid, None)
+        self._recently_removed[sid] = time.time()
+        self._notify("Removed session worktree", severity="information", timeout=2)
+        self._refresh_display()
 
     def _delete_selected(self):
         s = self.current_session
