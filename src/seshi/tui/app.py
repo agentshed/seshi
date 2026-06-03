@@ -166,8 +166,10 @@ class SeshiApp(App):
             return
         self._live_states = states
         try:
-            self._sessions_list.live_states = states
-            self._sessions_list._refresh_display()
+            sl = self._sessions_list
+            sl.live_states = states
+            sl._stopped_sessions -= set(states.keys())
+            sl._refresh_display()
             s = self._sessions_list.current_session
             self._preview.live_state = states.get(s.session_id) if s else None
             self.query_one(Header).live_count = len(states)

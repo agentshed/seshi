@@ -919,42 +919,49 @@ class SessionsList(Widget):
         self.selected.clear()
         self._reload_with_current_filter()
 
+    _HEX8_RE = re.compile(r"^[0-9a-f]{8}$")
+
+    def _resolve_daemon_short(self, sid: str) -> str | None:
+        live = self.live_states.get(sid)
+        ds = (live.daemon_short if live else None) or sid[:8]
+        return ds if self._HEX8_RE.match(ds) else None
+
+    def _run_claude_cmd(self, cmd: str, daemon_short: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["claude", cmd, daemon_short],
+            capture_output=True, text=True, timeout=10,
+        )
+
     def _kill_selected(self):
         s = self.current_session
         if not s:
             return
         sid = s.session_id
         live = self.live_states.get(sid)
+        daemon_short = self._resolve_daemon_short(sid)
+        if not daemon_short:
+            self._notify("Invalid session ID format", severity="error")
+            return
 
         if sid in self._stopped_sessions:
-            # Second press: remove worktree
-            daemon_short = sid[:8]
             try:
-                result = subprocess.run(
-                    ["claude", "rm", daemon_short],
-                    capture_output=True, text=True, timeout=10,
-                )
-                if result.returncode != 0:
-                    self._notify(f"Failed to remove worktree: {result.stderr.strip()}", severity="error")
-                    return
+                result = self._run_claude_cmd("rm", daemon_short)
             except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
                 self._notify(f"Failed to remove worktree: {exc}", severity="error")
+                return
+            if result.returncode != 0:
+                self._notify(f"Failed to remove worktree: {result.stderr.strip()}", severity="error")
                 return
             self._stopped_sessions.discard(sid)
             self._notify("Removed session worktree", severity="information", timeout=3)
         elif live:
-            # First press: stop the session
-            daemon_short = live.daemon_short or sid[:8]
             try:
-                result = subprocess.run(
-                    ["claude", "stop", daemon_short],
-                    capture_output=True, text=True, timeout=10,
-                )
-                if result.returncode != 0:
-                    self._notify(f"Failed to stop session: {result.stderr.strip()}", severity="error")
-                    return
+                result = self._run_claude_cmd("stop", daemon_short)
             except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
                 self._notify(f"Failed to stop session: {exc}", severity="error")
+                return
+            if result.returncode != 0:
+                self._notify(f"Failed to stop session: {result.stderr.strip()}", severity="error")
                 return
             self._stopped_sessions.add(sid)
             self._notify("Stopped session — press K again to remove worktree", severity="information", timeout=4)
