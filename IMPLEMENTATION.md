@@ -494,6 +494,7 @@ class SeshiApp(App):
 - `f`: toggle favorite
 - `u`: toggle archive
 - `d`: delete (with confirmation)
+- `K`: kill running daemon session (two-press: stop, then remove worktree)
 - `z`: undo last action (10-deep stack)
 - `s`: cycle sort mode
 - `n`: new Claude session in current working directory
