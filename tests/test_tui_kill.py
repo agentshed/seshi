@@ -85,10 +85,12 @@ def test_on_kill_removed():
     conn = _make_conn()
     sl = _setup_widget(conn)
     sl._stopped_sessions["abc12345-sid"] = "abc12345"
+    sl.live_states["abc12345-sid"] = _make_live("abc12345-sid")
 
     sl._on_kill_removed("abc12345-sid")
 
     assert "abc12345-sid" not in sl._stopped_sessions
+    assert "abc12345-sid" not in sl.live_states
     assert any("removed" in msg.lower() or "worktree" in msg.lower()
                for msg, _ in sl._test_notifications)
 
@@ -134,6 +136,8 @@ def test_kill_dispatches_worker_for_stopped():
     _insert_session(conn, s)
     sl = _setup_widget(conn)
     sl._stopped_sessions[s.session_id] = s.session_id[:8]
+    # Session still in live_states (transitioning) so pruning doesn't remove it
+    sl.live_states = {s.session_id: _make_live(s.session_id)}
     sl._refresh_display()
 
     with patch.object(sl, "run_worker") as mock_worker:
@@ -160,9 +164,10 @@ def test_kill_in_flight_guard():
     mock_worker.assert_not_called()
 
 
-# ── Stopped sessions preserved across live state updates ──────────
+# ── Stopped sessions preserved when still transitioning ───────────
 
-def test_stopped_sessions_preserved_on_live_refresh():
+def test_stopped_sessions_preserved_while_still_live():
+    """Stopped session kept when still in live_states with same daemon_short."""
     conn = _make_conn()
     s = _make_session(name="recently stopped session")
     _insert_session(conn, s)
@@ -173,6 +178,44 @@ def test_stopped_sessions_preserved_on_live_refresh():
     sl._refresh_display()
 
     assert s.session_id in sl._stopped_sessions
+
+
+# ── Stopped sessions pruned when fully disappeared from live ──────
+
+def test_stopped_sessions_pruned_when_not_live():
+    """Stopped session removed once it disappears from live_states."""
+    conn = _make_conn()
+    s = _make_session(name="gone session")
+    _insert_session(conn, s)
+    sl = SessionsList(conn)
+    sl._stopped_sessions[s.session_id] = s.session_id[:8]
+
+    sl.live_states = {}  # session no longer live
+    sl._refresh_display()
+
+    assert s.session_id not in sl._stopped_sessions
+
+
+# ── Stopped session cleared when relaunched with new daemon ───────
+
+def test_stopped_session_cleared_on_relaunch():
+    """If a stopped session reappears live with a new daemon_short, clear stopped state."""
+    conn = _make_conn()
+    s = _make_session(name="relaunched session")
+    _insert_session(conn, s)
+    sl = SessionsList(conn)
+    sl._stopped_sessions[s.session_id] = "olddddd1"
+
+    # Reappears with a different daemon_short
+    new_live = _make_live(s.session_id)
+    new_live = LiveInfo(
+        session_id=s.session_id, pid=456, kind="background", status="busy",
+        detail=None, name=None, daemon_short="newdddd2", cwd="/tmp/proj",
+    )
+    sl.live_states = {s.session_id: new_live}
+    sl._refresh_display()
+
+    assert s.session_id not in sl._stopped_sessions
 
 
 # ── Invalid daemon_short rejected ─────────────────────────────────

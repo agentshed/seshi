@@ -11,7 +11,7 @@ from textual import events
 from rich.text import Text
 
 from seshi.models import Session, Prompt
-from seshi.live import LiveInfo
+from seshi.live import LiveInfo, _HEX8_RE
 from seshi.prompt_text import replace_command_tags, strip_markup_tags, strip_system_blocks
 from seshi.search import list_sessions, rank_sessions, query_matches_text
 from seshi.time_utils import relative_time
@@ -38,7 +38,6 @@ class SessionsList(Widget):
     """
 
     can_focus = True
-    _HEX8_RE = re.compile(r"^[0-9a-f]{8}$")
 
     cursor: reactive[int] = reactive(0)
     sessions: reactive[list] = reactive(list, init=False)
@@ -85,6 +84,13 @@ class SessionsList(Widget):
             self.refresh()
 
     def _refresh_display(self) -> None:
+        # Prune stopped sessions that have fully disappeared from live state
+        for sid in set(self._stopped_sessions) - set(self.live_states) - self._kill_in_flight:
+            self._stopped_sessions.pop(sid, None)
+        # Clear stopped state for sessions relaunched externally (new daemon)
+        for sid in set(self._stopped_sessions) & set(self.live_states):
+            if self.live_states[sid].daemon_short != self._stopped_sessions[sid]:
+                self._stopped_sessions.pop(sid, None)
         self._build_display_rows()
         nav_count = self._nav_row_count()
         if self.cursor >= nav_count:
@@ -924,7 +930,7 @@ class SessionsList(Widget):
     def _resolve_daemon_short(self, sid: str) -> str | None:
         live = self.live_states.get(sid)
         ds = (live.daemon_short if live else None) or sid[:8]
-        return ds if self._HEX8_RE.match(ds) else None
+        return ds if _HEX8_RE.match(ds) else None
 
     def _run_claude_cmd(self, cmd: str, daemon_short: str) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -990,7 +996,9 @@ class SessionsList(Widget):
     def _on_kill_removed(self, sid: str) -> None:
         self._kill_in_flight.discard(sid)
         self._stopped_sessions.pop(sid, None)
+        self.live_states.pop(sid, None)
         self._notify("Removed session worktree", severity="information", timeout=3)
+        self._refresh_display()
 
     def _delete_selected(self):
         s = self.current_session
