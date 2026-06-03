@@ -1,6 +1,7 @@
 import os
 import re
 import sqlite3
+import subprocess
 import time
 from dataclasses import dataclass
 
@@ -65,6 +66,7 @@ class SessionsList(Widget):
         self._compact_prev_sid: str | None = None
         self._adjusting_compact: bool = False
         self.live_states: dict[str, LiveInfo] = {}
+        self._stopped_sessions: set[str] = set()
         self._anim_frame: int = 0
         self._load_sessions()
 
@@ -623,6 +625,8 @@ class SessionsList(Widget):
             self.app.exit()
         elif event.key == "N":
             self._open_dir_picker()
+        elif event.key == "K":
+            self._kill_selected()
         elif event.key == "P":
             self._filter_to_current_project()
         elif event.key == "p":
@@ -914,6 +918,48 @@ class SessionsList(Widget):
         ))
         self.selected.clear()
         self._reload_with_current_filter()
+
+    def _kill_selected(self):
+        s = self.current_session
+        if not s:
+            return
+        sid = s.session_id
+        live = self.live_states.get(sid)
+
+        if sid in self._stopped_sessions:
+            # Second press: remove worktree
+            daemon_short = sid[:8]
+            try:
+                result = subprocess.run(
+                    ["claude", "rm", daemon_short],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if result.returncode != 0:
+                    self._notify(f"Failed to remove worktree: {result.stderr.strip()}", severity="error")
+                    return
+            except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
+                self._notify(f"Failed to remove worktree: {exc}", severity="error")
+                return
+            self._stopped_sessions.discard(sid)
+            self._notify("Removed session worktree", severity="information", timeout=3)
+        elif live:
+            # First press: stop the session
+            daemon_short = live.daemon_short or sid[:8]
+            try:
+                result = subprocess.run(
+                    ["claude", "stop", daemon_short],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if result.returncode != 0:
+                    self._notify(f"Failed to stop session: {result.stderr.strip()}", severity="error")
+                    return
+            except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
+                self._notify(f"Failed to stop session: {exc}", severity="error")
+                return
+            self._stopped_sessions.add(sid)
+            self._notify("Stopped session — press K again to remove worktree", severity="information", timeout=4)
+        else:
+            self._notify("Session is not running", severity="warning", timeout=2)
 
     def _delete_selected(self):
         s = self.current_session

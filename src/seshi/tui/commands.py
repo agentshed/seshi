@@ -15,6 +15,7 @@ class SeshiCommands(Provider):
             ("Toggle tag", "Add or remove a tag on the selected session", "action_tag"),
             ("Toggle archive", "Archive or unarchive the selected session", "action_archive"),
             ("Delete session", "Delete the selected session (with confirmation)", "action_delete"),
+            ("Kill session", "Stop a live session and remove its worktree", "action_kill"),
             ("Cycle sort mode", "Cycle between frecency, recency, and frequency", "action_cycle_sort"),
             ("Cycle preview mode", "Cycle preview: normal / min / max / off", "action_toggle_preview"),
             ("Toggle expand", "Expand or collapse current session prompts", "action_toggle_expand"),
