@@ -68,6 +68,7 @@ class SessionsList(Widget):
         self._adjusting_compact: bool = False
         self.live_states: dict[str, LiveInfo] = {}
         self._stopped_sessions: dict[str, str] = {}
+        self._kill_in_flight: set[str] = set()
         self._anim_frame: int = 0
         self._load_sessions()
 
@@ -938,19 +939,23 @@ class SessionsList(Widget):
         if not s:
             return
         sid = s.session_id
-        live = self.live_states.get(sid)
-        daemon_short = self._resolve_daemon_short(sid)
-        if not daemon_short:
-            self._notify("Invalid session ID format", severity="error")
+        if sid in self._kill_in_flight:
             return
+        live = self.live_states.get(sid)
 
         if sid in self._stopped_sessions:
             stored_ds = self._stopped_sessions[sid]
+            self._kill_in_flight.add(sid)
             self.run_worker(
                 lambda: self._do_kill("rm", sid, stored_ds),
                 thread=True,
             )
         elif live:
+            daemon_short = self._resolve_daemon_short(sid)
+            if not daemon_short:
+                self._notify("Invalid session ID format", severity="error")
+                return
+            self._kill_in_flight.add(sid)
             self.run_worker(
                 lambda: self._do_kill("stop", sid, daemon_short),
                 thread=True,
@@ -963,11 +968,11 @@ class SessionsList(Widget):
         try:
             result = self._run_claude_cmd(cmd, daemon_short)
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
-            self.app.call_from_thread(self._notify, f"Failed to {label}: {exc}", severity="error")
+            self.app.call_from_thread(self._on_kill_error, sid, f"Failed to {label}: {exc}")
             return
         if result.returncode != 0:
             self.app.call_from_thread(
-                self._notify, f"Failed to {label}: {result.stderr.strip()}", severity="error",
+                self._on_kill_error, sid, f"Failed to {label}: {result.stderr.strip()}",
             )
             return
         if cmd == "stop":
@@ -975,11 +980,17 @@ class SessionsList(Widget):
         else:
             self.app.call_from_thread(self._on_kill_removed, sid)
 
+    def _on_kill_error(self, sid: str, message: str) -> None:
+        self._kill_in_flight.discard(sid)
+        self._notify(message, severity="error")
+
     def _on_kill_stopped(self, sid: str, daemon_short: str) -> None:
+        self._kill_in_flight.discard(sid)
         self._stopped_sessions[sid] = daemon_short
         self._notify("Stopped session — press K again to remove worktree", severity="information", timeout=4)
 
     def _on_kill_removed(self, sid: str) -> None:
+        self._kill_in_flight.discard(sid)
         self._stopped_sessions.pop(sid, None)
         self._notify("Removed session worktree", severity="information", timeout=3)
 

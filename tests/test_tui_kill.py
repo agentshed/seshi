@@ -143,6 +143,23 @@ def test_kill_dispatches_worker_for_stopped():
     assert mock_worker.call_args.kwargs.get("thread") is True
 
 
+# ── In-flight guard prevents duplicate dispatch ──────────────────
+
+def test_kill_in_flight_guard():
+    conn = _make_conn()
+    s = _make_session(name="in-flight session")
+    _insert_session(conn, s)
+    sl = _setup_widget(conn)
+    sl.live_states = {s.session_id: _make_live(s.session_id)}
+    sl._kill_in_flight.add(s.session_id)
+    sl._refresh_display()
+
+    with patch.object(sl, "run_worker") as mock_worker:
+        sl._kill_selected()
+
+    mock_worker.assert_not_called()
+
+
 # ── Stopped sessions reconciled on live state update ──────────────
 
 def test_stopped_sessions_pruned_on_live_refresh():
