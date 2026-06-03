@@ -31,14 +31,14 @@ class DirPickerScreen(ModalScreen[str | None]):
 
     def __init__(self, conn: sqlite3.Connection, **kwargs) -> None:
         super().__init__(**kwargs)
-        self._conn = conn
+        self.conn = conn
         self._dirs: list[dict] = []
         self._cursor: int = 0
         self._sort_mode: str = "frecency"
         self._load_dirs()
 
     def _load_dirs(self) -> None:
-        rows = self._conn.execute("""
+        rows = self.conn.execute("""
             SELECT cwd,
                    COUNT(*) as count,
                    MAX(last_activity_at) as last_active,

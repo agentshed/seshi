@@ -199,7 +199,11 @@ def launch_tui(ctx_obj):
     app = SeshiApp(ctx_obj)
     app.run()
 
-    if app.chosen_session:
+    if app.chosen_cwd and not app.chosen_session:
+        # New session: chdir and spawn claude
+        os.chdir(app.chosen_cwd)
+        subprocess.run(["claude"])
+    elif app.chosen_session:
         # Resume line goes to REAL stdout (not /dev/tty)
         line = build_resume_line(app.chosen_session)
         sys.__stdout__.write(line)
@@ -467,6 +471,7 @@ class SeshiApp(App):
     ]
 
     chosen_session: Session | None = None
+    chosen_cwd: str | None = None
 
     def compose(self):
         yield Header()
@@ -491,6 +496,8 @@ class SeshiApp(App):
 - `d`: delete (with confirmation)
 - `z`: undo last action (10-deep stack)
 - `s`: cycle sort mode
+- `n`: new Claude session in current working directory
+- `N`: open directory picker modal for new session (frecency-sorted, `s` cycles sort)
 - `H`: toggle hide missing dirs
 - `p`: cycle preview mode (normal / min / max / off)
 - `Ctrl-p`: open command palette

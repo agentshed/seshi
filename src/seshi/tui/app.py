@@ -627,7 +627,10 @@ def launch_tui(ctx_obj: dict | None = None):
         app.run()
 
         if app.chosen_cwd and not app.chosen_session:
-            prev_dir = os.getcwd()
+            try:
+                prev_dir = os.getcwd()
+            except OSError:
+                prev_dir = os.path.expanduser("~")
             try:
                 os.chdir(app.chosen_cwd)
             except OSError:
