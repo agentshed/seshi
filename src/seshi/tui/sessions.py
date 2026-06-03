@@ -85,7 +85,7 @@ class SessionsList(Widget):
             self.refresh()
 
     def _refresh_display(self) -> None:
-        for sid in set(self._stopped_sessions) & set(self.live_states):
+        for sid in set(self._stopped_sessions) & set(self.live_states) - self._kill_in_flight:
             del self._stopped_sessions[sid]
         self._build_display_rows()
         nav_count = self._nav_row_count()
