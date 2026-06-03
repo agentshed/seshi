@@ -89,7 +89,7 @@ def drain_queue(conn: sqlite3.Connection) -> int:
                         WHERE session_id = ?""",
                         (
                             msg_count,
-                            event.get("token_count", 0),
+                            event.get("token_count") or 0,
                             ts,
                             first_prompt,
                             session_id,
