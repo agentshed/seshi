@@ -156,6 +156,8 @@ Favorites always sort to the top regardless of sort mode. Sort mode is persisted
 | `d` | Delete | Removes from registry (with confirmation). Bulk: deletes all selected |
 | `s` | Sort mode | Cycles through: frecency → recency → frequency (persisted) |
 | `c` | Compact mode | Toggles compact mode: all sessions collapsed except cursor row (persisted) |
+| `n` | New session | Starts a new Claude session in the current working directory |
+| `N` | New session (dir picker) | Opens a directory picker modal sorted by frecency; `s` cycles sort; Enter selects |
 | `P` | Project filter | Filters sessions to the current session's project directory |
 | `H` | Hide missing | Toggles `hide_missing_dirs` setting (persisted) |
 | `Space` | Select | Toggles row in/out of bulk selection (`[x]` mark) |

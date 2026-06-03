@@ -787,6 +787,35 @@ The help text mentions `r` to "Rename project" in Projects view, but the code (P
 - **Verify:** Is this a no-op? Or does it crash?
 - **Document:** This appears to be a missing feature (help text promises it but code doesn't implement it)
 
+### SECTION 21: New Session Launcher
+
+#### 21.1 New Session in Current Directory
+- Press `n` in sessions view
+- Expected: TUI exits, Claude launches in the current working directory
+- Verify: Claude starts without `--resume` flag
+
+#### 21.2 Directory Picker Modal
+- Press `N` (Shift+N) in sessions view
+- Expected: Modal appears showing all project directories sorted by frecency
+- Verify: Directory list shows path, session count, language, and last-active time
+
+#### 21.3 Directory Picker Sort Cycling
+- Open directory picker with `N`, then press `s`
+- Expected: Sort mode cycles frecency → recency → frequency; sort indicator updates; directory order changes
+- Repeat `s` to verify full cycle back to frecency
+
+#### 21.4 Directory Picker Selection
+- Open directory picker with `N`, navigate with `j`/`k`, press Enter
+- Expected: Modal closes, TUI exits, Claude launches in the selected directory
+
+#### 21.5 Directory Picker Cancel
+- Open directory picker with `N`, press Escape
+- Expected: Modal closes, returns to sessions list, no session launched
+
+#### 21.6 Directory Picker with Empty Database
+- Open directory picker when no sessions exist
+- Expected: Modal shows "No project directories found." message
+
 ---
 
 ## Reporting Template
