@@ -147,3 +147,79 @@ def test_dir_picker_data_source(tmp_db):
     assert screen._dirs[0]["count"] == 2
     assert screen._dirs[1]["cwd"] == "/tmp/project-b"
     assert screen._dirs[1]["count"] == 1
+
+
+def test_dir_picker_render_with_language(tmp_db):
+    """Entries with a detected language show a bracketed badge like [py]."""
+    now = int(time.time())
+    _insert_session(tmp_db, "s1", "/tmp/project-a", ts=now, frecency_rank=5.0)
+
+    screen = DirPickerScreen(tmp_db)
+
+    with patch("seshi.tui.dir_picker.detect_language", return_value="py"):
+        rendered = screen._render_content()
+
+    plain = rendered.plain
+    assert "[py]" in plain
+    assert "1 session" in plain
+
+
+def test_dir_picker_render_no_language(tmp_db):
+    """Entries without a detected language omit the badge but still align."""
+    now = int(time.time())
+    _insert_session(tmp_db, "s1", "/tmp/project-a", ts=now, frecency_rank=5.0)
+    _insert_session(tmp_db, "s2", "/tmp/project-b", ts=now, frecency_rank=3.0)
+
+    screen = DirPickerScreen(tmp_db)
+
+    with patch("seshi.tui.dir_picker.detect_language", return_value=""):
+        rendered = screen._render_content()
+
+    plain = rendered.plain
+    # No brackets should appear when language is empty
+    assert "[" not in plain.split("choose directory")[1].split("Enter")[0]
+    # Both entries should still show session counts
+    assert plain.count("session") >= 2
+
+
+def test_dir_picker_render_long_path(tmp_db):
+    """Long paths don't prevent metadata columns from rendering."""
+    now = int(time.time())
+    long_path = "/tmp/" + "a" * 60 + "/project"
+    short_path = "/tmp/b"
+    _insert_session(tmp_db, "s1", long_path, ts=now, frecency_rank=5.0)
+    _insert_session(tmp_db, "s2", short_path, ts=now - 100, frecency_rank=3.0)
+
+    screen = DirPickerScreen(tmp_db)
+
+    with patch("seshi.tui.dir_picker.detect_language", return_value="py"):
+        rendered = screen._render_content()
+
+    plain = rendered.plain
+    # Both entries should show badge and session count (filter out header)
+    body = plain.split("choose directory")[1].split("Enter")[0]
+    lines = [l for l in body.split("\n") if "session" in l]
+    assert len(lines) == 2
+    for line in lines:
+        assert "[py]" in line
+        assert "session" in line
+
+
+def test_dir_picker_render_column_alignment(tmp_db):
+    """Session count column aligns vertically across entries."""
+    now = int(time.time())
+    _insert_session(tmp_db, "s1", "/tmp/short", ts=now, frecency_rank=5.0)
+    _insert_session(tmp_db, "s2", "/tmp/much-longer-path", ts=now, frecency_rank=3.0)
+
+    screen = DirPickerScreen(tmp_db)
+
+    with patch("seshi.tui.dir_picker.detect_language", return_value=""):
+        rendered = screen._render_content()
+
+    plain = rendered.plain
+    body = plain.split("choose directory")[1].split("Enter")[0]
+    lines = [l for l in body.split("\n") if "session" in l]
+    assert len(lines) == 2
+    # "session" substring should start at the same column in both lines
+    positions = [l.index("1 session") for l in lines]
+    assert positions[0] == positions[1]
