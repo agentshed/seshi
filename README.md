@@ -91,11 +91,11 @@ Discovers sessions from Claude Code's transcript files already on disk.
 ### TUI
 
 ```sh
-seshi              # Open the interactive session picker
+seshi              # Open the interactive session manager
 seshi --here       # Filter to sessions in the current directory
 ```
 
-Navigate with `j`/`k` or arrow keys. Press `Enter` to resume. Press `?` for the full keymap.
+Navigate with `j`/`k` or arrow keys. Press `Enter` to resume, `n` to start a new session, or `N` to pick a directory for a new session. Press `?` for the full keymap.
 
 ### Quick resume
 
@@ -153,6 +153,7 @@ seshi theme reset   # Restore default
 3. On every `seshi` invocation, the queue is drained into a SQLite database
 4. The TUI and CLI query the database for searching, filtering, and sorting
 5. Resuming emits `cd <dir> && exec claude --resume <id>` which the shell wrapper `eval`s
+6. New sessions can be launched from within the TUI (`n` for current directory, `N` for a frecency-sorted directory picker)
 
 ## Uninstall
 
