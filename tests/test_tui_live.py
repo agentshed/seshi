@@ -6,7 +6,7 @@ from seshi.tui.sessions import SessionsList
 from seshi.tui.header import Header
 from seshi.tui.footer import Footer
 
-from tests.helpers import make_session as _make_session, make_live as _make_live, make_conn as _make_conn, insert_session as _insert_session
+from tests.helpers import make_session, make_live, make_conn, insert_session
 
 _Size = namedtuple("Size", ["width", "height"])
 
@@ -23,20 +23,20 @@ def _render_sessions_list(sl, width=120, height=30):
 # ── Positive: live bucket ───────────────────────────────────────────
 
 def test_live_bucket_shown_when_live_sessions_exist():
-    conn = _make_conn()
-    s = _make_session()
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session()
+    insert_session(conn, s)
     sl = SessionsList(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id)}
+    sl.live_states = {s.session_id: make_live(s.session_id)}
     sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "live" in text
 
 
 def test_live_bucket_not_shown_when_empty():
-    conn = _make_conn()
-    s = _make_session()
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session()
+    insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {}
     sl._refresh_display()
@@ -45,48 +45,48 @@ def test_live_bucket_not_shown_when_empty():
 
 
 def test_live_session_shows_busy_icon():
-    conn = _make_conn()
-    s = _make_session(name="my session")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="my session")
+    insert_session(conn, s)
     sl = SessionsList(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id, status="busy")}
+    sl.live_states = {s.session_id: make_live(s.session_id, status="busy")}
     sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "✽" in text or "✻" in text
 
 
 def test_live_session_shows_needs_input_icon():
-    conn = _make_conn()
-    s = _make_session(name="waiting session")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="waiting session")
+    insert_session(conn, s)
     sl = SessionsList(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id, status="needs_input")}
+    sl.live_states = {s.session_id: make_live(s.session_id, status="needs_input")}
     sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "✻" in text
 
 
 def test_live_session_shows_detail():
-    conn = _make_conn()
-    s = _make_session(name="active session")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="active session")
+    insert_session(conn, s)
     sl = SessionsList(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id, detail="Running pytest...")}
+    sl.live_states = {s.session_id: make_live(s.session_id, detail="Running pytest...")}
     sl._refresh_display()
     text = _render_sessions_list(sl).plain
     assert "Running pytest" in text
 
 
 def test_live_sessions_sorted_by_urgency():
-    conn = _make_conn()
-    s1 = _make_session(sid="aaaa0000-0000-0000-0000-000000000001", name="busy one")
-    s2 = _make_session(sid="aaaa0000-0000-0000-0000-000000000002", name="waiting one")
-    _insert_session(conn, s1)
-    _insert_session(conn, s2)
+    conn = make_conn()
+    s1 = make_session(sid="aaaa0000-0000-0000-0000-000000000001", name="busy one")
+    s2 = make_session(sid="aaaa0000-0000-0000-0000-000000000002", name="waiting one")
+    insert_session(conn, s1)
+    insert_session(conn, s2)
     sl = SessionsList(conn)
     sl.live_states = {
-        s1.session_id: _make_live(s1.session_id, status="busy"),
-        s2.session_id: _make_live(s2.session_id, status="needs_input"),
+        s1.session_id: make_live(s1.session_id, status="busy"),
+        s2.session_id: make_live(s2.session_id, status="needs_input"),
     }
     sl._refresh_display()
     text = _render_sessions_list(sl).plain
@@ -96,11 +96,11 @@ def test_live_sessions_sorted_by_urgency():
 
 
 def test_live_session_suppressed_from_cwd_group():
-    conn = _make_conn()
-    s = _make_session(name="active session", cwd="/tmp/proj")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="active session", cwd="/tmp/proj")
+    insert_session(conn, s)
     sl = SessionsList(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id)}
+    sl.live_states = {s.session_id: make_live(s.session_id)}
     sl._refresh_display()
     text = _render_sessions_list(sl).plain
     count = text.count("active session")
@@ -150,11 +150,11 @@ def test_footer_shows_resume_when_no_live():
 # ── Positive: enter key action ─────────────────────────────────────
 
 def test_enter_on_live_bg_sets_attach():
-    conn = _make_conn()
-    s = _make_session(name="bg session")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="bg session")
+    insert_session(conn, s)
     sl = SessionsList(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id, kind="background")}
+    sl.live_states = {s.session_id: make_live(s.session_id, kind="background")}
     sl._refresh_display()
     live = sl.live_states.get(s.session_id)
     assert live is not None
@@ -162,11 +162,11 @@ def test_enter_on_live_bg_sets_attach():
 
 
 def test_enter_on_live_interactive_should_resume():
-    conn = _make_conn()
-    s = _make_session(name="interactive session")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="interactive session")
+    insert_session(conn, s)
     sl = SessionsList(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id, kind="interactive")}
+    sl.live_states = {s.session_id: make_live(s.session_id, kind="interactive")}
     sl._refresh_display()
     live = sl.live_states.get(s.session_id)
     assert live is not None
@@ -176,9 +176,9 @@ def test_enter_on_live_interactive_should_resume():
 # ── Negative cases ─────────────────────────────────────────────────
 
 def test_no_icon_when_no_live_states():
-    conn = _make_conn()
-    s = _make_session(name="old session")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="old session")
+    insert_session(conn, s)
     sl = SessionsList(conn)
     sl.live_states = {}
     sl._refresh_display()
@@ -188,10 +188,10 @@ def test_no_icon_when_no_live_states():
 
 
 def test_no_crash_when_live_sid_not_in_sessions():
-    conn = _make_conn()
+    conn = make_conn()
     sl = SessionsList(conn)
     sl.live_states = {
-        "unknown0-0000-0000-0000-000000000000": _make_live(
+        "unknown0-0000-0000-0000-000000000000": make_live(
             "unknown0-0000-0000-0000-000000000000",
             name="untracked", cwd="/tmp/untracked",
         )
@@ -203,11 +203,11 @@ def test_no_crash_when_live_sid_not_in_sessions():
 
 
 def test_no_detail_on_narrow_terminal():
-    conn = _make_conn()
-    s = _make_session(name="narrow session")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="narrow session")
+    insert_session(conn, s)
     sl = SessionsList(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id, detail="Running tests...")}
+    sl.live_states = {s.session_id: make_live(s.session_id, detail="Running tests...")}
     sl._refresh_display()
     text = _render_sessions_list(sl, width=60).plain
     assert "Running tests" not in text
@@ -216,12 +216,12 @@ def test_no_detail_on_narrow_terminal():
 # ── Edge cases ─────────────────────────────────────────────────────
 
 def test_live_state_removal_drops_from_live_bucket():
-    conn = _make_conn()
-    s = _make_session(name="was live")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="was live")
+    insert_session(conn, s)
     sl = SessionsList(conn)
 
-    sl.live_states = {s.session_id: _make_live(s.session_id)}
+    sl.live_states = {s.session_id: make_live(s.session_id)}
     sl._refresh_display()
     assert "live" in _render_sessions_list(sl).plain
 
@@ -233,11 +233,11 @@ def test_live_state_removal_drops_from_live_bucket():
 
 
 def test_animation_toggles_busy_icon():
-    conn = _make_conn()
-    s = _make_session(name="animated")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="animated")
+    insert_session(conn, s)
     sl = SessionsList(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id, status="busy")}
+    sl.live_states = {s.session_id: make_live(s.session_id, status="busy")}
     sl._refresh_display()
 
     sl._anim_frame = 0
@@ -250,12 +250,12 @@ def test_animation_toggles_busy_icon():
 
 
 def test_detail_truncation():
-    conn = _make_conn()
-    s = _make_session(name="truncate")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="truncate")
+    insert_session(conn, s)
     sl = SessionsList(conn)
     long_detail = "A" * 200
-    sl.live_states = {s.session_id: _make_live(s.session_id, detail=long_detail)}
+    sl.live_states = {s.session_id: make_live(s.session_id, detail=long_detail)}
     sl._refresh_display()
     text = _render_sessions_list(sl, width=120).plain
     lines = text.split("\n")
@@ -264,16 +264,16 @@ def test_detail_truncation():
 
 
 def test_state_column_only_when_live_exists():
-    conn = _make_conn()
-    s = _make_session(name="test")
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="test")
+    insert_session(conn, s)
     sl = SessionsList(conn)
 
     sl.live_states = {}
     sl._refresh_display()
     text_no_live = _render_sessions_list(sl).plain
 
-    sl.live_states = {s.session_id: _make_live(s.session_id)}
+    sl.live_states = {s.session_id: make_live(s.session_id)}
     sl._refresh_display()
     text_live = _render_sessions_list(sl).plain
 
@@ -286,10 +286,10 @@ def test_state_column_only_when_live_exists():
 
 
 def test_untracked_live_session_uses_name_from_liveinfo():
-    conn = _make_conn()
+    conn = make_conn()
     sl = SessionsList(conn)
     sl.live_states = {
-        "newone00-0000-0000-0000-000000000000": _make_live(
+        "newone00-0000-0000-0000-000000000000": make_live(
             "newone00-0000-0000-0000-000000000000",
             name="fix-auth",
         )
@@ -300,11 +300,11 @@ def test_untracked_live_session_uses_name_from_liveinfo():
 
 
 def test_live_favorite_in_live_bucket_not_favorites():
-    conn = _make_conn()
-    s = _make_session(name="fav live", fav=1)
-    _insert_session(conn, s)
+    conn = make_conn()
+    s = make_session(name="fav live", fav=1)
+    insert_session(conn, s)
     sl = SessionsList(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id)}
+    sl.live_states = {s.session_id: make_live(s.session_id)}
     sl._refresh_display()
     text = _render_sessions_list(sl).plain
     live_pos = text.find("live")

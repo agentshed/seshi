@@ -68,6 +68,7 @@ class SessionsList(Widget):
         self.live_states: dict[str, LiveInfo] = {}
         self._stopped_sessions: dict[str, str] = {}
         self._kill_in_flight: set[str] = set()
+        self._recently_removed: dict[str, float] = {}
         self._anim_frame: int = 0
         self._load_sessions()
 
@@ -91,6 +92,13 @@ class SessionsList(Widget):
         for sid in set(self._stopped_sessions) & set(self.live_states):
             if self.live_states[sid].daemon_short != self._stopped_sessions[sid]:
                 self._stopped_sessions.pop(sid, None)
+        # Suppress sessions that were recently removed (grace period for poller)
+        now = time.time()
+        expired = [sid for sid, ts in self._recently_removed.items() if now - ts > 10]
+        for sid in expired:
+            self._recently_removed.pop(sid, None)
+        for sid in list(self._recently_removed):
+            self.live_states.pop(sid, None)
         self._build_display_rows()
         nav_count = self._nav_row_count()
         if self.cursor >= nav_count:
@@ -933,6 +941,8 @@ class SessionsList(Widget):
         return ds if is_valid_daemon_short(ds) else None
 
     def _run_claude_cmd(self, cmd: str, daemon_short: str) -> subprocess.CompletedProcess:
+        if cmd not in ("stop", "rm"):
+            raise ValueError(f"Invalid command: {cmd}")
         return subprocess.run(
             ["claude", cmd, daemon_short],
             capture_output=True, text=True, timeout=10,
@@ -962,6 +972,9 @@ class SessionsList(Widget):
                     lambda: self._do_kill("stop", sid, daemon_short),
                     thread=True,
                 )
+                return
+            if not is_valid_daemon_short(stored_ds):
+                self._notify("Invalid session ID format", severity="error")
                 return
             self._kill_in_flight.add(sid)
             self.run_worker(
@@ -1011,7 +1024,8 @@ class SessionsList(Widget):
         self._kill_in_flight.discard(sid)
         self._stopped_sessions.pop(sid, None)
         self.live_states.pop(sid, None)
-        self._notify("Removed session worktree", severity="information", timeout=3)
+        self._recently_removed[sid] = time.time()
+        self._notify("Removed session worktree", severity="information", timeout=2)
         self._refresh_display()
 
     def _delete_selected(self):
