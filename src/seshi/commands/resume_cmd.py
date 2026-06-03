@@ -18,7 +18,7 @@ def resume(ctx, query):
         session = session_resolve(conn, query_str)
         if session:
             record_resume(conn, session.session_id)
-            line = build_resume_line(session)
+            line = build_resume_line(session, conn=conn)
             sys.stdout.write(line)
             sys.stdout.flush()
             return
@@ -41,7 +41,7 @@ def resume(ctx, query):
             except (KeyboardInterrupt, EOFError):
                 raise SystemExit(0)
             record_resume(conn, session.session_id)
-            line = build_resume_line(session)
+            line = build_resume_line(session, conn=conn)
             sys.stdout.write(line)
             sys.stdout.flush()
         else:

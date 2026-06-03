@@ -50,6 +50,8 @@ def main(ctx, no_color, here):
                 age_frecency_ranks(conn)
                 from seshi.scan import auto_scan
                 auto_scan(conn)
+                from seshi.claude_flags import seed_defaults
+                seed_defaults(conn)
         except Exception:
             pass
 
@@ -94,3 +96,4 @@ from seshi.commands import stats_cmd  # noqa: E402, F401
 from seshi.commands import config_cmd  # noqa: E402, F401
 from seshi.commands import project_cmd  # noqa: E402, F401
 from seshi.commands import uninstall_cmd  # noqa: E402, F401
+from seshi.commands import set_cmd  # noqa: E402, F401

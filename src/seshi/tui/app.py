@@ -637,7 +637,10 @@ def launch_tui(ctx_obj: dict | None = None):
                 print(f"seshi: directory not found: {app.chosen_cwd}", file=sys.stderr)
                 continue
             try:
-                subprocess.run(["claude"])
+                from seshi.claude_flags import build_args as _build_args
+                with open_db() as _conn:
+                    _extra = _build_args(_conn)
+                subprocess.run(["claude"] + _extra)
             except FileNotFoundError:
                 print("seshi: command not found: claude", file=sys.stderr)
             except KeyboardInterrupt:
@@ -666,7 +669,10 @@ def launch_tui(ctx_obj: dict | None = None):
         if action == "attach":
             short_id = session.session_id[:8]
             try:
-                subprocess.run(["claude", "attach", short_id])
+                from seshi.claude_flags import build_args as _build_args
+                with open_db() as _conn:
+                    _extra = _build_args(_conn)
+                subprocess.run(["claude", "attach"] + _extra + [short_id])
             except FileNotFoundError:
                 print("seshi: command not found: claude", file=sys.stderr)
             except KeyboardInterrupt:
@@ -696,6 +702,13 @@ def launch_tui(ctx_obj: dict | None = None):
 
             if not filtered or filtered[0] != "claude":
                 filtered.insert(0, "claude")
+
+            from seshi.claude_flags import build_args as _build_args
+            with open_db() as _conn:
+                _extra = _build_args(_conn)
+            if _extra:
+                filtered.extend(_extra)
+
             filtered.extend(["--resume", session.session_id])
 
             try:

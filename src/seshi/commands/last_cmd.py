@@ -30,6 +30,6 @@ def last(ctx, here):
 
         session = Session.from_row(row)
         record_resume(conn, session.session_id)
-        line = build_resume_line(session)
+        line = build_resume_line(session, conn=conn)
         sys.stdout.write(line)
         sys.stdout.flush()
