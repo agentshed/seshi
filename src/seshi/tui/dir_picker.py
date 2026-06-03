@@ -90,22 +90,49 @@ class DirPickerScreen(ModalScreen[str | None]):
 
         home = os.path.expanduser("~")
 
-        for i, d in enumerate(self._dirs):
-            is_cursor = i == self._cursor
-            style = "reverse" if is_cursor else ""
-
+        # Pre-compute display values to determine column widths
+        entries: list[tuple[str, str, str, str]] = []
+        for d in self._dirs:
             display = d["cwd"]
             if display.startswith(home):
                 display = "~" + display[len(home):]
 
             lang = detect_language(d["cwd"])
-            lang_str = f" {lang}" if lang else ""
+            lang_badge = f"[{lang}]" if lang else ""
+
+            label = "session" if d["count"] == 1 else "sessions"
+            count_str = f"{d['count']} {label}"
 
             rel = relative_time(d["last_active"])
-            label = "session" if d["count"] == 1 else "sessions"
 
-            line = f"  {display}{lang_str}  {d['count']} {label}  {rel}"
-            text.append(line + "\n", style=style)
+            entries.append((display, lang_badge, count_str, rel))
+
+        # Calculate column widths for alignment
+        max_path = max(len(e[0]) for e in entries)
+        max_badge = max(len(e[1]) for e in entries) if any(e[1] for e in entries) else 0
+        max_count = max(len(e[2]) for e in entries)
+
+        for i, (display, lang_badge, count_str, rel) in enumerate(entries):
+            is_cursor = i == self._cursor
+            style = "reverse" if is_cursor else ""
+            dim_style = "reverse" if is_cursor else "dim"
+
+            path_padded = display.ljust(max_path)
+            badge_padded = lang_badge.ljust(max_badge) if max_badge else ""
+            count_padded = count_str.rjust(max_count)
+
+            line = Text()
+            line.append("  ", style=style)
+            line.append(path_padded, style=style)
+            if max_badge:
+                line.append("  ", style=style)
+                line.append(badge_padded, style=dim_style)
+            line.append("  ", style=style)
+            line.append(count_padded, style=dim_style)
+            line.append("   ", style=style)
+            line.append(rel, style=dim_style)
+            line.append("\n")
+            text.append_text(line)
 
         text.append("\n")
         text.append("  Enter", style="bold")
