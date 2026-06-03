@@ -160,11 +160,11 @@ def test_kill_in_flight_guard():
     mock_worker.assert_not_called()
 
 
-# ── Stopped sessions reconciled on live state update ──────────────
+# ── Stopped sessions preserved across live state updates ──────────
 
-def test_stopped_sessions_pruned_on_live_refresh():
+def test_stopped_sessions_preserved_on_live_refresh():
     conn = _make_conn()
-    s = _make_session(name="restarted session")
+    s = _make_session(name="recently stopped session")
     _insert_session(conn, s)
     sl = SessionsList(conn)
     sl._stopped_sessions[s.session_id] = s.session_id[:8]
@@ -172,7 +172,7 @@ def test_stopped_sessions_pruned_on_live_refresh():
     sl.live_states = {s.session_id: _make_live(s.session_id)}
     sl._refresh_display()
 
-    assert s.session_id not in sl._stopped_sessions
+    assert s.session_id in sl._stopped_sessions
 
 
 # ── Invalid daemon_short rejected ─────────────────────────────────
