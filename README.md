@@ -132,6 +132,9 @@ seshi export <id> --json            # Export as JSON
 seshi stats             # Session counts, tokens, estimated cost
 seshi auto-name --all   # Generate names for unnamed sessions via Claude
 seshi theme nord        # Switch TUI color theme
+seshi set effort high   # Set a persistent Claude CLI flag default
+seshi set               # List all persistent flag defaults
+seshi unset effort      # Remove a persistent flag default
 seshi doctor            # Health check
 seshi prune --dry-run   # Preview cleanup of old sessions
 ```

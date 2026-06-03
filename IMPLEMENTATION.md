@@ -100,6 +100,7 @@ seshi/
 │       ├── session_index.py         # Index session metadata into dual FTS5 tables + vocabulary
 │       ├── transcript_index.py      # FTS5 full-text indexing of session transcripts
 │       ├── prompt_index.py          # Extract and index individual user prompts
+│       ├── claude_flags.py           # Persistent Claude CLI flag defaults (get/set/unset/reset/build_args/seed)
 │       ├── resume.py                # build_resume_line(), shell_quote()
 │       ├── scan.py                  # scan_projects(), fix_prompts(), auto_scan() — backfill + startup scan
 │       ├── transcript.py            # parse_transcript(), extract_messages(), extract_user_prompts()
@@ -133,7 +134,8 @@ seshi/
 │       │   ├── auto_name_cmd.py     # seshi auto-name
 │       │   ├── theme_cmd.py         # seshi theme
 │       │   ├── init_cmd.py          # seshi init
-│       │   └── uninstall_cmd.py     # seshi uninstall
+│       │   ├── uninstall_cmd.py     # seshi uninstall
+│       │   └── set_cmd.py          # seshi set / seshi unset
 │       └── tui/
 │           ├── __init__.py
 │           ├── app.py               # SeshiApp (Textual App), /dev/tty driver

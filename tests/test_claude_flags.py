@@ -142,6 +142,25 @@ def test_build_resume_line_without_conn():
     assert "--effort" not in line
 
 
+def test_build_resume_line_conflicting_flag(tmp_db):
+    """When launch_argv_json already contains a flag that conflicts with a
+    persistent flag, both appear in the resume line (last-wins semantics at
+    the Claude CLI level).  This documents the intentional behavior: seshi
+    does not deduplicate flags — it relies on Claude CLI's own last-wins
+    argument parsing."""
+    tmp_db.execute("DELETE FROM settings WHERE key LIKE 'claude.%'")
+    tmp_db.commit()
+    set_flag(tmp_db, "effort", "high")
+    s = _session(argv=["claude", "--effort", "low"])
+    line = build_resume_line(s, conn=tmp_db)
+    # The original --effort low from argv is preserved
+    assert "--effort" in line
+    # The persistent --effort high is also appended
+    assert "--effort high" in line
+    # Both appear before --resume
+    assert line.index("--effort") < line.index("--resume")
+
+
 # -- CLI integration tests --
 
 

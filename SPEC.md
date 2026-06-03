@@ -219,7 +219,7 @@ When `--here` is active, only sessions matching the current `cwd` are considered
 
 **Description**: Shell tab-completion for `seshi <name>`. Invoked via `seshi init --completions`.
 
-**Output**: all subcommand names (`resume`, `list`, `rename`, `tag`, `favorite`, `delete`, `archive`, `stats`, `config`, `scan`, `doctor`, `prune`, `export`, `grep`, `auto-name`, `theme`, `init`, `uninstall`) + all distinct `custom_name` values from the registry.
+**Output**: all subcommand names (`resume`, `list`, `rename`, `tag`, `favorite`, `delete`, `archive`, `stats`, `config`, `scan`, `doctor`, `prune`, `export`, `grep`, `auto-name`, `theme`, `init`, `uninstall`, `set`, `unset`) + all distinct `custom_name` values from the registry.
 
 **Shell support**:
 - Bash: `complete -F` with `compgen -W`
@@ -683,6 +683,8 @@ These flags are available on all commands:
 | `seshi theme` | `list\|<name>\|reset` | Manage TUI theme | `seshi theme nord` |
 | `seshi init` | `[bash\|zsh\|fish]`, `[--completions]` | Print shell wrapper for `eval`. Auto-detects shell if omitted | `eval "$(seshi init)"` |
 | `seshi uninstall` | `[--purge]` | Remove hook and settings patch. --purge also deletes `~/.seshi/` | `seshi uninstall` |
+| `seshi set` | `[<flag> [value]]`, `--reset`, `--preview` | View or set persistent Claude CLI flag defaults. No args = list all. `--preview` shows assembled args. `--reset` restores defaults | `seshi set effort high` |
+| `seshi unset` | `<flag>` | Remove a persistent Claude CLI flag default | `seshi unset effort` |
 
 ---
 
@@ -821,10 +823,13 @@ Claude Code encodes project directories by replacing `/` with `-`. This is ambig
 ### Resume Line Construction
 
 ```
-buildResumeLine(session):
+buildResumeLine(session, conn=None):
   argv = parse(session.launch_argv_json)
   remove any --resume / --resume=<val> from argv
   ensure argv[0] is "claude"
+  if conn is not None:
+    extra = build_args(conn)          # persistent Claude CLI flags from settings
+    append extra args (e.g. --effort high --permission-mode plan)
   append --resume <session_id>
   shell-quote each argument
   return "cd <quoted_cwd> && exec <quoted_argv>\n"
