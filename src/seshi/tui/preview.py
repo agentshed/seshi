@@ -1,9 +1,12 @@
+from pathlib import Path
+
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual import events
 from rich.text import Text
 
 from seshi.models import Session
+from seshi.live import LiveInfo
 from seshi.transcript import find_transcript_path, extract_messages
 
 
@@ -22,16 +25,17 @@ class Preview(Widget):
     highlight_query: reactive[str] = reactive("")
     user_color: reactive[str] = reactive("#E08A5E")
     assistant_color: reactive[str] = reactive("#6BAED6")
+    live_state: reactive[LiveInfo | None] = reactive(None)
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._cached_session_id: str | None = None
         self._cached_messages: list = []
         self._scroll_offset: int = 0
+        self._live_messages: list = []
 
     def watch_session(self, session: Session | None) -> None:
         self._update_cache(session)
-        # Defensive recovery: if cache is empty but transcript exists, retry
         if session and not self._cached_messages:
             path = find_transcript_path(session.session_id)
             if path:
@@ -48,6 +52,30 @@ class Preview(Widget):
 
     def watch_highlight_query(self, query: str) -> None:
         self.refresh()
+
+    def watch_live_state(self, state: LiveInfo | None) -> None:
+        if state is not None:
+            self._refresh_live_transcript()
+            self._scroll_offset = 0
+        else:
+            if self._live_messages:
+                self._scroll_offset = 0
+            self._live_messages = []
+        self.refresh()
+
+    def _refresh_live_transcript(self) -> None:
+        if self.live_state is None or not self.session:
+            self._live_messages = []
+            return
+        tp = self.live_state.transcript_path
+        if tp:
+            self._live_messages = extract_messages(Path(tp))
+        else:
+            path = find_transcript_path(self.session.session_id)
+            if path:
+                self._live_messages = extract_messages(path)
+            else:
+                self._live_messages = []
 
     def _update_cache(self, session: Session | None) -> None:
         if session is None:
@@ -106,7 +134,7 @@ class Preview(Widget):
     def on_key(self, event: events.Key) -> None:
         if not self.has_focus:
             return
-        messages = self._cached_messages
+        messages = self._live_messages if self.live_state else self._cached_messages
         if not messages:
             return
         available = self._available_lines()
@@ -135,14 +163,71 @@ class Preview(Widget):
             event.stop()
             self.refresh()
 
+    def _render_live(self) -> Text:
+        text = Text()
+        s = self.session
+        live = self.live_state
+        max_w = max(self.size.width - 6, 40) if self.size.width > 0 else 120
+        total_lines = self._available_lines() + 2
+
+        status_labels = {"busy": "Working", "needs_input": "Needs input", "idle": "Idle"}
+        status_label = status_labels.get(live.status, live.status)
+        status_colors = {"busy": self.user_color, "needs_input": "yellow", "idle": "dim"}
+        status_color = status_colors.get(live.status, "dim")
+
+        text.append("  ● ", style=status_color)
+        text.append(status_label, style=f"bold {status_color}")
+        if live.detail:
+            text.append(f"  {live.detail}", style="dim")
+        text.append("\n")
+
+        tools = live.tools
+        if tools:
+            text.append("\n")
+            for tc in tools:
+                line = Text()
+                line.append(f"  {tc.name:<6}", style=f"bold {self.assistant_color}")
+                line.append(f" {tc.summary[:max_w]}\n", style="")
+                text.append_text(line)
+
+        header_lines = 2 + (len(tools) + 1 if tools else 0)
+
+        sep_w = max(self.size.width - 4, 20) if self.size.width > 0 else 80
+        text.append(f"\n  {'─' * sep_w}\n", style="dim")
+        header_lines += 2
+
+        messages = self._live_messages
+        tail_lines = max(4, total_lines - header_lines)
+
+        if not messages:
+            text.append("  (waiting for transcript…)\n", style="dim")
+            return text
+
+        display = messages[-tail_lines:] if len(messages) > tail_lines else messages
+
+        for msg in display:
+            role_map = {"user": "you", "assistant": "asst", "system": "sys", "tool": "tool"}
+            role_label = role_map.get(msg.role, msg.role)
+            role_style = self.user_color if msg.role == "user" else self.assistant_color
+
+            line = Text()
+            line.append(f"  ▎ {role_label:<5}", style=role_style)
+            line.append(f" {msg.text[:max_w]}\n", style="dim")
+            text.append_text(line)
+
+        return text
+
     def render(self) -> Text:
         text = Text()
         if not self.session:
             text.append("  no session selected", style="dim")
             return text
 
+        if self.live_state is not None:
+            return self._render_live()
+
         s = self.session
-        # Header line with optional scroll position indicator
+
         header = Text()
         header.append(f"  {s.cwd}", style="dim")
 
@@ -168,7 +253,6 @@ class Preview(Widget):
         max_text_width = max(self.size.width - 12, 40) if self.size.width > 0 else 120
 
         if self.has_focus and messages:
-            # Manual scroll mode
             start = self._scroll_offset
             end = min(start + available_lines, len(messages))
             display = messages[start:end]

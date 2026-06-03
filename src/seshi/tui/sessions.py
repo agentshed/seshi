@@ -10,6 +10,7 @@ from textual import events
 from rich.text import Text
 
 from seshi.models import Session, Prompt
+from seshi.live import LiveInfo
 from seshi.prompt_text import replace_command_tags, strip_markup_tags, strip_system_blocks
 from seshi.search import list_sessions, rank_sessions, query_matches_text
 from seshi.time_utils import relative_time
@@ -63,7 +64,28 @@ class SessionsList(Widget):
         self._compact_mode: bool = get_setting(conn, "compact_mode") == "1"
         self._compact_prev_sid: str | None = None
         self._adjusting_compact: bool = False
+        self.live_states: dict[str, LiveInfo] = {}
+        self._anim_frame: int = 0
         self._load_sessions()
+
+    def on_mount(self) -> None:
+        self.set_interval(0.5, self._tick_anim)
+
+    def _tick_anim(self) -> None:
+        has_busy = any(
+            info.status == "busy"
+            for info in self.live_states.values()
+        )
+        if has_busy:
+            self._anim_frame = (self._anim_frame + 1) % 2
+            self.refresh()
+
+    def _refresh_display(self) -> None:
+        self._build_display_rows()
+        nav_count = self._nav_row_count()
+        if self.cursor >= nav_count:
+            self.cursor = max(0, nav_count - 1)
+        self.refresh()
 
     def _load_sessions(self, query: str = "", tags: list[str] | None = None):
         hide_missing = get_setting(self.conn, "hide_missing_dirs") == "1"
@@ -194,8 +216,60 @@ class SessionsList(Widget):
         rows: list[DisplayRow] = []
         home = os.path.expanduser("~")
 
-        favorites = [s for s in self.sessions if s.is_favorite]
-        non_favorites = [s for s in self.sessions if not s.is_favorite]
+        live_sids = set(self.live_states.keys())
+
+        live_sessions: list[Session] = []
+        remaining: list[Session] = []
+        for s in self.sessions:
+            if s.session_id in live_sids:
+                live_sessions.append(s)
+            else:
+                remaining.append(s)
+
+        tracked_sids = {s.session_id for s in self.sessions}
+        for sid, info in self.live_states.items():
+            if sid not in tracked_sids:
+                live_sessions.append(Session(
+                    session_id=sid,
+                    cwd=info.cwd,
+                    launch_argv_json="[]",
+                    env_json=None,
+                    git_branch=None,
+                    git_sha=None,
+                    first_prompt=None,
+                    custom_name=info.name,
+                    ai_title=None,
+                    is_favorite=0,
+                    is_archived=0,
+                    is_backfilled=0,
+                    message_count=0,
+                    token_count=0,
+                    status=None,
+                    created_at=0,
+                    last_activity_at=0,
+                    origin_host=None,
+                    schema_version=0,
+                ))
+
+        status_order = {"needs_input": 0, "busy": 1, "idle": 2}
+        live_sessions.sort(
+            key=lambda s: status_order.get(
+                self.live_states[s.session_id].status
+                if s.session_id in self.live_states else "idle", 3
+            )
+        )
+
+        if live_sessions:
+            rows.append(DisplayRow(kind="bucket", label=f"  ── ● {len(live_sessions)} live ──"))
+            for s in live_sessions:
+                rows.append(DisplayRow(kind="session", session=s))
+                if s.session_id not in self._collapsed:
+                    for p in self._prompts.get(s.session_id, []):
+                        if strip_system_blocks(replace_command_tags(p.text)):
+                            rows.append(DisplayRow(kind="prompt", session=s, prompt=p))
+
+        favorites = [s for s in remaining if s.is_favorite]
+        non_favorites = [s for s in remaining if not s.is_favorite]
 
         if favorites:
             rows.append(DisplayRow(kind="bucket", label="  ── ★ favorites ──"))
@@ -273,11 +347,20 @@ class SessionsList(Widget):
                     self._adjusting_compact = False
         try:
             if hasattr(self.app, '_preview'):
-                self.app._preview.session = self.current_session
+                s = self.current_session
+                self.app._preview.session = s
                 di = self._cursor_to_display_index(cursor)
                 row = self._display_rows[di] if 0 <= di < len(self._display_rows) else None
                 if hasattr(self.app._preview, 'focus_prompt_index'):
                     self.app._preview.focus_prompt_index = row.prompt.prompt_index if row and row.prompt else None
+                live = self.live_states.get(s.session_id) if s else None
+                if hasattr(self.app._preview, 'live_state'):
+                    self.app._preview.live_state = live
+        except Exception:
+            pass
+        try:
+            if hasattr(self.app, '_update_footer_live'):
+                self.app._update_footer_live()
         except Exception:
             pass
 
@@ -300,7 +383,11 @@ class SessionsList(Widget):
     def render(self) -> Text:
         text = Text()
 
-        if not self.sessions:
+        tracked_sids = {s.session_id for s in self.sessions}
+        has_untracked_live = bool(self.live_states) and any(
+            sid not in tracked_sids for sid in self.live_states
+        )
+        if not self.sessions and not has_untracked_live:
             if self._current_query or self._current_tags:
                 text.append("  No sessions match your search.\n", style="dim")
                 text.append("  Press Esc to clear the filter.\n", style="dim")
@@ -324,17 +411,21 @@ class SessionsList(Widget):
         in_selection = bool(self.selected)
         sel_w = 3 if in_selection else 0
 
-        prefix_w = 1 + sel_w + 2 + 1  # collapse + sel + fav + space
+        has_live = bool(self.live_states)
+        state_w = 1 if has_live else 0
+        prefix_w = 1 + state_w + sel_w + 2 + 1  # collapse + state + sel + fav + space
         title_w = max(10, w - prefix_w)
 
         cursor_display_idx = self._cursor_to_display_index(self.cursor)
 
-        visible_rows: list[tuple[str, str, int]] = []
-        # (line_text, style, display_index)
+        # (line_text, style, display_index, live_info_or_none)
+        visible_rows: list[tuple[str, str, int, object]] = []
+
+        home = os.path.expanduser("~")
 
         for di, drow in enumerate(self._display_rows):
             if drow.kind == "bucket":
-                visible_rows.append((drow.label[:w], "dim", di))
+                visible_rows.append((drow.label[:w], "dim", di, None))
                 continue
 
             if drow.kind == "session":
@@ -344,15 +435,32 @@ class SessionsList(Widget):
                 is_selected = s.session_id in self.selected
                 style = "reverse" if is_cursor else ""
 
+                live = self.live_states.get(s.session_id)
+
                 expanded = s.session_id not in self._collapsed
                 has_prompts = bool(self._prompts.get(s.session_id))
                 if has_prompts:
                     collapse_mark = "▾" if expanded else "▸"
+                elif live:
+                    collapse_mark = " "
                 else:
                     collapse_mark = "─"
 
+                if has_live:
+                    if live:
+                        if live.status == "busy":
+                            state_icon = "✽" if self._anim_frame % 2 == 0 else "✻"
+                        elif live.status == "needs_input":
+                            state_icon = "✻"
+                        else:
+                            state_icon = "✻"
+                    else:
+                        state_icon = " "
+                else:
+                    state_icon = ""
+
                 sel_mark = ("[x]" if is_selected else "   ") if in_selection else ""
-                title = (s.custom_name or s.ai_title or strip_markup_tags(strip_system_blocks(s.first_prompt or "")) or "(untitled)")[:title_w]
+                title = (s.custom_name or s.ai_title or strip_markup_tags(strip_system_blocks(s.first_prompt or "")) or "(untitled)")
 
                 fav = " *" if s.is_favorite else "  "
 
@@ -362,15 +470,32 @@ class SessionsList(Widget):
                     if session_tags:
                         tags_str = " " + " ".join(f"#{t}" for t in session_tags)
 
-                prefix = f"{collapse_mark}{sel_mark}{fav} {title}"
-                if tags_str:
-                    tags_budget = w - len(prefix)
-                    if tags_budget > 3:
-                        tags_str = tags_str[:tags_budget]
+                right_text = ""
+                if live and w > 80:
+                    short_cwd = s.cwd
+                    if short_cwd.startswith(home + "/"):
+                        short_cwd = "~/" + short_cwd[len(home) + 1:].split("/")[-1]
+                    elif "/" in short_cwd:
+                        short_cwd = short_cwd.split("/")[-1]
+                    if live.detail:
+                        right_text = f" {short_cwd} · {live.detail}"
                     else:
-                        tags_str = ""
-                line = (prefix + tags_str).ljust(w)[:w]
-                visible_rows.append((line, style, di))
+                        right_text = f" {short_cwd}"
+
+                prefix = f"{collapse_mark}{state_icon}{sel_mark}{fav} "
+                avail_title = max(10, w - len(prefix) - len(tags_str) - len(right_text))
+                title = title[:avail_title]
+                left = prefix + title + tags_str
+                if right_text:
+                    gap = w - len(left) - len(right_text)
+                    if gap > 0:
+                        line = left + " " * gap + right_text
+                    else:
+                        line = left.ljust(w)
+                else:
+                    line = left.ljust(w)
+                line = line[:w]
+                visible_rows.append((line, style, di, live))
 
             elif drow.kind == "prompt":
                 p = drow.prompt
@@ -383,10 +508,10 @@ class SessionsList(Widget):
                 prompt_w = max(5, w - len(indent) - len(connector))
                 prompt_text = strip_system_blocks(replace_command_tags(p.text))[:prompt_w]
                 line = f"{indent}{connector}{prompt_text}"[:w]
-                visible_rows.append((line, style, di))
+                visible_rows.append((line, style, di, None))
 
         cursor_row_idx = 0
-        for idx, (_, _, di) in enumerate(visible_rows):
+        for idx, (_, _, di, _) in enumerate(visible_rows):
             if di == cursor_display_idx:
                 cursor_row_idx = idx
                 break
@@ -397,8 +522,30 @@ class SessionsList(Widget):
         start = min(start, cursor_row_idx)
         end = min(start + visible_height, len(visible_rows))
 
-        for row_line, row_style, di in visible_rows[start:end]:
-            if self._current_query and row_style != "dim":
+        try:
+            accent = self.app._palette.accent
+        except Exception:
+            accent = "#E08A5E"
+
+        for row_line, row_style, di, live in visible_rows[start:end]:
+            if live and state_w:
+                line_text = Text()
+                line_text.append(row_line[0], style=row_style)
+                icon_char = row_line[1]
+                if live.status == "busy":
+                    icon_style = accent
+                elif live.status == "needs_input":
+                    icon_style = "yellow"
+                else:
+                    icon_style = "dim"
+                if row_style == "reverse":
+                    icon_style = f"reverse {icon_style}"
+                line_text.append(icon_char, style=icon_style)
+                line_text.append(row_line[2:] + "\n", style=row_style)
+                if self._current_query:
+                    line_text.highlight_words([self._current_query], style="bold underline", case_sensitive=False)
+                text.append_text(line_text)
+            elif self._current_query and row_style != "dim":
                 line_text = Text(row_line + "\n", style=row_style)
                 line_text.highlight_words([self._current_query], style="bold underline", case_sensitive=False)
                 text.append_text(line_text)
@@ -482,11 +629,8 @@ class SessionsList(Widget):
         elif event.key == "escape":
             pass  # handled by app-level action_back_or_quit
         elif event.key == "enter":
-            s = self.current_session
-            if s:
-                self.app.chosen_session = s
-                self.app.exit()
-                return
+            self.app.action_resume()
+            return
         else:
             if event.is_printable and event.character:
                 search = self.app.query_one(SearchBar)
