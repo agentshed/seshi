@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import json
 import re
+import sqlite3
 
 from seshi.models import Session
 
@@ -14,7 +17,9 @@ def shell_quote(s: str) -> str:
     return "'" + s.replace("'", "'\\''") + "'"
 
 
-def build_resume_line(session: Session) -> str:
+def build_resume_line(
+    session: Session, conn: sqlite3.Connection | None = None
+) -> str:
     try:
         argv = json.loads(session.launch_argv_json)
     except (json.JSONDecodeError, TypeError):
@@ -41,6 +46,14 @@ def build_resume_line(session: Session) -> str:
 
     if not filtered or filtered[0] != "claude":
         filtered.insert(0, "claude")
+
+    # Inject persistent Claude CLI flags before --resume
+    if conn is not None:
+        from seshi.claude_flags import build_args
+
+        extra = build_args(conn)
+        if extra:
+            filtered.extend(extra)
 
     filtered.extend(["--resume", session.session_id])
 
