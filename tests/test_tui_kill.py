@@ -233,3 +233,101 @@ def test_resolve_daemon_short_uses_live():
 
     result = sl._resolve_daemon_short("a0b1c2d3-uuid")
     assert result == "a0b1c2d3"
+
+
+# ── _do_kill error paths clear in-flight and notify ───────────────
+
+def _with_mock_app(sl):
+    """Set up mock app via Textual's active_app context variable."""
+    from textual._context import active_app
+    mock = MagicMock()
+    mock.call_from_thread = lambda fn, *args, **kw: fn(*args, **kw)
+    token = active_app.set(mock)
+    return token, active_app
+
+
+def test_do_kill_stop_success():
+    conn = _make_conn()
+    sl = _setup_widget(conn)
+    sl._kill_in_flight.add("sid1")
+    token, ctx = _with_mock_app(sl)
+
+    try:
+        with patch.object(sl, "_run_claude_cmd") as mock_cmd:
+            mock_cmd.return_value = MagicMock(returncode=0, stderr="")
+            sl._do_kill("stop", "sid1", "abcd1234")
+    finally:
+        ctx.reset(token)
+
+    assert "sid1" not in sl._kill_in_flight
+    assert sl._stopped_sessions["sid1"] == "abcd1234"
+
+
+def test_do_kill_rm_success():
+    conn = _make_conn()
+    sl = _setup_widget(conn)
+    sl._kill_in_flight.add("sid1")
+    sl._stopped_sessions["sid1"] = "abcd1234"
+    token, ctx = _with_mock_app(sl)
+
+    try:
+        with patch.object(sl, "_run_claude_cmd") as mock_cmd:
+            mock_cmd.return_value = MagicMock(returncode=0, stderr="")
+            sl._do_kill("rm", "sid1", "abcd1234")
+    finally:
+        ctx.reset(token)
+
+    assert "sid1" not in sl._kill_in_flight
+    assert "sid1" not in sl._stopped_sessions
+
+
+def test_do_kill_nonzero_exit_clears_in_flight():
+    conn = _make_conn()
+    sl = _setup_widget(conn)
+    sl._kill_in_flight.add("sid1")
+    token, ctx = _with_mock_app(sl)
+
+    try:
+        with patch.object(sl, "_run_claude_cmd") as mock_cmd:
+            mock_cmd.return_value = MagicMock(returncode=1, stderr="process not found")
+            sl._do_kill("stop", "sid1", "abcd1234")
+    finally:
+        ctx.reset(token)
+
+    assert "sid1" not in sl._kill_in_flight
+    assert any("failed" in msg.lower() for msg, _ in sl._test_notifications)
+
+
+def test_do_kill_timeout_clears_in_flight():
+    import subprocess as sp
+    conn = _make_conn()
+    sl = _setup_widget(conn)
+    sl._kill_in_flight.add("sid1")
+    token, ctx = _with_mock_app(sl)
+
+    try:
+        with patch.object(sl, "_run_claude_cmd") as mock_cmd:
+            mock_cmd.side_effect = sp.TimeoutExpired(cmd="claude stop", timeout=10)
+            sl._do_kill("stop", "sid1", "abcd1234")
+    finally:
+        ctx.reset(token)
+
+    assert "sid1" not in sl._kill_in_flight
+    assert any("failed" in msg.lower() for msg, _ in sl._test_notifications)
+
+
+def test_do_kill_file_not_found_clears_in_flight():
+    conn = _make_conn()
+    sl = _setup_widget(conn)
+    sl._kill_in_flight.add("sid1")
+    token, ctx = _with_mock_app(sl)
+
+    try:
+        with patch.object(sl, "_run_claude_cmd") as mock_cmd:
+            mock_cmd.side_effect = FileNotFoundError("claude not found")
+            sl._do_kill("stop", "sid1", "abcd1234")
+    finally:
+        ctx.reset(token)
+
+    assert "sid1" not in sl._kill_in_flight
+    assert any("failed" in msg.lower() for msg, _ in sl._test_notifications)
