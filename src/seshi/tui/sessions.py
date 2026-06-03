@@ -11,7 +11,7 @@ from textual import events
 from rich.text import Text
 
 from seshi.models import Session, Prompt
-from seshi.live import LiveInfo, HEX8_RE
+from seshi.live import LiveInfo, is_valid_daemon_short
 from seshi.prompt_text import replace_command_tags, strip_markup_tags, strip_system_blocks
 from seshi.search import list_sessions, rank_sessions, query_matches_text
 from seshi.time_utils import relative_time
@@ -618,6 +618,8 @@ class SessionsList(Widget):
             self._toggle_archive()
         elif event.key == "d":
             self._delete_selected()
+        elif event.key == "K":
+            self._kill_selected()
         elif event.key == "s":
             self._cycle_sort()
         elif event.key == "H":
@@ -633,8 +635,6 @@ class SessionsList(Widget):
             self.app.exit()
         elif event.key == "N":
             self._open_dir_picker()
-        elif event.key == "K":
-            self._kill_selected()
         elif event.key == "P":
             self._filter_to_current_project()
         elif event.key == "p":
@@ -930,7 +930,7 @@ class SessionsList(Widget):
     def _resolve_daemon_short(self, sid: str) -> str | None:
         live = self.live_states.get(sid)
         ds = (live.daemon_short if live else None) or sid[:8]
-        return ds if HEX8_RE.match(ds) else None
+        return ds if is_valid_daemon_short(ds) else None
 
     def _run_claude_cmd(self, cmd: str, daemon_short: str) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -951,7 +951,7 @@ class SessionsList(Widget):
             stored_ds = self._stopped_sessions[sid]
             # If session was relaunched with a new daemon, clear stopped
             # state and re-route to stop for the new instance.
-            if live and live.daemon_short != stored_ds:
+            if live and live.daemon_short and live.daemon_short != stored_ds:
                 self._stopped_sessions.pop(sid, None)
                 daemon_short = self._resolve_daemon_short(sid)
                 if not daemon_short:
@@ -985,7 +985,7 @@ class SessionsList(Widget):
         label = "stop session" if cmd == "stop" else "remove worktree"
         try:
             result = self._run_claude_cmd(cmd, daemon_short)
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
+        except (subprocess.TimeoutExpired, OSError) as exc:
             self.app.call_from_thread(self._on_kill_error, sid, f"Failed to {label}: {exc}")
             return
         if result.returncode != 0:

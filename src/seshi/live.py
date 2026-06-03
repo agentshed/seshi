@@ -28,11 +28,16 @@ class LiveInfo:
     tools: list[ToolCall] = field(default_factory=list)
 
 
-HEX8_RE = re.compile(r"^[0-9a-f]{8}$")
+_HEX8_RE = re.compile(r"^[0-9a-f]{8}$")
+
+
+def is_valid_daemon_short(s: str) -> bool:
+    """Return True if *s* looks like a valid 8-char hex daemon short ID."""
+    return bool(_HEX8_RE.match(s))
 
 
 def _read_state_json(daemon_short: str) -> dict:
-    if not HEX8_RE.match(daemon_short):
+    if not _HEX8_RE.match(daemon_short):
         return {}
     state_path = CLAUDE_JOBS / daemon_short / "state.json"
     try:

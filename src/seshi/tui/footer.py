@@ -44,10 +44,10 @@ class Footer(Widget):
         elif self.view == "sessions":
             keys = [
                 ("↵", "attach" if self.live_bg_selected else "resume"), ("/", "search"), ("f", "fav"),
-                ("d", "delete"), ("z", "undo"), ("s", "sort"),
+                ("d", "delete"), ("K", "kill"), ("z", "undo"), ("s", "sort"),
                 ("r", "rename"), ("t", "tag"), ("P", "project"),
                 ("n", "new"), ("N", "new in"),
-                ("u", "archive"), ("K", "kill"), ("e", "expand"), ("c", "compact"),
+                ("u", "archive"), ("e", "expand"), ("c", "compact"),
                 ("H", "hide"),
                 ("p", {"normal": "preview", "min": "preview:min", "max": "preview:max", "off": "hidden"}.get(self.preview_mode, "preview")),
                 ("Space", "select"), ("?", "help"),

@@ -210,7 +210,7 @@ When search bar is deactivated (active=False), the cursor shows as a dim block `
 
 ### U1. Discoverability
 
-The footer shows the most common keys (`Enter`, `r`, `f`, `t`, `u`, `d`, `s`, `Space`, `Tab`), which is good. However, several keys are undiscoverable without reading Help:
+The footer shows the most common keys (`Enter`, `r`, `f`, `t`, `u`, `d`, `K`, `s`, `Space`, `Tab`), which is good. However, several keys are undiscoverable without reading Help:
 - `H` (hide missing dirs) — no footer hint
 - `a` (select all) — no footer hint
 - `g` / `G` (jump top/bottom) — no footer hint
@@ -311,7 +311,7 @@ Of the original 101 test cases across 20 sections, execution covered approximate
 | 1. Launch & Initial Render | 1.1, 1.2 |
 | 2. Navigation | 2.1, 2.2 (bounds), 2.3 (scrolling) |
 | 3. Search & Filter | 3.1, 3.2, 3.5, 3.6, 3.7, 3.8 |
-| 4. Session Actions | 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.10, 4.12, 4.14, 4.15 |
+| 4. Session Actions | 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.10, 4.12, 4.16, 4.17 |
 | 5. Bulk Selection | 5.1, 5.2, 5.3, 5.4 (tag only) |
 | 6. View Switching | 6.1, 6.2, 6.4 |
 | 7. Overview | 7.1 |
