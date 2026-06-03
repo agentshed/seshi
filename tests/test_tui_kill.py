@@ -95,7 +95,7 @@ def test_kill_stopped_session_removes():
     _insert_session(conn, s)
     sl = _setup_widget(conn)
     sl.live_states = {}
-    sl._stopped_sessions.add(s.session_id)
+    sl._stopped_sessions[s.session_id] = s.session_id[:8]
     sl._refresh_display()
 
     with patch.object(sl, "_run_claude_cmd") as mock_cmd:
@@ -151,7 +151,7 @@ def test_kill_rm_failure_handling():
     _insert_session(conn, s)
     sl = _setup_widget(conn)
     sl.live_states = {}
-    sl._stopped_sessions.add(s.session_id)
+    sl._stopped_sessions[s.session_id] = s.session_id[:8]
     sl._refresh_display()
 
     with patch.object(sl, "_run_claude_cmd") as mock_cmd:
@@ -189,10 +189,10 @@ def test_stopped_sessions_pruned_on_live_refresh():
     s = _make_session(name="restarted session")
     _insert_session(conn, s)
     sl = SessionsList(conn)
-    sl._stopped_sessions.add(s.session_id)
+    sl._stopped_sessions[s.session_id] = s.session_id[:8]
 
     sl.live_states = {s.session_id: _make_live(s.session_id)}
-    sl._stopped_sessions -= set(sl.live_states.keys())
+    sl._refresh_display()
 
     assert s.session_id not in sl._stopped_sessions
 

@@ -38,6 +38,7 @@ class SessionsList(Widget):
     """
 
     can_focus = True
+    _HEX8_RE = re.compile(r"^[0-9a-f]{8}$")
 
     cursor: reactive[int] = reactive(0)
     sessions: reactive[list] = reactive(list, init=False)
@@ -66,7 +67,7 @@ class SessionsList(Widget):
         self._compact_prev_sid: str | None = None
         self._adjusting_compact: bool = False
         self.live_states: dict[str, LiveInfo] = {}
-        self._stopped_sessions: set[str] = set()
+        self._stopped_sessions: dict[str, str] = {}
         self._anim_frame: int = 0
         self._load_sessions()
 
@@ -83,6 +84,8 @@ class SessionsList(Widget):
             self.refresh()
 
     def _refresh_display(self) -> None:
+        for sid in set(self._stopped_sessions) & set(self.live_states):
+            del self._stopped_sessions[sid]
         self._build_display_rows()
         nav_count = self._nav_row_count()
         if self.cursor >= nav_count:
@@ -919,8 +922,6 @@ class SessionsList(Widget):
         self.selected.clear()
         self._reload_with_current_filter()
 
-    _HEX8_RE = re.compile(r"^[0-9a-f]{8}$")
-
     def _resolve_daemon_short(self, sid: str) -> str | None:
         live = self.live_states.get(sid)
         ds = (live.daemon_short if live else None) or sid[:8]
@@ -944,15 +945,16 @@ class SessionsList(Widget):
             return
 
         if sid in self._stopped_sessions:
+            stored_ds = self._stopped_sessions[sid]
             try:
-                result = self._run_claude_cmd("rm", daemon_short)
+                result = self._run_claude_cmd("rm", stored_ds)
             except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
                 self._notify(f"Failed to remove worktree: {exc}", severity="error")
                 return
             if result.returncode != 0:
                 self._notify(f"Failed to remove worktree: {result.stderr.strip()}", severity="error")
                 return
-            self._stopped_sessions.discard(sid)
+            del self._stopped_sessions[sid]
             self._notify("Removed session worktree", severity="information", timeout=3)
         elif live:
             try:
@@ -963,7 +965,7 @@ class SessionsList(Widget):
             if result.returncode != 0:
                 self._notify(f"Failed to stop session: {result.stderr.strip()}", severity="error")
                 return
-            self._stopped_sessions.add(sid)
+            self._stopped_sessions[sid] = daemon_short
             self._notify("Stopped session — press K again to remove worktree", severity="information", timeout=4)
         else:
             self._notify("Session is not running", severity="warning", timeout=2)
