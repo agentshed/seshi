@@ -122,7 +122,7 @@ class DirPickerScreen(ModalScreen[str | None]):
             count_padded = count_str.rjust(max_count)
 
             line = Text()
-            line.append("  ")
+            line.append("  ", style=style)
             line.append(path_padded, style=style)
             if max_badge:
                 line.append("  ")
