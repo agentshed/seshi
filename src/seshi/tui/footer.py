@@ -46,7 +46,7 @@ class Footer(Widget):
                 ("↵", "attach" if self.live_bg_selected else "resume"), ("/", "search"), ("f", "fav"),
                 ("d", "delete"), ("K", "kill"), ("z", "undo"), ("s", "sort"),
                 ("r", "rename"), ("t", "tag"), ("P", "project"),
-                ("n", "new"), ("N", "new in.."),
+                ("n", "new"), ("N", "new in"),
                 ("u", "archive"), ("e", "expand"), ("c", "compact"),
                 ("H", "hide"),
                 ("p", {"normal": "preview", "min": "preview:min", "max": "preview:max", "off": "hidden"}.get(self.preview_mode, "preview")),
