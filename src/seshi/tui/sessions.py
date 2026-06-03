@@ -946,29 +946,42 @@ class SessionsList(Widget):
 
         if sid in self._stopped_sessions:
             stored_ds = self._stopped_sessions[sid]
-            try:
-                result = self._run_claude_cmd("rm", stored_ds)
-            except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
-                self._notify(f"Failed to remove worktree: {exc}", severity="error")
-                return
-            if result.returncode != 0:
-                self._notify(f"Failed to remove worktree: {result.stderr.strip()}", severity="error")
-                return
-            del self._stopped_sessions[sid]
-            self._notify("Removed session worktree", severity="information", timeout=3)
+            self.run_worker(
+                lambda: self._do_kill("rm", sid, stored_ds),
+                thread=True,
+            )
         elif live:
-            try:
-                result = self._run_claude_cmd("stop", daemon_short)
-            except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
-                self._notify(f"Failed to stop session: {exc}", severity="error")
-                return
-            if result.returncode != 0:
-                self._notify(f"Failed to stop session: {result.stderr.strip()}", severity="error")
-                return
-            self._stopped_sessions[sid] = daemon_short
-            self._notify("Stopped session — press K again to remove worktree", severity="information", timeout=4)
+            self.run_worker(
+                lambda: self._do_kill("stop", sid, daemon_short),
+                thread=True,
+            )
         else:
             self._notify("Session is not running", severity="warning", timeout=2)
+
+    def _do_kill(self, cmd: str, sid: str, daemon_short: str) -> None:
+        label = "stop session" if cmd == "stop" else "remove worktree"
+        try:
+            result = self._run_claude_cmd(cmd, daemon_short)
+        except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
+            self.app.call_from_thread(self._notify, f"Failed to {label}: {exc}", severity="error")
+            return
+        if result.returncode != 0:
+            self.app.call_from_thread(
+                self._notify, f"Failed to {label}: {result.stderr.strip()}", severity="error",
+            )
+            return
+        if cmd == "stop":
+            self.app.call_from_thread(self._on_kill_stopped, sid, daemon_short)
+        else:
+            self.app.call_from_thread(self._on_kill_removed, sid)
+
+    def _on_kill_stopped(self, sid: str, daemon_short: str) -> None:
+        self._stopped_sessions[sid] = daemon_short
+        self._notify("Stopped session — press K again to remove worktree", severity="information", timeout=4)
+
+    def _on_kill_removed(self, sid: str) -> None:
+        self._stopped_sessions.pop(sid, None)
+        self._notify("Removed session worktree", severity="information", timeout=3)
 
     def _delete_selected(self):
         s = self.current_session

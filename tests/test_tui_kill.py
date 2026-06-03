@@ -1,6 +1,5 @@
 """Tests for the Kill session (Shift-K) feature."""
 import sqlite3
-import subprocess
 from unittest.mock import patch, MagicMock
 
 from seshi.db import init_schema, set_setting
@@ -62,53 +61,39 @@ def _insert_session(conn, session):
 
 def _setup_widget(conn):
     sl = SessionsList(conn)
-    sl._notify = lambda msg, **kw: sl._test_notifications.append((msg, kw))
     sl._test_notifications = []
+    sl._notify = lambda msg, **kw: sl._test_notifications.append((msg, kw))
     return sl
 
 
-# ── Kill live session stops ────────────────────────────────────────
+# ── _on_kill_stopped updates state and notifies ───────────────────
 
-def test_kill_live_session_stops():
+def test_on_kill_stopped():
     conn = _make_conn()
-    s = _make_session(name="live session")
-    _insert_session(conn, s)
     sl = _setup_widget(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id)}
-    sl._refresh_display()
 
-    with patch.object(sl, "_run_claude_cmd") as mock_cmd:
-        mock_cmd.return_value = MagicMock(returncode=0, stderr="")
-        sl._kill_selected()
+    sl._on_kill_stopped("abc12345-sid", "abc12345")
 
-    mock_cmd.assert_called_once_with("stop", s.session_id[:8])
-    assert s.session_id in sl._stopped_sessions
+    assert sl._stopped_sessions["abc12345-sid"] == "abc12345"
     assert any("press K again" in msg.lower() or "stopped" in msg.lower()
                for msg, _ in sl._test_notifications)
 
 
-# ── Kill stopped session removes worktree ──────────────────────────
+# ── _on_kill_removed cleans up state ─────────────────────────────
 
-def test_kill_stopped_session_removes():
+def test_on_kill_removed():
     conn = _make_conn()
-    s = _make_session(name="stopped session")
-    _insert_session(conn, s)
     sl = _setup_widget(conn)
-    sl.live_states = {}
-    sl._stopped_sessions[s.session_id] = s.session_id[:8]
-    sl._refresh_display()
+    sl._stopped_sessions["abc12345-sid"] = "abc12345"
 
-    with patch.object(sl, "_run_claude_cmd") as mock_cmd:
-        mock_cmd.return_value = MagicMock(returncode=0, stderr="")
-        sl._kill_selected()
+    sl._on_kill_removed("abc12345-sid")
 
-    mock_cmd.assert_called_once_with("rm", s.session_id[:8])
-    assert s.session_id not in sl._stopped_sessions
+    assert "abc12345-sid" not in sl._stopped_sessions
     assert any("removed" in msg.lower() or "worktree" in msg.lower()
                for msg, _ in sl._test_notifications)
 
 
-# ── Kill non-live session notifies ─────────────────────────────────
+# ── Kill non-live session notifies ────────────────────────────────
 
 def test_kill_non_live_session_notifies():
     conn = _make_conn()
@@ -124,62 +109,38 @@ def test_kill_non_live_session_notifies():
     assert "not running" in sl._test_notifications[0][0].lower()
 
 
-# ── Kill stop failure handling ─────────────────────────────────────
+# ── Kill dispatches worker for live session ───────────────────────
 
-def test_kill_stop_failure_handling():
+def test_kill_dispatches_worker_for_live():
     conn = _make_conn()
-    s = _make_session(name="failing session")
+    s = _make_session(name="live session")
     _insert_session(conn, s)
     sl = _setup_widget(conn)
     sl.live_states = {s.session_id: _make_live(s.session_id)}
     sl._refresh_display()
 
-    with patch.object(sl, "_run_claude_cmd") as mock_cmd:
-        mock_cmd.return_value = MagicMock(returncode=1, stderr="process not found")
+    with patch.object(sl, "run_worker") as mock_worker:
         sl._kill_selected()
 
-    assert s.session_id not in sl._stopped_sessions
-    assert len(sl._test_notifications) == 1
-    assert "failed" in sl._test_notifications[0][0].lower()
+    mock_worker.assert_called_once()
+    assert mock_worker.call_args.kwargs.get("thread") is True
 
 
-# ── Kill rm failure handling ───────────────────────────────────────
+# ── Kill dispatches worker for stopped session ────────────────────
 
-def test_kill_rm_failure_handling():
+def test_kill_dispatches_worker_for_stopped():
     conn = _make_conn()
-    s = _make_session(name="rm fail session")
+    s = _make_session(name="stopped session")
     _insert_session(conn, s)
     sl = _setup_widget(conn)
-    sl.live_states = {}
     sl._stopped_sessions[s.session_id] = s.session_id[:8]
     sl._refresh_display()
 
-    with patch.object(sl, "_run_claude_cmd") as mock_cmd:
-        mock_cmd.return_value = MagicMock(returncode=1, stderr="worktree not found")
+    with patch.object(sl, "run_worker") as mock_worker:
         sl._kill_selected()
 
-    assert s.session_id in sl._stopped_sessions
-    assert len(sl._test_notifications) == 1
-    assert "failed" in sl._test_notifications[0][0].lower()
-
-
-# ── Kill with subprocess exception ─────────────────────────────────
-
-def test_kill_subprocess_exception():
-    conn = _make_conn()
-    s = _make_session(name="exception session")
-    _insert_session(conn, s)
-    sl = _setup_widget(conn)
-    sl.live_states = {s.session_id: _make_live(s.session_id)}
-    sl._refresh_display()
-
-    with patch.object(sl, "_run_claude_cmd") as mock_cmd:
-        mock_cmd.side_effect = FileNotFoundError("claude not found")
-        sl._kill_selected()
-
-    assert s.session_id not in sl._stopped_sessions
-    assert len(sl._test_notifications) == 1
-    assert "failed" in sl._test_notifications[0][0].lower()
+    mock_worker.assert_called_once()
+    assert mock_worker.call_args.kwargs.get("thread") is True
 
 
 # ── Stopped sessions reconciled on live state update ──────────────
@@ -207,10 +168,10 @@ def test_kill_invalid_daemon_short():
     sl.live_states = {s.session_id: _make_live(s.session_id)}
     sl._refresh_display()
 
-    with patch.object(sl, "_run_claude_cmd") as mock_cmd:
+    with patch.object(sl, "run_worker") as mock_worker:
         sl._kill_selected()
 
-    mock_cmd.assert_not_called()
+    mock_worker.assert_not_called()
     assert len(sl._test_notifications) == 1
     assert "invalid" in sl._test_notifications[0][0].lower()
 
@@ -230,3 +191,28 @@ def test_run_claude_cmd():
         capture_output=True, text=True, timeout=10,
     )
     assert result.returncode == 0
+
+
+# ── _resolve_daemon_short validates hex format ─────────────────────
+
+def test_resolve_daemon_short_valid():
+    conn = _make_conn()
+    sl = SessionsList(conn)
+
+    assert sl._resolve_daemon_short("a0b1c2d3-rest-of-uuid") == "a0b1c2d3"
+
+
+def test_resolve_daemon_short_invalid():
+    conn = _make_conn()
+    sl = SessionsList(conn)
+
+    assert sl._resolve_daemon_short("XXXX!!!!-rest") is None
+
+
+def test_resolve_daemon_short_uses_live():
+    conn = _make_conn()
+    sl = SessionsList(conn)
+    sl.live_states = {"a0b1c2d3-uuid": _make_live("a0b1c2d3-uuid")}
+
+    result = sl._resolve_daemon_short("a0b1c2d3-uuid")
+    assert result == "a0b1c2d3"
