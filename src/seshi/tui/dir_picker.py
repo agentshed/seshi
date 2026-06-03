@@ -121,6 +121,9 @@ class DirPickerScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
     def on_key(self, event: events.Key) -> None:
+        if not self._dirs:
+            event.stop()
+            return
         if event.key in ("up", "k"):
             self._cursor = max(0, self._cursor - 1)
             self._refresh_content()
@@ -158,9 +161,6 @@ class DirPickerScreen(ModalScreen[str | None]):
                 self.dismiss(self._dirs[self._cursor]["cwd"])
             else:
                 self.dismiss(None)
-            event.stop()
-        elif event.key == "escape":
-            self.dismiss(None)
             event.stop()
         else:
             event.stop()

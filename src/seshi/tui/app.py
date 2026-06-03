@@ -631,7 +631,8 @@ def launch_tui(ctx_obj: dict | None = None):
             try:
                 os.chdir(app.chosen_cwd)
             except OSError:
-                pass
+                print(f"seshi: directory not found: {app.chosen_cwd}", file=sys.stderr)
+                continue
             try:
                 subprocess.run(["claude"])
             except FileNotFoundError:

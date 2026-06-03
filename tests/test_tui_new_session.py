@@ -35,19 +35,20 @@ def test_new_session_cwd(tmp_db):
 
 
 def test_dir_picker_sort_cycle(tmp_db):
-    """Open dir picker -> press s -> sort mode cycles."""
-    _insert_session(tmp_db, "s1", "/tmp/project-a", frecency_rank=10.0)
-    _insert_session(tmp_db, "s2", "/tmp/project-b", frecency_rank=5.0)
+    """Sort mode cycles frecency -> recency -> frequency and reorders dirs."""
+    now = int(time.time())
+    _insert_session(tmp_db, "s1", "/tmp/project-a", ts=now - 1000, frecency_rank=10.0)
+    _insert_session(tmp_db, "s2", "/tmp/project-b", ts=now, frecency_rank=1.0)
 
     screen = DirPickerScreen(tmp_db)
     assert screen._sort_mode == "frecency"
+    assert screen._dirs[0]["cwd"] == "/tmp/project-a"
 
-    # Cycle: frecency -> recency
     screen._sort_mode = "recency"
     screen._apply_sort()
     assert screen._sort_mode == "recency"
+    assert screen._dirs[0]["cwd"] == "/tmp/project-b"
 
-    # Cycle: recency -> frequency
     screen._sort_mode = "frequency"
     screen._apply_sort()
     assert screen._sort_mode == "frequency"
@@ -96,11 +97,13 @@ def test_dir_picker_escape_cancels(tmp_db):
 
 
 def test_launch_tui_new_session_subprocess(tmp_db, tmp_path):
-    """When chosen_cwd is set and chosen_session is None, claude is spawned."""
+    """When chosen_cwd is set and chosen_session is None, claude is spawned in the target dir."""
     target_dir = str(tmp_path / "test-project")
     os.makedirs(target_dir, exist_ok=True)
 
     mock_run = MagicMock()
+    chdir_calls = []
+    original_chdir = os.chdir
     exit_count = 0
 
     def patched_run(self_app):
@@ -110,16 +113,21 @@ def test_launch_tui_new_session_subprocess(tmp_db, tmp_path):
             self_app.chosen_cwd = target_dir
             self_app.chosen_session = None
         else:
-            # Second iteration: no chosen_cwd, so loop breaks
             self_app.chosen_cwd = None
             self_app.chosen_session = None
 
+    def tracking_chdir(path):
+        chdir_calls.append(path)
+        return original_chdir(path)
+
     with patch.object(SeshiApp, 'run', patched_run), \
          patch('subprocess.run', mock_run), \
-         patch('os.isatty', return_value=True):
+         patch('os.isatty', return_value=True), \
+         patch('seshi.tui.app.os.chdir', tracking_chdir):
         launch_tui()
 
     mock_run.assert_called_once_with(["claude"])
+    assert target_dir in chdir_calls
 
 
 def test_dir_picker_data_source(tmp_db):
