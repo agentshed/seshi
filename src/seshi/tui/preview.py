@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual import events
@@ -65,9 +67,8 @@ class Preview(Widget):
         if self.live_state is None or not self.session:
             self._live_messages = []
             return
-        tp = getattr(self.live_state, 'transcript_path', None)
+        tp = self.live_state.transcript_path
         if tp:
-            from pathlib import Path
             self._live_messages = extract_messages(Path(tp))
         else:
             path = find_transcript_path(self.session.session_id)
@@ -103,6 +104,7 @@ class Preview(Widget):
 
     @staticmethod
     def _compute_start_offset(messages: list, focus_prompt_index: int | None, available: int) -> int:
+        """Compute the start offset for centering on a focused prompt."""
         if not messages:
             return 0
         if focus_prompt_index is not None:
@@ -124,6 +126,7 @@ class Preview(Widget):
         return max(0, len(messages) - available)
 
     def _sync_scroll_to_focus(self) -> None:
+        """Set scroll offset to match the current auto-centered position."""
         self._scroll_offset = self._compute_start_offset(
             self._cached_messages, self.focus_prompt_index, self._available_lines()
         )
@@ -178,7 +181,7 @@ class Preview(Widget):
             text.append(f"  {live.detail}", style="dim")
         text.append("\n")
 
-        tools = getattr(live, 'tools', [])
+        tools = live.tools
         if tools:
             text.append("\n")
             for tc in tools:

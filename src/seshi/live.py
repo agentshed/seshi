@@ -41,7 +41,9 @@ def _read_state_json(daemon_short: str) -> dict:
         return {}
 
 
-def _summarize_tool_input(name: str, inp: dict) -> str:
+def _summarize_tool_input(name: str, inp: object) -> str:
+    if not isinstance(inp, dict):
+        return str(inp)[:80]
     if name == "Bash":
         return inp.get("command", "")[:120]
     if name in ("Read", "Write"):
@@ -130,7 +132,7 @@ def fetch_live_sessions() -> dict[str, LiveInfo]:
 
         if transcript_path:
             tp = os.path.realpath(transcript_path)
-            claude_root = str(CLAUDE_DIR)
+            claude_root = os.path.realpath(str(CLAUDE_DIR))
             if not tp.startswith(claude_root + os.sep):
                 transcript_path = None
 
