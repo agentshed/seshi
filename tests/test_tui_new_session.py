@@ -123,7 +123,9 @@ def test_launch_tui_new_session_subprocess(tmp_db, tmp_path):
     with patch.object(SeshiApp, 'run', patched_run), \
          patch('subprocess.run', mock_run), \
          patch('os.isatty', return_value=True), \
-         patch('seshi.tui.app.os.chdir', tracking_chdir):
+         patch('seshi.tui.app.os.chdir', tracking_chdir), \
+         patch('seshi.tui.app.open_db'), \
+         patch('seshi.claude_flags.build_args', return_value=[]):
         launch_tui()
 
     mock_run.assert_called_once_with(["claude"])
