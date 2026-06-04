@@ -54,9 +54,17 @@ class Preview(Widget):
         self.refresh()
 
     def watch_live_state(self, state: LiveInfo | None) -> None:
+        was_live = bool(self._live_messages)
         if state is not None:
             self._refresh_live_transcript()
-            self._scroll_offset = 0
+            if not was_live:
+                # First transition to live: reset scroll
+                self._scroll_offset = 0
+            else:
+                # Refresh poll: clamp offset to new message count
+                available = self._available_lines()
+                max_offset = max(0, len(self._live_messages) - available)
+                self._scroll_offset = min(self._scroll_offset, max_offset)
         else:
             if self._live_messages:
                 self._scroll_offset = 0
@@ -203,7 +211,19 @@ class Preview(Widget):
             text.append("  (waiting for transcript…)\n", style="dim")
             return text
 
-        display = messages[-tail_lines:] if len(messages) > tail_lines else messages
+        if self.has_focus and messages:
+            total = len(messages)
+            s_start = self._scroll_offset + 1
+            s_end = min(self._scroll_offset + tail_lines, total)
+            text.append(f"  [{s_start}-{s_end}/{total}]", style="bold")
+            text.append("\n")
+
+        if self.has_focus and messages:
+            start = self._scroll_offset
+            end = min(start + tail_lines, len(messages))
+            display = messages[start:end]
+        else:
+            display = messages[-tail_lines:] if len(messages) > tail_lines else messages
 
         for msg in display:
             role_map = {"user": "you", "assistant": "asst", "system": "sys", "tool": "tool"}
