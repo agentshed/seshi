@@ -5,6 +5,7 @@ from textual.geometry import Size
 from seshi.tui.preview import Preview
 from seshi.tui.footer import Footer
 from seshi.models import Session
+from seshi.live import LiveInfo
 
 
 def _make_session(session_id="s1", msg_count=20):
@@ -314,3 +315,146 @@ class TestFooterPreviewFocused:
     def test_footer_preview_focused_reactive_default(self):
         f = Footer()
         assert f.preview_focused is False
+
+
+def _make_live_info(session_id="s1"):
+    return LiveInfo(
+        session_id=session_id,
+        pid=12345,
+        kind="interactive",
+        status="busy",
+        detail="thinking",
+        name=None,
+        daemon_short=None,
+        cwd="/tmp/project",
+        transcript_path="/fake/transcript",
+        tools=[],
+    )
+
+
+class TestLivePreviewScrolling:
+    def _setup_live_preview(self, msg_count=50, height=20):
+        p = Preview()
+        session = _make_session(msg_count=msg_count)
+        messages = _make_messages(msg_count)
+        live = _make_live_info()
+
+        with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
+             patch("seshi.tui.preview.extract_messages", return_value=messages):
+            p.session = session
+            p.live_state = live
+
+        return p, messages
+
+    def test_live_preview_scroll_j_k(self):
+        """Scrolling with j/k should change offset for live preview."""
+        p, messages = self._setup_live_preview(50)
+
+        with patch.object(type(p), "has_focus", new_callable=PropertyMock, return_value=True), \
+             patch.object(type(p), "size", new_callable=PropertyMock, return_value=Size(120, 20)):
+            event = MagicMock()
+            event.key = "j"
+            event.prevent_default = MagicMock()
+            event.stop = MagicMock()
+            p.on_key(event)
+            assert p._scroll_offset == 1
+
+            event2 = MagicMock()
+            event2.key = "k"
+            event2.prevent_default = MagicMock()
+            event2.stop = MagicMock()
+            p.on_key(event2)
+            assert p._scroll_offset == 0
+
+    def test_live_preview_scroll_preserves_on_refresh(self):
+        """Reassigning live_state (simulating poll) should preserve scroll offset."""
+        p, messages = self._setup_live_preview(50)
+
+        with patch.object(type(p), "has_focus", new_callable=PropertyMock, return_value=True), \
+             patch.object(type(p), "size", new_callable=PropertyMock, return_value=Size(120, 20)):
+            # Scroll down
+            event = MagicMock()
+            event.key = "j"
+            event.prevent_default = MagicMock()
+            event.stop = MagicMock()
+            p.on_key(event)
+            p.on_key(event)
+            p.on_key(event)
+            assert p._scroll_offset == 3
+
+        # Simulate a 5-second poll refresh: reassign live_state
+        new_live = _make_live_info()
+        with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
+             patch("seshi.tui.preview.extract_messages", return_value=messages):
+            p.live_state = new_live
+
+        # Scroll offset should be preserved, not reset to 0
+        assert p._scroll_offset == 3
+
+    def test_live_preview_auto_tails_when_unfocused(self):
+        """When unfocused, live preview should show last N messages (auto-tail)."""
+        p, messages = self._setup_live_preview(50)
+
+        with patch.object(type(p), "has_focus", new_callable=PropertyMock, return_value=False), \
+             patch.object(type(p), "size", new_callable=PropertyMock, return_value=Size(120, 20)):
+            rendered = p.render()
+
+        # Should contain the last message (auto-tail behavior)
+        assert "Message 49" in rendered.plain
+
+    def test_live_preview_focused_uses_scroll_offset(self):
+        """When focused with scroll offset, live render should show offset messages."""
+        p, messages = self._setup_live_preview(50)
+        p._scroll_offset = 5
+
+        with patch.object(type(p), "has_focus", new_callable=PropertyMock, return_value=True), \
+             patch.object(type(p), "size", new_callable=PropertyMock, return_value=Size(120, 20)):
+            rendered = p.render()
+
+        # Should contain Message 5 (start of visible range) but not Message 0
+        assert "Message 5" in rendered.plain
+
+    def test_live_preview_scroll_indicator_when_focused(self):
+        """Live preview should show scroll position indicator when focused."""
+        p, messages = self._setup_live_preview(50)
+        p._scroll_offset = 0
+
+        with patch.object(type(p), "has_focus", new_callable=PropertyMock, return_value=True), \
+             patch.object(type(p), "size", new_callable=PropertyMock, return_value=Size(120, 20)):
+            rendered = p.render()
+
+        # Should contain a scroll indicator like [1-N/50]
+        assert "/50]" in rendered.plain
+
+    def test_live_preview_initial_transition_resets_scroll(self):
+        """First transition to live should reset scroll offset."""
+        p = Preview()
+        session = _make_session()
+        messages = _make_messages(50)
+        p._scroll_offset = 10  # simulate leftover offset
+
+        with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
+             patch("seshi.tui.preview.extract_messages", return_value=messages):
+            p.session = session
+            # No live messages yet, so this is a fresh transition
+            p.live_state = _make_live_info()
+
+        assert p._scroll_offset == 0
+
+    def test_live_preview_clamps_offset_on_refresh(self):
+        """If messages shrink, offset should be clamped to valid range."""
+        p, messages = self._setup_live_preview(50)
+        p._scroll_offset = 40  # near the end
+
+        # Refresh with fewer messages — call watch_live_state directly
+        # because Textual reactive skips watcher when old == new (dataclass eq)
+        fewer_messages = _make_messages(10)
+        new_live = _make_live_info()
+        with patch("seshi.tui.preview.find_transcript_path", return_value="/fake"), \
+             patch("seshi.tui.preview.extract_messages", return_value=fewer_messages), \
+             patch.object(type(p), "size", new_callable=PropertyMock, return_value=Size(120, 20)):
+            p.live_state = new_live
+            p.watch_live_state(new_live)
+
+        # available_lines = max(20 - 2, 4) = 18; max_offset = max(0, 10 - 18) = 0
+        assert p._scroll_offset == 0
