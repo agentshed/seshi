@@ -212,16 +212,13 @@ class Preview(Widget):
             return text
 
         if self.has_focus and messages:
-            total = len(messages)
-            s_start = self._scroll_offset + 1
-            s_end = min(self._scroll_offset + tail_lines, total)
-            text.append(f"  [{s_start}-{s_end}/{total}]", style="bold")
-            text.append("\n")
-
-        if self.has_focus and messages:
+            tail_lines = max(1, tail_lines - 1)  # account for scroll indicator line
             start = self._scroll_offset
             end = min(start + tail_lines, len(messages))
             display = messages[start:end]
+            total = len(messages)
+            text.append(f"  [{start + 1}-{end}/{total}]", style="bold")
+            text.append("\n")
         else:
             display = messages[-tail_lines:] if len(messages) > tail_lines else messages
 
